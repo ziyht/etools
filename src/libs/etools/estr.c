@@ -213,11 +213,10 @@ static inline char _sdsReqType(size_t string_size) {
 /// -- helper ------------------------------
 
 static sds _sdsMakeRoomFor(sds s, size_t addlen) {
-    void *sh, *newsh;
-    size_t avail = _sdsavail(s);
-    size_t len, newlen;
-    char type, oldtype = s[-1] & SDS_TYPE_MASK;
-    int hdrlen;
+    void *sh, *newsh; size_t len, newlen, avail; char type, oldtype; int hdrlen;
+
+    avail   = _sdsavail(s);
+    oldtype = s[-1] & SDS_TYPE_MASK;
 
     /* Return ASAP if there is enough space left. */
     if (avail >= addlen) return s;
@@ -411,6 +410,10 @@ void estr_free(estr s)
     is0_ret(s, );
     s_free(s - _estr_lenH(s[-1]));
 }
+
+/// -- estr len --
+u64  estr_len (estr s) { return s ? _estr_len(s) : 0; }
+u64  estr_cap (estr s) { return s ? _estr_cap(s) : 0; }
 
 /// -- estr show --
 void estr_shows(estr s)
@@ -968,42 +971,6 @@ estr estr_mapcl(estr s, constr from, constr to, size_t len)
     return s;
 }
 
-static cptr __memmem(conptr haystack, size_t haystacklen, conptr needle, size_t needlelen);
-
-static int _memmem(unsigned char * a, int alen, unsigned char * b, int blen)
-{
-    int i, ja, jb, match, off; char tag[256] = {0};
-
-    for (i = 0; i < blen; ++ i)
-    {
-        tag[*(b+i)] = 1;
-    }
-
-    off = alen - blen--;
-    for (i = 0; i <= off;)
-    {
-        for(ja = i + blen, jb = blen, match = 1; jb >= 0; --ja, --jb)
-        {
-            if (!tag[a[ja]])
-            {
-                i = ja;
-                match = 0;
-                break;
-            }
-            if (match && a[ja] != b[jb])
-            {
-                match = 0;
-            }
-        }
-        if (match)
-        {
-            return i;
-        }
-        ++ i;
-    }
-    return -1;
-}
-
 estr estr_subs (estr s, constr from, constr to)
 {
     int subLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p;
@@ -1126,10 +1093,6 @@ int  estr_cmpe(estr s, estr   s2)
     if (cmp == 0) return l1-l2;
     return cmp;
 }
-
-/// -- estr len --
-u64  estr_len (estr s) { return s ? _estr_len(s) : 0; }
-u64  estr_cap (estr s) { return s ? _estr_cap(s) : 0; }
 
 /// -- Low level functions exposed to the user API --
 estr estr_ensure (estr s, size_t addlen)
