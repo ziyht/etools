@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include "ejson.h"
 
-#define EJSON_VERSION "0.7.11"             // some bug fix, objbykeys need optimization
+#define EJSON_VERSION "0.7.12"             // some optimization
 
 static constr g_err;
 static constr g_errp;
@@ -414,7 +414,7 @@ ejson  ejsf_eval(constr file)
     _lstrip lstrip; int fd; long len; char* data; constr src; ejson obj;
 
     is0_exeret(file, g_errp = _NIL_, 0);
-    
+
     is1_exeret((fd = open(file, O_RDONLY)) == -1, g_errp = 0; errfmt("ejsf_eval err: %s", strerror(errno));, 0);
 
     len=lseek(fd, 0L, SEEK_END); lseek(fd, 0L, SEEK_SET);
@@ -1506,12 +1506,12 @@ ejson  ejsr_popT(ejson root, constr rawk)
 
 ejson  ejso_clear(ejson root)
 {
-	ejson head;
+    ejson head;
 
-    is0_ret(root, 0); 
+    is0_ret(root, 0);
 
     switch (_TYPE(root)) {
-		case EJSON_ARR: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _arrFree(root);break;
+        case EJSON_ARR: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _arrFree(root);break;
         case EJSON_OBJ: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _objFree(root);break;
         default       : return 0;
     }
@@ -1524,7 +1524,7 @@ ejson  ejso_clear(ejson root)
 
 ejson  ejsk_clear(ejson root, constr keys)
 {
-	ejson head;
+    ejson head;
 
     is0_exeret(_isParent(root), errset("ejsk_clear err: root obj" _isParentErr);, 0);
     is1_exeret(_invalidS(keys), errset("ejsk_clear err: keys"     _invalidSErr);, 0);
@@ -1545,7 +1545,7 @@ ejson  ejsk_clear(ejson root, constr keys)
 
 ejson  ejsr_clear(ejson root, constr rawk)
 {
-	ejson head;
+    ejson head;
 
     is0_exeret(_isOBJ(root)   , errset("ejsr_clear err: root obj" _isOBJErr   );, 0);
     is1_exeret(_invalidS(rawk), errset("ejsr_clear err: keys"     _invalidSErr);, 0);
@@ -1721,20 +1721,20 @@ static inline ejson _objByKeys(ejson obj, constr keys_, int rm, int raw)
 
             *(_idx - 1) = '[';          // restore
             is1_exeret(*_idx < '0' || *_idx > '9', errfmt("invalid keys: %s", keys), NULL);
-            
+
             idx  = atoi(_idx);
             _idx = split(_idx, '[');
-            
+
             root = obj;
             obj = _arrGet(root, idx);
             is0_exeret(obj, errfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL);
         }
 
         is0_exeret(obj, errfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL);   // not found, return
-        
+
         // -- found and return it
         is0_exeret(sk, is1_exeret(rm, switch (_TYPE(root)) {
-                                      //case EJSON_ARR: _arrRmI(root, idx); break;  
+                                      //case EJSON_ARR: _arrRmI(root, idx); break;
                                       case EJSON_ARR: _arrRmO(root, obj); break;
                                       case EJSON_OBJ: _objRmO(root, obj); break;}, obj), obj);
         last_fk = fk;
@@ -2183,14 +2183,14 @@ static cstr _valstr_subS(cstr src, constr subS, constr newS)
 
             while((fd_s = strstr(fd_s, subS)))
             {
-                memcpy(cp_s - offNow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
+                memmove(cp_s - offNow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
 
                 memcpy(fd_s - offNow, newS, newLen);
                 cp_s = (fd_s += subLen);
                 offNow += offLen;
             }
 
-            memcpy(cp_s - offNow, cp_s, end_p - cp_s);
+            memmove(cp_s - offNow, cp_s, end_p - cp_s);
             val_strLen(src) -= offNow;
             *(end_p - offNow) = '\0';
         }
@@ -2208,12 +2208,14 @@ static cstr _valstr_subS(cstr src, constr subS, constr newS)
     }
     else
     {
-        offNow = 0;
+        offNow = val_strLen(src);
         fd_s   = src;
 
         if((fd_s   = strstr(fd_s, subS)))
         {
             cstr new_s, new_p, old_s; int len;
+
+            end_p = src + offNow;
 
             // -- get len need to expand
             offNow += offLen; fd_s += subLen;
@@ -2222,11 +2224,10 @@ static cstr _valstr_subS(cstr src, constr subS, constr newS)
                 offNow += offLen; fd_s += subLen;
             }
 
-            is0_ret(new_s = obj_newStr(val_strLen(src) + offNow), 0);  // new str
+            is0_ret(new_s = obj_newStr(offNow), 0);  // new str
 
             // -- to new str
             cp_s  = fd_s = old_s = src;
-            end_p = src + val_strLen(src);
             new_p = new_s;
             while((fd_s = strstr(fd_s, subS)))
             {
@@ -2392,20 +2393,20 @@ ejson  ejsr_cntmm(ejson root, constr rawk)
 ejson  ejso_sort(ejson root, __ecompar_fn fn)
 {
     ejson* base; ejson itr; int i, j, len; ejson _base[DF_SORTBASE_LEN];
-    
-    is0_ret(_isParent(root), 0); is0_ret(fn, 0); 
+
+    is0_ret(_isParent(root), 0); is0_ret(fn, 0);
     is1_ret(_objLen(root) < 2, root);
-    
+
     if(_objLen(root) <= DF_SORTBASE_LEN)
         base = _base;
     else
         is0_ret(base = malloc(_objLen(root) * sizeof(ejson)), 0);
-    
+
     for(itr = _objHead(root), i = 0; itr; itr = _objNext(itr), i++)
         base[i] = itr;
-    
+
     qsort(base, len = i, sizeof(ejson), (__compar_fn_t)fn);
-    
+
     _objHead(root) = _objTail(root) = 0;
     for(i = 0; i < len - 1; i++)
     {
@@ -2415,7 +2416,7 @@ ejson  ejso_sort(ejson root, __ecompar_fn fn)
     }
     _objHead(root) = base[0];       _objPrev(base[0])       = 0;
     _objTail(root) = base[len - 1]; _objNext(base[len - 1]) = 0;
-    
+
     if(base != _base) free(base);
     return root;
 }
@@ -2447,10 +2448,10 @@ ejson  ejsr_sort(ejson root, constr rawk, __ecompar_fn fn)
 int    __KEYS_ACS(ejson* _e1, ejson* _e2)
 {
     cstr _c1, _c2; char c1, c2;
-    
+
     _c1 = _keyS(*_e1);
     _c2 = _keyS(*_e2);
-    
+
     if(_c1)
     {
         if(_c2)
@@ -2460,7 +2461,7 @@ int    __KEYS_ACS(ejson* _e1, ejson* _e2)
             {
                 if(c1 > c2) return 1;
                 if(c1 < c2) return 0;
-                
+
                 c1 = *(++_c1); c2 = *(++_c2);
             }
 
@@ -2469,17 +2470,17 @@ int    __KEYS_ACS(ejson* _e1, ejson* _e2)
         else
             return 0;
     }
-    
+
     return _c2 ? 1 : 0;
 }
 
 int    __KEYS_DES(ejson* _e1, ejson* _e2)
 {
     cstr _c1, _c2; char c1, c2;
-    
+
     _c1 = _keyS(*_e1);
     _c2 = _keyS(*_e2);
-    
+
     if(_c1)
     {
         if(_c2)
@@ -2498,11 +2499,11 @@ int    __KEYS_DES(ejson* _e1, ejson* _e2)
         else
             return 0;
     }
-    
+
     return _c2 ? 1 : 0;
 }
 
-int    __VALI_ACS(ejson* _e1, ejson* _e2)   
+int    __VALI_ACS(ejson* _e1, ejson* _e2)
 {
     ejson e1, e2; e1 = *_e1; e2 = *_e2;
     if(_TYPE(e1) == EJSON_NUM)
@@ -2512,7 +2513,7 @@ int    __VALI_ACS(ejson* _e1, ejson* _e2)
         else
             return 0;
     }
-    
+
     return _TYPE(e2) == EJSON_NUM ? 1 : 0;
 }
 
@@ -2526,7 +2527,7 @@ int    __VALI_DES(ejson* _e1, ejson* _e2)
         else
             return 0;
     }
-    
+
     return _TYPE(e2) == EJSON_NUM ? 1 : 0;
 }
 
