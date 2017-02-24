@@ -32,7 +32,10 @@ set(ENATS_LIB  ${EJSON_LIB} ${CNATS_LIBS} ${LIBUV_LIBS})
 
 include_directories(src/libs/etools)
 
-add_executable(test_ejson main.c ${EJSON_FS})
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ejson TEST_EJSON_FS)
+
+
+add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
 add_executable(test_estr  main.c ${ESTR_FS})
 add_executable(test_etp   main.c ${ETP_FS})
 add_executable(test_enats main.c ${ENATS_FS})
