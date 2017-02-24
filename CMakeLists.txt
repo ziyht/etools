@@ -23,7 +23,7 @@ include(${LIBUV_DIR}/CMakeLists.txt)                        # include me
 
 set(EJSON_FS   src/libs/etools/ejson.h src/libs/etools/ejson.c)
 set(ESTR_FS    src/libs/etools/estr.h  src/libs/etools/estr.c)
-set(ETHP_FS    src/libs/etools/ethp.h  src/libs/etools/ethp.c  ${EJSON_FS})
+set(ETP_FS     src/libs/etools/etp.h   src/libs/etools/etp.c  ${EJSON_FS})
 set(ENATS_FS   src/libs/etools/enats.h src/libs/etools/enats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
 
 set(EJSON_LIB  m)
@@ -34,7 +34,7 @@ include_directories(src/libs/etools)
 
 add_executable(test_ejson main.c ${EJSON_FS})
 add_executable(test_estr  main.c ${ESTR_FS})
-add_executable(test_etp   main.c ${ETHP_FS})
+add_executable(test_etp   main.c ${ETP_FS})
 add_executable(test_enats main.c ${ENATS_FS})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
