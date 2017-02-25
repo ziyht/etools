@@ -14,8 +14,6 @@
 #include <fcntl.h>
 #include "ejson.h"
 
-#define EJSON_VERSION "0.7.12"             // some optimization
-
 static constr g_err;
 static constr g_errp;
 static char   g_err_buf[1024];
@@ -72,7 +70,7 @@ typedef struct obj_header_s{
     uint _len     : 32;
 }obj_header_t, * OBJ;
 
-// -- helpler used for micros --
+// -- helper used for micros --
 static void* obj__new(size_t size, uint _len);
 static cstr  obj__str(uint _len);
 
@@ -87,6 +85,45 @@ static cstr  obj__str(uint _len);
 #define obj_newStr(len)     obj__str(len)
 #define val_arrLen(v)       ((OBJ)val_to_obj(v))->_len
 #define val_strLen(v)       ((OBJ)val_to_obj(v))->_len
+
+// --------------------- str for ejson ----------------------------
+typedef struct __attribute__ ((__packed__)) _s_s{
+    uint len;
+    uint cap;
+    char s[];
+}_s_t, * _s;
+
+// -- API --
+static cstr _snew1(constr src);
+static cstr _snew2(conptr ptr, uint len);
+
+// -- micros --
+#define _s2hdr(s) ((s) - sizeof(_s_t))
+#define _snewc(l) calloc(sizeof(_s_t) + l + 1, 1)
+#define _snewm(l) malloc(sizeof(_s_t) + l + 1)
+#define _sfree(s) free(_str2hdr(s))
+#define _slen(s)  *(uint*)((s) - sizeof(_s_t))
+#define _scap(s)  *(uint*)((s) - sizeof(uint))
+
+static inline cstr _snew1(constr src)
+{
+    is0_ret(src, 0);
+    return _snew2(src, strlen(src));
+}
+
+static inline cstr _snew2(conptr ptr, uint len)
+{
+    _s hdr; cstr s;
+
+    is0_ret(hdr  = _snewm(len), 0);
+    hdr->cap = len;
+    s        = hdr->s;
+
+    if(ptr){ hdr->len = len; memcpy(s, ptr, len    ); s[len] = 0;}
+    else   { hdr->len = 0  ; memset(s, 0  , len + 1);            }
+
+    return s;
+}
 
 // --------------------- dict hash table ---------------------------
 typedef struct dictht_s{
@@ -2940,7 +2977,7 @@ static ejson parse_NUM(cstr name, constr* _src, _lstrip lstrip)
     n = sign*n*pow(10.0,(scale+subscale*signsubscale));     // number = +/- number.fraction * 10^+/- exponent
 
     *_src           = lstrip(src);         // save new pos
-    _out->k.s       = name;
+    _keyS(_out)     = name;
     _valF(_out)     = n;
     _valI(_out)     = (long)n;
     _setNUM(_out);
@@ -3036,8 +3073,8 @@ static ejson parse_STR(cstr* _name, constr* _src, constr* _err, _lstrip lstrip)
     {
         is0_exeret(out  = _newStr(), val_free(k_v), 0);  // mem fail
         _setSTR(out);
-        out->v.s          = k_v;
-        if(_name)out->k.s = *_name;
+        _valS(out)           = k_v;
+        if(_name) _keyS(out) = *_name;
     }
     else
     {

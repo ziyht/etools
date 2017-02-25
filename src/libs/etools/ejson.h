@@ -9,25 +9,9 @@
 #ifndef __EJSON_H__
 #define __EJSON_H__
 
-#ifndef __DEF_STR__
-#define __DEF_STR__
-typedef const char* constr;
-typedef char* cstr;
-#endif
+#define EJSON_VERSION "0.7.13"      // using etype, add struct _s_t, using it at next version
 
-#ifndef __DEF_INT__
-#define __DEF_INT__
-#if defined(_MSC_VER) && _MSC_VER < 1600
-typedef unsigned int       u32;
-typedef unsigned long long u64;
-typedef long long          s64;
-#else
-#include <stdint.h>
-typedef uint32_t uint;
-typedef uint64_t u64;
-typedef int64_t  s64;
-#endif
-#endif
+#include "etype.h"
 
 /// -- pre def ---
 typedef struct ejson_s* ejson, ** ejson_p;
