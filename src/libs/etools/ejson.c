@@ -146,7 +146,7 @@ static int   dict_getL(dict d, const void* k, int k_len, L l);
 // ---------------------------- ejson ------------------------
 
 // -- ejson struct --
-typedef struct ejson_s{
+typedef struct __attribute__ ((__packed__)) ejson_s{
     obj_header_t h;      // head info
     union{
         cstr     s;      // str key if obj in object

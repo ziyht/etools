@@ -20,6 +20,7 @@
 /// -- sds from redis -----------------------------
 
 #define s_malloc  malloc
+#define s_calloc  calloc
 #define s_realloc realloc
 #define s_free    free
 
@@ -56,19 +57,22 @@ struct __attribute__ ((__packed__)) sdshdr64 {
 
 typedef char *sds;
 
-#define SDS_TYPE_5    0
-#define SDS_TYPE_8    1
-#define SDS_TYPE_16   2
-#define SDS_TYPE_32   3
-#define SDS_TYPE_64   4
-#define SDS_TYPE_MASK 7
-#define SDS_TYPE_BITS 3
+#define SDS_TYPE_5     0
+#define SDS_TYPE_8     1
+#define SDS_TYPE_16    2
+#define SDS_TYPE_32    3
+#define SDS_TYPE_64    4
+#define SDS_TYPE_BITS  3
+#define SDS_TYPE_MASK  7    // 0000 0111
+#define SDS_STACK_MASK 8    // 0000 1000
+
+#define SDS_TYPE(s)       (s)[-1]
 #define SDS_HDR_VAR(T,s)  struct sdshdr##T *sh = (void*)((s)-(sizeof(struct sdshdr##T)));
 #define SDS_HDR(T,s)      ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
 #define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
 
 static inline size_t _sdslen(const sds s) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5 : return SDS_TYPE_5_LEN(flags);
         case SDS_TYPE_8 : return SDS_HDR( 8,s)->len;
@@ -80,7 +84,7 @@ static inline size_t _sdslen(const sds s) {
 }
 
 static inline size_t _sdsavail(const sds s) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5 : {                   return 0;                  }
         case SDS_TYPE_8 : { SDS_HDR_VAR( 8,s);return sh->alloc - sh->len;}
@@ -92,7 +96,7 @@ static inline size_t _sdsavail(const sds s) {
 }
 
 static inline void _sdssetlen(sds s, size_t newlen) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5 : {unsigned char *fp = ((unsigned char*)s)-1;*fp = SDS_TYPE_5 | (newlen << SDS_TYPE_BITS);}break;
         case SDS_TYPE_8 : SDS_HDR( 8,s)->len = newlen; break;
@@ -103,7 +107,7 @@ static inline void _sdssetlen(sds s, size_t newlen) {
 }
 
 static inline void _sdsinclen(sds s, size_t inc) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5:{unsigned char *fp = ((unsigned char*)s)-1;unsigned char newlen = SDS_TYPE_5_LEN(flags)+inc;*fp = SDS_TYPE_5 | (newlen << SDS_TYPE_BITS);}break;
         case SDS_TYPE_8 : SDS_HDR( 8,s)->len += inc;break;
@@ -114,7 +118,7 @@ static inline void _sdsinclen(sds s, size_t inc) {
 }
 
 static inline void _sdsdeclen(sds s, size_t dec) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5:{unsigned char *fp = ((unsigned char*)s)-1;unsigned char newlen = SDS_TYPE_5_LEN(flags)-dec;*fp = SDS_TYPE_5 | (newlen << SDS_TYPE_BITS);}break;
         case SDS_TYPE_8 : SDS_HDR( 8,s)->len -= dec;break;
@@ -125,7 +129,7 @@ static inline void _sdsdeclen(sds s, size_t dec) {
 }
 
 static inline void _sdsincrlen(sds s, int incr) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     size_t len;
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5: {
@@ -167,7 +171,7 @@ static inline void _sdsincrlen(sds s, int incr) {
 
 /* sdsalloc() = sdsavail() + sdslen() */
 static inline size_t _sdsalloc(const sds s) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5 : return SDS_TYPE_5_LEN(flags);
         case SDS_TYPE_8 : return SDS_HDR(8 ,s)->alloc;
@@ -179,7 +183,7 @@ static inline size_t _sdsalloc(const sds s) {
 }
 
 static inline void _sdssetalloc(sds s, size_t newlen) {
-    unsigned char flags = s[-1];
+    unsigned char flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5 : break; /* Nothing to do, this type has no total allocation info. */
         case SDS_TYPE_8 : SDS_HDR( 8,s)->alloc = newlen;break;
@@ -212,11 +216,33 @@ static inline char _sdsReqType(size_t string_size) {
 
 /// -- helper ------------------------------
 
+static sds _sdsNewRoom(size_t len)
+{
+    cstr sh; sds s; char type; int hdrlen;
+
+    type = _sdsReqType(len);
+
+    /* Don't use type 5: the user is appending to the string and type 5 is
+     * not able to remember empty space, so sdsMakeRoomFor() must be called
+     * at every appending operation. */
+
+    if (type == SDS_TYPE_5) type = SDS_TYPE_8;
+    hdrlen = _sdsHdrSize(type);
+
+    is0_ret(sh = s_calloc(1, hdrlen+len+1), 0);
+
+    s = sh + hdrlen;
+    SDS_TYPE(s) = type;
+    _sdssetalloc(s, len);
+
+    return s;
+}
+
 static sds _sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh; size_t len, newlen, avail; char type, oldtype; int hdrlen;
 
     avail   = _sdsavail(s);
-    oldtype = s[-1] & SDS_TYPE_MASK;
+    oldtype = SDS_TYPE(s) & SDS_TYPE_MASK;
 
     /* Return ASAP if there is enough space left. */
     if (avail >= addlen) return s;
@@ -224,10 +250,8 @@ static sds _sdsMakeRoomFor(sds s, size_t addlen) {
     len = _sdslen(s);
     sh = (char*)s-_sdsHdrSize(oldtype);
     newlen = (len+addlen);
-    if (newlen < SDS_MAX_PREALLOC)
-        newlen *= 2;
-    else
-        newlen += SDS_MAX_PREALLOC;
+    if (newlen < SDS_MAX_PREALLOC) newlen *= 2;
+    else                           newlen += SDS_MAX_PREALLOC;
 
     type = _sdsReqType(newlen);
 
@@ -249,7 +273,7 @@ static sds _sdsMakeRoomFor(sds s, size_t addlen) {
         memcpy((char*)newsh+hdrlen, s, len+1);
         s_free(sh);
         s = (char*)newsh+hdrlen;
-        s[-1] = type;
+        SDS_TYPE(s) = type;
         _sdssetlen(s, len);
     }
     _sdssetalloc(s, newlen);
@@ -325,6 +349,7 @@ static int _ull2str(char *s, unsigned long long v) {
 
 /// -- estr adapter ------------
 
+#define _estr_new(l)       _sdsNewRoom(l)
 #define _estr_reqT(s)      _sdsReqType(s)
 #define _estr_lenH(t)      _sdsHdrSize(t)
 #define _estr_len(s)       _sdslen(s)
@@ -336,16 +361,72 @@ static int _ull2str(char *s, unsigned long long v) {
 #define _estr_decLen(s,l)  _sdsdeclen(s,l)
 #define _estr_incrLen(s,l) _sdsincrlen(s,l)
 #define _estr_ensure(s,l)  _sdsMakeRoomFor(s,l)
+#define _estr_setStack(s)  SDS_TYPE(s) |= SDS_STACK_MASK
+#define _estr_isStack(s)   ((SDS_TYPE(s) & SDS_STACK_MASK) && (SDS_TYPE_5 != (SDS_TYPE(s)&SDS_TYPE_MASK)))
+
+static void _shows(constr tag, estr s)
+{
+    if(!s)
+    {
+        printf("(%s: nullptr)", tag);fflush(stdout);
+        return;
+    }
+
+    tag = tag[1] == 'b' ? _estr_isStack(s) ? "ebuf: sstr" : "ebuf: estr"
+                        : _estr_isStack(s) ? "sstr" : "estr" ;
+
+    size_t len  = _estr_len(s);
+    unsigned char flags = SDS_TYPE(s);
+    switch(flags&SDS_TYPE_MASK) {
+        case SDS_TYPE_5 : printf("(%s: e05 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_8 : printf("(%s: e08 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_16: printf("(%s: e16 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_32: printf("(%s: e32 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_64: printf("(%s: e64 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+    }
+
+    if(s) printf("%s", s);
+
+    printf("]\n");
+    fflush(stdout);
+}
+
+static void _showr(constr tag, estr s)
+{
+    if(!s)
+    {
+        printf("(%s: nullptr)", tag);fflush(stdout);
+        return;
+    }
+
+    tag = tag[1] == 'b' ? _estr_isStack(s) ? "ebuf: sstr" : "ebuf: estr"
+                        : _estr_isStack(s) ? "sstr" : "estr" ;
+
+    size_t len = _estr_len(s); constr p = s;
+    unsigned char flags = SDS_TYPE(s);
+    switch(flags&SDS_TYPE_MASK) {
+        case SDS_TYPE_5 : printf("(%s: e05 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_8 : printf("(%s: e08 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_16: printf("(%s: e16 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_32: printf("(%s: e32 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+        case SDS_TYPE_64: printf("(%s: e64 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
+    }
+
+    while(len--) { printf("%c", *p++);}
+
+    printf("]\n");
+    fflush(stdout);
+}
 
 /// -- estr --------------------
 
-estr estr_new(constr src)
+inline estr estr_new(constr src)
 {
-    u64 initlen = (src == NULL) ? 0 : strlen(src);
+    size_t initlen = (src == NULL) ? 0 : strlen(src);
     return estr_newLen(src, initlen);
 }
 
-estr estr_newLen(conptr ptr, size_t initlen) {
+estr estr_newLen(conptr ptr, size initlen) {
     cstr sh; sds  s; size_t datalen; char type; unsigned char *fp; /* flags pointer. */
 
     datalen = ptr ? initlen : 0;
@@ -355,9 +436,8 @@ estr estr_newLen(conptr ptr, size_t initlen) {
      * since type 5 is not good at this. */
     if (type == SDS_TYPE_5 && datalen == 0 ) type = SDS_TYPE_8;
     int hdrlen = _estr_lenH(type);
-
     sh = s_malloc(hdrlen+initlen+1);
-    if (sh == NULL) return NULL;
+    is0_ret(sh, 0);
 
     s  = sh + hdrlen;
     fp = ((unsigned char*)s)-1;
@@ -389,86 +469,27 @@ estr estr_fromU64(u64 val)
     return estr_newLen(buf, len);
 }
 
-estr estr_dup(estr s)
-{
-    return estr_newLen(s, _estr_len(s));
-}
+inline estr estr_dup(estr s) { return estr_newLen(s, _estr_len(s)); }
 
 /// -- estr clear or free --
-void estr_clear(estr s)
-{
-    if(s){ _estr_setLen(s, 0); s[0] = '\0'; }
-}
-
-void estr_wipe(estr s)
-{
-    if(s) {memset(s, 0, _estr_len(s)); _estr_setLen(s, 0);}
-}
-
-void estr_free(estr s)
-{
-    is0_ret(s, );
-    s_free(s - _estr_lenH(s[-1]));
-}
+inline void estr_clear(estr s) { if(s){ s[0] = '\0';                _estr_setLen(s, 0);} }
+inline void estr_wipe (estr s) { if(s){ memset(s, 0, _estr_len(s)); _estr_setLen(s, 0);} }
+inline void estr_free (estr s) { if(s){ if(!_estr_isStack(s))
+            s_free(s - _estr_lenH(SDS_TYPE(s)));} }
 
 /// -- estr len --
-u64  estr_len (estr s) { return s ? _estr_len(s) : 0; }
-u64  estr_cap (estr s) { return s ? _estr_cap(s) : 0; }
+inline size estr_len (estr s) { return s ? _estr_len(s) : 0; }
+inline size estr_cap (estr s) { return s ? _estr_cap(s) : 0; }
 
 /// -- estr show --
-void estr_shows(estr s)
-{
-    if(!s)
-    {
-        printf("(nullptr)");
-        return;
-    }
-
-    size_t len = _estr_len(s);
-    unsigned char flags = s[-1];
-    switch(flags&SDS_TYPE_MASK) {
-        case SDS_TYPE_5 : printf("(e05 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_8 : printf("(e08 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_16: printf("(e16 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_32: printf("(e32 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_64: printf("(e64 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-    }
-
-    if(s) printf("%s", s);
-
-    printf("]\n");
-    fflush(stdout);
-}
-
-void estr_showr(estr s)
-{
-    if(!s)
-    {
-        printf("(nullptr)");
-        return;
-    }
-
-    size_t len = _estr_len(s); constr p = s;
-    unsigned char flags = s[-1];
-    switch(flags&SDS_TYPE_MASK) {
-        case SDS_TYPE_5 : printf("(e05 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_8 : printf("(e08 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_16: printf("(e16 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_32: printf("(e32 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-        case SDS_TYPE_64: printf("(e64 %"PRIi64"/%"PRIi64"):[", len, _estr_cap(s)); break;
-    }
-
-    while(len--) { printf("%c", *p++);}
-
-    printf("]\n");
-    fflush(stdout);
-}
+inline void estr_shows(estr s) { _shows("estr", s); }
+inline void estr_showr(estr s) { _showr("estr", s); }
 
 /// -- estr write --
-estr estr_wrs(estr s, constr src) { return src ? estr_wrb(s, src, strlen(src)  ) : s;}
-estr estr_wre(estr s, estr   s2 ) { return s2  ? estr_wrb(s, s2 , _estr_len(s2)) : s;}
+inline estr estr_wrs(estr s, constr src) { return src ? estr_wrb(s, src, strlen(src)  ) : s; }
+inline estr estr_wre(estr s, estr   s2 ) { return s2  ? estr_wrb(s, s2 , _estr_len(s2)) : s; }
 
-estr estr_wrb(estr s, conptr ptr, size_t len)
+estr estr_wrb(estr s, conptr ptr, size len)
 {
     is0_ret(s, 0);
 
@@ -482,23 +503,11 @@ estr estr_wrb(estr s, conptr ptr, size_t len)
     return s;
 }
 
-estr estr_wrp(estr s, constr fmt, ...)
-{
-    va_list ap;
-
-    va_start(ap, fmt);
-    s = estr_wrv(s, fmt, ap);
-    va_end(ap);
-
-    return s;
-}
-
 estr estr_wrv(estr s, constr fmt, va_list ap)
 {
     va_list cpy; size_t wr_len;
     char staticbuf[1024], *buf = staticbuf, *t;
 
-    is0_ret(s, 0);
     size_t buflen = strlen(fmt)*2;
 
     /* We try to start using a static buffer for speed.
@@ -531,6 +540,17 @@ estr estr_wrv(estr s, constr fmt, va_list ap)
     t = wr_len > 0 ? estr_wrb(s, buf, wr_len) : estr_wrs(s, buf);
     if (buf != staticbuf) s_free(buf);
     return t;
+}
+
+estr estr_wrp(estr s, constr fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    s = estr_wrv(s, fmt, ap);
+    va_end(ap);
+
+    return s;
 }
 
 /* This function is similar to sdscatprintf, but much faster as it does
@@ -640,10 +660,10 @@ estr estr_wrf(estr s, constr fmt, ...)     // todo : using ptr, not using index 
     return s;
 }
 
-estr estr_cats(estr s, constr src) { return src ? estr_catb(s, src, strlen(src) ) : s;}
-estr estr_cate(estr s, estr   s2 ) { return s2  ? estr_catb(s, s2, _estr_len(s2)) : s;}
+inline estr estr_cats(estr s, constr src) { return src ? estr_catb(s, src, strlen(src) ) : s; }
+inline estr estr_cate(estr s, estr   s2 ) { return s2  ? estr_catb(s, s2, _estr_len(s2)) : s; }
 
-estr estr_catb(estr s, conptr ptr, size_t len)
+estr estr_catb(estr s, conptr ptr, size len)
 {
     is0_ret(s, 0);
     size_t curlen = _estr_len(s);
@@ -656,23 +676,11 @@ estr estr_catb(estr s, conptr ptr, size_t len)
     return s;
 }
 
-estr estr_catp(estr s, constr fmt, ...)
-{
-    va_list ap;
-
-    va_start(ap, fmt);
-    s = estr_catv(s, fmt, ap);
-    va_end(ap);
-
-    return s;
-}
-
 estr estr_catv(estr s, constr fmt, va_list ap)
 {
     va_list cpy; size_t wr_len;
     char staticbuf[1024], *buf = staticbuf, *t;
 
-    is0_ret(s, 0);
     size_t buflen = strlen(fmt)*2;
 
     /* We try to start using a static buffer for speed.
@@ -705,6 +713,17 @@ estr estr_catv(estr s, constr fmt, va_list ap)
     t = wr_len > 0 ? estr_catb(s, buf, wr_len) : estr_cats(s, buf);
     if (buf != staticbuf) s_free(buf);
     return t;
+}
+
+estr estr_catp(estr s, constr fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    s = estr_catv(s, fmt, ap);
+    va_end(ap);
+
+    return s;
 }
 
 /* This function is similar to sdscatprintf, but much faster as it does
@@ -971,6 +990,32 @@ estr estr_mapcl(estr s, constr from, constr to, size_t len)
     return s;
 }
 
+/// @note: tolen > fromlen needed
+static void __str_replace(cstr s, cstr* end, cstr* last, constr from, size fromlen, constr to, size tolen)
+{
+    cstr fd;
+
+    if((fd = strstr(s, from)))
+    {
+        cstr mv_from, mv_to; size mv_len;
+
+        __str_replace(fd + 1, end, last, from, fromlen, to, tolen);
+
+        mv_from = fd + fromlen;
+        mv_len  = *end  - fd - fromlen;
+        mv_to   = *last - mv_len;
+
+        memmove(mv_to, mv_from, mv_len);
+
+        *last = mv_to - tolen;
+        memcpy(*last, to, tolen);
+
+        *end = fd;
+    }
+
+    return ;
+}
+
 estr estr_subs (estr s, constr from, constr to)
 {
     int subLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p;
@@ -1027,8 +1072,6 @@ estr estr_subs (estr s, constr from, constr to)
 
         if((fd_s   = strstr(fd_s, from)))
         {
-            cstr new_s, new_p; int len;
-
             end_p = s + _estr_len(s);
 
             // -- get len need to expand
@@ -1038,25 +1081,40 @@ estr estr_subs (estr s, constr from, constr to)
                 offNow += offLen; fd_s += subLen;
             }
 
-            is0_exeret(new_s = estr_newLen(0, offNow), s_free((char*)s - _estr_lenH(s[-1]));, 0);  // new str
-
-            // -- to new str
-            cp_s  = fd_s = s;
-            new_p = new_s;
-            while((fd_s = strstr(fd_s, from)))
+            // -- have enough place, let's do it
+            if((size)offNow <= _estr_cap(s))
             {
-                memcpy(new_p, cp_s, (len = fd_s - cp_s)); new_p += len;
-                memcpy(new_p, to, newLen);                new_p += newLen;
-
-                cp_s = (fd_s += subLen);
+                cstr last = s + offNow;
+                __str_replace(s, &end_p, &last, from, subLen, to, newLen);
+                _estr_setLen(s, offNow);
+                s[offNow] = '\0';
+                return s;
             }
+            else
+            {
+                cstr new_s, new_p; int len;
 
-            memcpy(new_p, cp_s, end_p - cp_s);
+                //is0_exeret(new_s = estr_newLen(0, offNow), s_free((char*)s - _estr_lenH(SDS_TYPE(s)));, 0);  // new str
+                is0_exeret(new_s = _estr_new(offNow * 2), s_free((char*)s - _estr_lenH(SDS_TYPE(s)));, 0);  // new str
 
-            s_free((char*)s - _estr_lenH(s[-1]));
-            _estr_setLen(new_s, offNow);
+                // -- to new str
+                cp_s  = fd_s = s;
+                new_p = new_s;
+                while((fd_s = strstr(fd_s, from)))
+                {
+                    memcpy(new_p, cp_s, (len = fd_s - cp_s)); new_p += len;
+                    memcpy(new_p, to, newLen);                new_p += newLen;
 
-            return new_s;
+                    cp_s = (fd_s += subLen);
+                }
+
+                memcpy(new_p, cp_s, end_p - cp_s);
+
+                s_free((char*)s - _estr_lenH(SDS_TYPE(s)));
+                _estr_setLen(new_s, offNow);
+
+                return new_s;
+            }
         }
     }
 
@@ -1131,7 +1189,7 @@ void estr_incrLen(estr s, size_t incr)
 estr estr_shrink (estr s)
 {
     void *sh, *newsh;
-    char type, oldtype = s[-1] & SDS_TYPE_MASK;
+    char type, oldtype = SDS_TYPE(s) & SDS_TYPE_MASK;
     int hdrlen;
     size_t len = _estr_len(s);
     sh = (char*)s - _estr_lenH(oldtype);
@@ -1148,9 +1206,848 @@ estr estr_shrink (estr s)
         memcpy((char*)newsh+hdrlen, s, len+1);
         s_free(sh);
         s = (char*)newsh+hdrlen;
-        s[-1] = type;
+        SDS_TYPE(s) = type;
         _estr_setLen(s, len);
     }
     _estr_setCap(s, len);
     return s;
 }
+
+/// ----------------------------------------------
+/// sstr - estr for stack using
+/// ----------------------------------------------
+
+/// -- sstr new --
+sstr sstr_init(cptr buf, uint len)
+{
+    cstr sh; sds  s; size_t cap; char type; unsigned char *fp; /* flags pointer. */
+
+    is0_ret(buf, 0); is0_ret(len > 4, 0);
+
+    type    = _estr_reqT(len);
+
+    if (type == SDS_TYPE_5) type = SDS_TYPE_8;
+    int hdrlen = _estr_lenH(type);
+    cap = len - hdrlen;
+
+    s  = (cstr)buf + hdrlen;
+    fp = ((unsigned char*)s)-1;
+    switch(type) {
+        case SDS_TYPE_8 : {SDS_HDR_VAR( 8,s); sh->len = 0; sh->alloc = cap - 1; *fp = type ; break; }
+        case SDS_TYPE_16: {SDS_HDR_VAR(16,s); sh->len = 0; sh->alloc = cap - 1; *fp = type; break; }
+        case SDS_TYPE_32: {SDS_HDR_VAR(32,s); sh->len = 0; sh->alloc = cap - 1; *fp = type; break; }
+        case SDS_TYPE_64: {SDS_HDR_VAR(64,s); sh->len = 0; sh->alloc = cap - 1; *fp = type; break; }
+    }
+
+    //memset(s, 0, cap);
+    _estr_setStack(s);
+    s[0] = 0;
+
+    return s;
+}
+
+/// -- sstr clear --
+inline void sstr_clear(sstr s) { estr_clear(s);}
+inline void sstr_wipe (sstr s) { estr_wipe(s);}
+
+/// -- sstr len --
+inline size sstr_len (sstr s)  { return estr_len(s); }
+inline size sstr_cap (sstr s)  { return estr_cap(s); }
+
+/// -- sstr show --
+inline void sstr_shows(sstr s) { _shows("sstr", s); }
+inline void sstr_showr(sstr s) { _showr("sstr", s); }
+
+/// -- sstr write --
+inline sstr sstr_wrs(sstr s, constr src) { return src ? sstr_wrb(s, src, strlen(src)  ) : s; }
+inline sstr sstr_wre(sstr s, sstr   s2 ) { return s2  ? sstr_wrb(s, s2 , _estr_len(s2)) : s; }
+
+sstr sstr_wrb(sstr s, conptr ptr, size    len)
+{
+    size_t cap;
+
+    is0_ret(s, 0);
+
+    if((cap = _estr_cap(s)) < len) len = cap;
+    memcpy(s, ptr, len);
+    s[len] = '\0';
+    _estr_setLen(s, len);
+
+    return s;
+}
+
+sstr sstr_wrv(sstr s, constr fmt, va_list ap )
+{
+    va_list cpy; size_t wr_len;
+    char staticbuf[1024], *buf = staticbuf, *t;
+
+    size_t buflen = strlen(fmt)*2;
+
+    /* We try to start using a static buffer for speed.
+     * If not possible we revert to heap allocation. */
+    if (buflen > sizeof(staticbuf)) {
+        buf = s_malloc(buflen);
+        if (buf == NULL) return NULL;
+    } else {
+        buflen = sizeof(staticbuf);
+    }
+
+    /* Try with buffers two times bigger every time we fail to
+     * fit the string in the current buffer size. */
+    while(1) {
+        buf[buflen-2] = '\0';
+        va_copy(cpy,ap);
+        wr_len = vsnprintf(buf, buflen, fmt, cpy);
+        va_end(cpy);
+        if (buf[buflen-2] != '\0') {
+            if (buf != staticbuf) s_free(buf);
+            buflen *= 2;
+            buf = s_malloc(buflen);
+            if (buf == NULL) return NULL;
+            continue;
+        }
+        break;
+    }
+
+    /* Finally concat the obtained string to the SDS string and return it. */
+    t = wr_len > 0 ? sstr_wrb(s, buf, wr_len) : sstr_wrs(s, buf);
+    if (buf != staticbuf) s_free(buf);
+    return t;
+}
+
+sstr sstr_wrp(sstr s, constr fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    s = sstr_wrv(s, fmt, ap);
+    va_end(ap);
+
+    return s;
+}
+
+/* This function is similar to sdscatprintf, but much faster as it does
+ * not rely on sprintf() family functions implemented by the libc that
+ * are often very slow. Moreover directly handling the sds string as
+ * new data is concatenated provides a performance improvement.
+ *
+ * However this function only handles an incompatible subset of printf-alike
+ * format specifiers:
+ *
+ * %s - C String
+ * %S - estr
+ * %i - signed int
+ * %I - 64 bit signed integer (long long, int64_t)
+ * %u - unsigned int
+ * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
+ * %% - Verbatim "%" character.
+ */
+sstr sstr_wrf(sstr s, constr fmt, ...)
+{
+    constr f; size_t i; va_list ap;
+
+    is0_ret(s, 0);
+
+    _estr_setLen(s, 0);
+    va_start(ap,fmt);
+    f = fmt;     /* Next format specifier byte to process. */
+    i = 0;       /* Position of the next byte to write to dest str. */
+    while(*f) {
+        char next, *str;
+        size_t l;
+        long long num;
+        unsigned long long unum;
+
+        if (0 == _estr_rest(s))
+            return s;
+
+        switch(*f) {
+        case '%':
+            next = *(f+1);
+            f++;
+            switch(next) {
+            case 's':
+            case 'S':
+                str = va_arg(ap, char*);
+                l = (next == 's') ? strlen(str) : _estr_len(str);
+                if (_estr_rest(s) < l)
+                    return s;
+
+                memcpy(s + i, str, l);
+                _estr_incLen(s, l);
+                i += l;
+                break;
+            case 'i':
+            case 'I':
+                if (next == 'i')
+                    num = va_arg(ap,int);
+                else
+                    num = va_arg(ap,long long);
+                    {
+                        char buf[SDS_LLSTR_SIZE];
+                        l = _ll2str(buf,num);
+                        if (_estr_rest(s) < l)
+                            return s;
+
+                        memcpy(s+i,buf,l);
+                        _estr_incLen(s,l);
+                        i += l;
+                    }
+                break;
+            case 'u':
+            case 'U':
+                if (next == 'u')
+                    unum = va_arg(ap,unsigned int);
+                else
+                    unum = va_arg(ap,unsigned long long);
+                {
+                    char buf[SDS_LLSTR_SIZE];
+                    l = _ull2str(buf,unum);
+                    if (_estr_rest(s) < l)
+                        return s;
+
+                    memcpy(s+i, buf, l);
+                    _estr_incLen(s,l);
+                    i += l;
+                }
+                break;
+            default: /* Handle %% and generally %<unknown>. */
+                s[i++] = next;
+                _estr_incLen(s,1);
+                break;
+            }
+            break;
+        default:
+            s[i++] = *f;
+            _estr_incLen(s, 1);
+            break;
+        }
+        f++;
+    }
+    va_end(ap);
+
+    /* Add null-term */
+    s[i] = '\0';
+    return s;
+}
+
+inline sstr sstr_cats(sstr s, constr src) { return src ? sstr_catb(s, src, strlen(src) ) : s;}
+inline sstr sstr_cate(sstr s, sstr   s2 ) { return s2  ? sstr_catb(s, s2, _estr_len(s2)) : s;}
+
+sstr sstr_catb(sstr s, conptr ptr, size   len)
+{
+    size_t curlen, rest;
+
+    is0_ret(s, 0);
+
+    curlen = _estr_len(s);
+    rest   = _estr_rest(s);
+    if(rest < len) len = rest;
+
+    memcpy(s+curlen, ptr, len);
+    _estr_setLen(s, curlen+len);
+    s[curlen+len] = '\0';
+    return s;
+}
+
+sstr sstr_catv(sstr s, constr fmt, va_list ap )
+{
+    va_list cpy; size_t wr_len;
+    char staticbuf[1024], *buf = staticbuf, *t;
+
+    size_t buflen = strlen(fmt)*2;
+
+    /* We try to start using a static buffer for speed.
+     * If not possible we revert to heap allocation. */
+    if (buflen > sizeof(staticbuf)) {
+        buf = s_malloc(buflen);
+        if (buf == NULL) return NULL;
+    } else {
+        buflen = sizeof(staticbuf);
+    }
+
+    /* Try with buffers two times bigger every time we fail to
+     * fit the string in the current buffer size. */
+    while(1) {
+        buf[buflen-2] = '\0';
+        va_copy(cpy,ap);
+        wr_len = vsnprintf(buf, buflen, fmt, cpy);
+        va_end(cpy);
+        if (buf[buflen-2] != '\0') {
+            if (buf != staticbuf) s_free(buf);
+            buflen *= 2;
+            buf = s_malloc(buflen);
+            if (buf == NULL) return NULL;
+            continue;
+        }
+        break;
+    }
+
+    /* Finally concat the obtained string to the SDS string and return it. */
+    t = wr_len > 0 ? sstr_catb(s, buf, wr_len) : sstr_cats(s, buf);
+    if (buf != staticbuf) s_free(buf);
+    return t;
+}
+
+sstr sstr_catp(sstr s, constr fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    s = sstr_catv(s, fmt, ap);
+    va_end(ap);
+
+    return s;
+}
+
+/* This function is similar to sdscatprintf, but much faster as it does
+ * not rely on sprintf() family functions implemented by the libc that
+ * are often very slow. Moreover directly handling the sds string as
+ * new data is concatenated provides a performance improvement.
+ *
+ * However this function only handles an incompatible subset of printf-alike
+ * format specifiers:
+ *
+ * %s - C String
+ * %S - estr
+ * %i - signed int
+ * %I - 64 bit signed integer (long long, int64_t)
+ * %u - unsigned int
+ * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
+ * %% - Verbatim "%" character.
+ */
+sstr sstr_catf(sstr s, constr fmt, ...)
+{
+    constr f; size_t i; va_list ap;
+
+    is0_ret(s, 0);
+
+    va_start(ap,fmt);
+    f = fmt;            /* Next format specifier byte to process. */
+    i = _estr_len(s);  /* Position of the next byte to write to dest str. */
+    while(*f) {
+        char next, *str;
+        size_t l;
+        long long num;
+        unsigned long long unum;
+
+        /* Make sure there is always space for at least 1 char. */
+        if (0 == _estr_rest(s))
+            return s;
+
+        switch(*f) {
+        case '%':
+            next = *(f+1);
+            f++;
+            switch(next) {
+            case 's':
+            case 'S':
+                str = va_arg(ap, char*);
+                l = (next == 's') ? strlen(str) : _estr_len(str);
+                if (_estr_rest(s) < l)
+                    return s;
+
+                memcpy(s + i, str, l);
+                _estr_incLen(s, l);
+                i += l;
+                break;
+            case 'i':
+            case 'I':
+                if (next == 'i')
+                    num = va_arg(ap,int);
+                else
+                    num = va_arg(ap,long long);
+                    {
+                        char buf[SDS_LLSTR_SIZE];
+                        l = _ll2str(buf,num);
+                        if (_estr_rest(s) < l)
+                            return s;
+
+                        memcpy(s+i,buf,l);
+                        _estr_incLen(s,l);
+                        i += l;
+                    }
+                break;
+            case 'u':
+            case 'U':
+                if (next == 'u')
+                    unum = va_arg(ap,unsigned int);
+                else
+                    unum = va_arg(ap,unsigned long long);
+                    {
+                        char buf[SDS_LLSTR_SIZE];
+                        l = _ull2str(buf,unum);
+                        if (_estr_rest(s) < l)
+                            return s;
+
+                        memcpy(s+i, buf, l);
+                        _estr_incLen(s,l);
+                        i += l;
+                    }
+                break;
+            default: /* Handle %% and generally %<unknown>. */
+                s[i++] = next;
+                _estr_incLen(s,1);
+                break;
+            }
+            break;
+        default:
+            s[i++] = *f;
+            _estr_incLen(s, 1);
+            break;
+        }
+        f++;
+    }
+    va_end(ap);
+
+    /* Add null-term */
+    s[i] = '\0';
+    return s;
+}
+
+/// -- estr adjusting --
+inline sstr sstr_trim (sstr s, constr cset)          { return estr_trim (s, cset); }
+inline sstr sstr_range(sstr s, int   start, int end) { return estr_range(s, start, end);}
+
+inline sstr sstr_lower(sstr s) { return estr_lower(s); }
+inline sstr sstr_upper(sstr s) { return estr_upper(s); }
+
+inline sstr sstr_mapc (sstr s, constr from, constr to)             { return estr_mapc(s, from, to); }
+inline sstr sstr_mapcl(sstr s, constr from, constr to, size_t len) { return estr_mapcl(s, from, to, len); }
+
+sstr sstr_subs (sstr s, constr from, constr to)
+{
+    int subLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p;
+
+    is0_ret(s, 0); is1_ret(!from || !to, s);
+
+    subLen = strlen(from);
+    newLen = strlen(to);
+    offLen = newLen - subLen;
+
+    if(offLen < 0)
+    {
+        offLen = -offLen;
+        offNow = 0;
+        fd_s   = s;
+        end_p  = s + _estr_len(s);
+
+        if((fd_s = strstr(fd_s, from)))
+        {
+            memcpy(fd_s, to, newLen);     // replace it
+
+            cp_s = (fd_s += subLen);        // record the pos of str need copy
+            offNow += offLen;               // record the off of str need copy
+
+            while((fd_s = strstr(fd_s, from)))
+            {
+                memmove(cp_s - offNow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
+
+                memcpy(fd_s - offNow, to, newLen);
+                cp_s = (fd_s += subLen);
+                offNow += offLen;
+            }
+
+            memmove(cp_s - offNow, cp_s, end_p - cp_s);
+            _sdsdeclen(s, offNow);;
+            *(end_p - offNow) = '\0';
+        }
+    }
+    else if(offLen == 0)
+    {
+        fd_s = strstr(s, from);
+
+        while(fd_s)
+        {
+            memcpy(fd_s, to, newLen);
+            fd_s += subLen;
+            fd_s = strstr(fd_s, from);
+        }
+    }
+    else
+    {
+        offNow = _estr_len(s);
+        fd_s   = s;
+
+        if((fd_s   = strstr(fd_s, from)))
+        {
+            end_p = s + _estr_len(s);
+
+            // -- get len need to expand
+            offNow += offLen; fd_s += subLen;
+            while((fd_s = strstr(fd_s, from)))
+            {
+                offNow += offLen; fd_s += subLen;
+            }
+
+            // -- have enough place, let's do it
+            if((size)offNow <= _estr_cap(s))
+            {
+                cstr last = s + offNow;
+                __str_replace(s, &end_p, &last, from, subLen, to, newLen);
+                _estr_setLen(s, offNow);
+                s[offNow] = '\0';
+            }
+        }
+    }
+
+    return s;
+}
+
+/// -- estr cmp ---
+int  sstr_cmps(sstr s, constr src ) { return estr_cmps(s, src); }
+int  sstr_cmpe(sstr s, sstr   s2  ) { return estr_cmpe(s, s2 ); }
+
+/// -------------------------------
+/// ebuf
+/// -------------------------------
+
+typedef struct ebuf_s{
+    estr s;
+}ebuf_t;
+
+/// -- ebuf new --
+inline ebuf ebuf_new(constr src)
+{
+    size_t initlen = (src == NULL) ? 0 : strlen(src);
+    return ebuf_newLen(src, initlen);
+}
+
+ebuf ebuf_newLen(conptr ptr, size len)
+{
+    ebuf eb; size_t initlen; cstr sh; sds  s;  char type; unsigned char *fp; /* flags pointer. */
+
+    is0_ret(eb = s_malloc(sizeof(*eb)), 0);
+
+    if(!ptr)
+    {
+        if(len < 8)                initlen = 8;
+        if(len > SDS_MAX_PREALLOC) initlen = SDS_MAX_PREALLOC;
+
+        is0_exeret(eb->s = _estr_new(len), s_free(eb);, 0);
+
+        return eb;
+    }
+
+    if((initlen = len * 1.2) < 8) initlen = 8;
+    type    = _estr_reqT(initlen);
+
+    /* Empty strings are usually created in order to append. Use type 8
+     * since type 5 is not good at this. */
+    if (type == SDS_TYPE_5) type = SDS_TYPE_8;
+    int hdrlen = _estr_lenH(type);
+    sh = s_malloc(hdrlen+initlen+1);
+    is0_exeret(sh, s_free(eb);, 0);
+
+    s  = eb->s = sh + hdrlen;
+    fp = ((unsigned char*)s)-1;
+    switch(type) {
+        case SDS_TYPE_8 : {SDS_HDR_VAR( 8,s); sh->len = len; sh->alloc = initlen; *fp = type; break; }
+        case SDS_TYPE_16: {SDS_HDR_VAR(16,s); sh->len = len; sh->alloc = initlen; *fp = type; break; }
+        case SDS_TYPE_32: {SDS_HDR_VAR(32,s); sh->len = len; sh->alloc = initlen; *fp = type; break; }
+        case SDS_TYPE_64: {SDS_HDR_VAR(64,s); sh->len = len; sh->alloc = initlen; *fp = type; break; }
+    }
+    memcpy(s, ptr, len);
+    s[len] = '\0';
+
+    return eb;
+}
+
+/// -- ebuf ptr --
+inline cptr ebuf_ptr(ebuf b) { return b ? b->s : 0; }
+
+/// -- ebuf clear or free --
+inline void ebuf_clear(ebuf b) { if(b) { estr_clear(b->s);            } }
+inline void ebuf_wipe (ebuf b) { if(b) { estr_wipe (b->s);            } }
+inline void ebuf_free (ebuf b) { if(b) { estr_free (b->s); s_free(b); } }
+
+/// -- ebuf len --
+inline size ebuf_len (ebuf b) { return b ? estr_len(b->s) : 0; }
+inline size ebuf_cap (ebuf b) { return b ? estr_cap(b->s) : 0; }
+
+/// -- ebuf show --
+inline void ebuf_shows(ebuf b) { _shows("ebuf", b->s); }
+inline void ebuf_showr(ebuf b) { _showr("ebuf", b->s); }
+
+/// -- ebuf write --
+inline size ebuf_wrs(ebuf b, constr src) { if(b      ) { return estr_len((b->s = estr_wrs(b->s, src  )));} return 0; }
+inline size ebuf_wre(ebuf b, ebuf   b2 ) { if(b && b2) { return estr_len((b->s = estr_wre(b->s, b2->s)));} return 0; }
+inline size ebuf_wrb(ebuf b, conptr ptr, size    len)  { if(b) { return estr_len((b->s = estr_wrb(b->s, ptr, len)));} return 0; }
+inline size ebuf_wrv(ebuf b, constr fmt, va_list ap )  { if(b) { return estr_len((b->s = estr_wrv(b->s, fmt, ap )));} return 0; }
+inline size ebuf_wrp(ebuf b, constr fmt, ...)
+{
+    size len; va_list ap;
+
+    va_start(ap, fmt);
+    len = ebuf_wrv(b, fmt, ap);
+    va_end(ap);
+
+    return len;
+}
+
+size ebuf_wrf(ebuf b, constr fmt, ...)
+{
+    constr f; size_t i; va_list ap; estr s;
+
+    is0_ret(b, 0); is0_ret((s = b->s), 0);
+
+    _estr_setLen(s, 0);
+    va_start(ap,fmt);
+    f = fmt;     /* Next format specifier byte to process. */
+    i = 0;       /* Position of the next byte to write to dest str. */
+    while(*f) {
+        char next, *str;
+        size_t l;
+        long long num;
+        unsigned long long unum;
+
+        /* Make sure there is always space for at least 1 char. */
+        if (0 == _estr_rest(s)) {
+            s = _estr_ensure(s,1);
+        }
+
+        switch(*f) {
+        case '%':
+            next = *(f+1);
+            f++;
+            switch(next) {
+            case 's':
+            case 'S':
+                str = va_arg(ap, char*);
+                l = (next == 's') ? strlen(str) : _estr_len(str);
+                if (_estr_rest(s) < l) {
+                    s = _estr_ensure(s,l);
+                }
+                memcpy(s + i, str, l);
+                _estr_incLen(s, l);
+                i += l;
+                break;
+            case 'i':
+            case 'I':
+                if (next == 'i')
+                    num = va_arg(ap,int);
+                else
+                    num = va_arg(ap,long long);
+                    {
+                        char buf[SDS_LLSTR_SIZE];
+                        l = _ll2str(buf,num);
+                        if (_estr_rest(s) < l) {
+                            s = _estr_ensure(s,l);
+                        }
+                        memcpy(s+i,buf,l);
+                        _estr_incLen(s,l);
+                        i += l;
+                    }
+                break;
+            case 'u':
+            case 'U':
+                if (next == 'u')
+                    unum = va_arg(ap,unsigned int);
+                else
+                    unum = va_arg(ap,unsigned long long);
+                {
+                    char buf[SDS_LLSTR_SIZE];
+                    l = _ull2str(buf,unum);
+                    if (_estr_rest(s) < l) {
+                        s = _estr_ensure(s,l);
+                    }
+                    memcpy(s+i, buf, l);
+                    _estr_incLen(s,l);
+                    i += l;
+                }
+                break;
+            default: /* Handle %% and generally %<unknown>. */
+                s[i++] = next;
+                _estr_incLen(s,1);
+                break;
+            }
+            break;
+        default:
+            s[i++] = *f;
+            _estr_incLen(s, 1);
+            break;
+        }
+        f++;
+    }
+    va_end(ap);
+
+    /* Add null-term */
+    s[i] = '\0';
+    b->s = s;
+    return estr_len(s);
+}
+
+inline size ebuf_cats(ebuf b, constr src)
+{
+    if(b)
+    {
+        size_t hlen = estr_len(b->s);
+        b->s = estr_cats(b->s, src);
+
+        return b->s ? _estr_len(b->s) - hlen : 0;
+    }
+
+    return 0;
+}
+
+inline size ebuf_cate(ebuf b, ebuf   b2 )
+{
+    if(b && b2)
+    {
+        size_t hlen = estr_len(b->s);
+        b->s = estr_cate(b->s, b2->s);
+
+        return b->s ? _estr_len(b->s) - hlen : 0;
+    }
+
+    return 0;
+}
+
+inline size ebuf_catb(ebuf b, conptr ptr, size len)
+{
+    if(b)
+    {
+        size_t hlen = estr_len(b->s);
+        b->s = estr_catb(b->s, ptr, len);
+
+        return b->s ? _estr_len(b->s) - hlen : 0;
+    }
+
+    return 0;
+}
+
+inline size ebuf_catv(ebuf b, constr fmt, va_list ap )
+{
+    if(b)
+    {
+        size_t hlen = estr_len(b->s);
+        b->s = estr_catv(b->s, fmt, ap);
+
+        return b->s ? _estr_len(b->s) - hlen : 0;
+    }
+
+    return 0;
+}
+
+size ebuf_catp(ebuf b, constr fmt, ...)
+{
+    size_t len; va_list ap;
+
+    va_start(ap, fmt);
+    len = ebuf_catv(b, fmt, ap);
+    va_end(ap);
+
+    return len;
+}
+
+size ebuf_catf(ebuf b, constr fmt, ...)
+{
+    constr f; size_t i, hlen; va_list ap; estr s;
+
+    is0_ret(b, 0); is0_ret((s = b->s), 0);
+
+    va_start(ap,fmt);
+    f = fmt;                    /* Next format specifier byte to process. */
+    i = hlen = _estr_len(s);     /* Position of the next byte to write to dest str. */
+    while(*f) {
+        char next, *str;
+        size_t l;
+        long long num;
+        unsigned long long unum;
+
+        /* Make sure there is always space for at least 1 char. */
+        if (0 == _estr_rest(s)) {
+            s = _estr_ensure(s,1);
+        }
+
+        switch(*f) {
+        case '%':
+            next = *(f+1);
+            f++;
+            switch(next) {
+            case 's':
+            case 'S':
+                str = va_arg(ap, char*);
+                l = (next == 's') ? strlen(str) : _estr_len(str);
+                if (_estr_rest(s) < l) {
+                    s = _estr_ensure(s,l);
+                }
+                memcpy(s + i, str, l);
+                _estr_incLen(s, l);
+                i += l;
+                break;
+            case 'i':
+            case 'I':
+                if (next == 'i')
+                    num = va_arg(ap,int);
+                else
+                    num = va_arg(ap,long long);
+                    {
+                        char buf[SDS_LLSTR_SIZE];
+                        l = _ll2str(buf,num);
+                        if (_estr_rest(s) < l) {
+                            s = _estr_ensure(s,l);
+                        }
+                        memcpy(s+i,buf,l);
+                        _estr_incLen(s,l);
+                        i += l;
+                    }
+                break;
+            case 'u':
+            case 'U':
+                if (next == 'u')
+                    unum = va_arg(ap,unsigned int);
+                else
+                    unum = va_arg(ap,unsigned long long);
+                {
+                    char buf[SDS_LLSTR_SIZE];
+                    l = _ull2str(buf,unum);
+                    if (_estr_rest(s) < l) {
+                        s = _estr_ensure(s,l);
+                    }
+                    memcpy(s+i, buf, l);
+                    _estr_incLen(s,l);
+                    i += l;
+                }
+                break;
+            default: /* Handle %% and generally %<unknown>. */
+                s[i++] = next;
+                _estr_incLen(s,1);
+                break;
+            }
+            break;
+        default:
+            s[i++] = *f;
+            _estr_incLen(s, 1);
+            break;
+        }
+        f++;
+    }
+    va_end(ap);
+
+    /* Add null-term */
+    s[i] = '\0';
+    b->s = s;
+    return s ? _estr_len(s) - hlen : 0;
+}
+
+/// -- ebuf adjusting --
+inline ebuf ebuf_trim (ebuf b, constr cset)        { if(b) { estr_trim(b->s, cset);        } return b->s ? b : 0; }
+inline ebuf ebuf_range(ebuf b, int start, int end) { if(b) { estr_range(b->s, start, end); } return b->s ? b : 0; }
+
+inline ebuf ebuf_lower(ebuf b) { if(b) { estr_lower(b->s); } return b->s ? b : 0; }
+inline ebuf ebuf_upper(ebuf b) { if(b) { estr_upper(b->s); } return b->s ? b : 0; }
+
+inline ebuf ebuf_mapc (ebuf b, constr from, constr to)             { if(b) {estr_mapc (b->s, from, to     ); } return b->s ? b : 0; }
+inline ebuf ebuf_mapcl(ebuf b, constr from, constr to, size_t len) { if(b) {estr_mapcl(b->s, from, to, len); } return b->s ? b : 0; }
+
+inline ebuf ebuf_subs (ebuf b, constr from, constr to) { if(b) { b->s = estr_subs(b->s, from, to); } return b->s ? b : 0; }
+
+/// -- ebuf cmp ---
+int  ebuf_cmps(ebuf b, constr src) { if(b      ) { return estr_cmps(b->s, src  ); } else return -2; }
+int  ebuf_cmpe(ebuf b, ebuf   b2 ) { if(b && b2) { return estr_cmpe(b->s, b2->s); } else return -2; }
+
+/// -- Low level functions exposed to the user API --
+ebuf ebuf_ensure (ebuf b, size_t addlen) { if(b) { b->s = estr_ensure (b->s, addlen); } return b->s ? b : 0; }
+void ebuf_incrLen(ebuf b, size_t incr  ) { if(b) {        estr_incrLen(b->s, incr  ); } }
+ebuf ebuf_shrink (ebuf b) { if(b){ b->s = estr_shrink(b->s); } return b->s ? b : 0; }
