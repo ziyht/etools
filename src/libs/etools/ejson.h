@@ -9,7 +9,7 @@
 #ifndef __EJSON_H__
 #define __EJSON_H__
 
-#define EJSON_VERSION "0.7.13"      // using etype, add struct _s_t, using it at next version
+#define EJSON_VERSION "0.8.0"      // using a new str to handle keyS, valS, valR
 
 #include "etype.h"
 
@@ -21,29 +21,29 @@ typedef uint type;
 
 /// -- ejson types --
 enum{
-    EJSON_FALSE = 0x00u,
-    EJSON_TRUE,
-    EJSON_NULL,
-    EJSON_NUM,
-    EJSON_STR,
-    EJSON_PTR,
-    EJSON_RAW,
-    EJSON_ARR   = 0x0Eu,
-    EJSON_OBJ
-};
+    EJSON_FALSE = 0x00u ,
+    EJSON_TRUE  ,
+    EJSON_NULL  ,
+    EJSON_NUM   ,
+    EJSON_STR   ,
+    EJSON_PTR   ,
+    EJSON_RAW   ,
+    EJSON_ARR   = 0x0Eu ,
+    EJSON_OBJ   ,
 
 // -- short name of [ejson types] used for ejs_new(), close it if it conflict with other micors
 #if 1
-#define _FALSE_     EJSON_FALSE
-#define _TRUE_      EJSON_TRUE
-#define _NULL_      EJSON_NULL
-#define _NUM_       EJSON_NUM
-#define _STR_       EJSON_STR
-#define _PTR_       EJSON_PTR
-#define _RAW_       EJSON_RAW
-#define _ARR_       EJSON_ARR
-#define _OBJ_       EJSON_OBJ
+    _FALSE_ = EJSON_FALSE ,
+    _TRUE_  ,
+    _NULL_  ,
+    _NUM_   ,
+    _STR_   ,
+    _PTR_   ,
+    _RAW_   ,
+    _ARR_   = EJSON_ARR ,
+    _OBJ_   ,
 #endif
+};
 
 typedef enum {
     ALL_ON      =  0xFF,
@@ -172,6 +172,9 @@ cstr   ejsk_toFWra(ejson root, constr keys, ejsw w);    // wrap the specific ejs
 cstr   ejsk_toUWra(ejson root, constr keys, ejsw w);    // wrap the specific ejson object in root to unformated string
 cstr   ejsr_toFWra(ejson root, constr rawk, ejsw w);    // wrap the specific ejson object in root to a pretty format string
 cstr   ejsr_toUWra(ejson root, constr rawk, ejsw w);    // wrap the specific ejson object in root to unformated string
+
+void   ejss_show  (constr s);                           // print the str  detail to stdout
+void   ejsw_show  (ejsw   w);                           // print the ejsw detail to stdout
 
 uint   ejss_len   (constr s);                           // only support the strs and constrs returned by ejson API
 void   ejss_free  (cstr   s);                           // free the strs returned by ejson API, not do it on constr returned or other allocted buffers
