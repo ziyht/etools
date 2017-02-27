@@ -14,23 +14,9 @@
 #define USE_MEGPOOL 0
 
 // -- pagentd
-#include "pagentd.h"
-
 #define MSGPOOL_MAX_COUNT 1024
 
-#ifndef __DEF_STR__
-#define __DEF_STR__
-typedef const char* constr;
-typedef char* cstr;
-#endif
-#ifndef __DEF_ERR__
-#define __DEF_ERR__
-typedef constr err_t;
-#endif
-#ifndef __DEF_CONVIOD__
-#define __DEF_CONVIOD__
-typedef const void* convoid;
-#endif
+#include "etype.h"
 
 typedef struct ntStatistics_s{
     // for conn
@@ -52,7 +38,15 @@ typedef struct ntStatistics_s{
 typedef struct nTrans_s* nTrans, ** nTrans_p;
 typedef struct nTPool_s* nTPool, ** nTPool_p;
 
-typedef struct transport_opts_t nTrans_opts_t, * nTrans_opts;
+typedef struct nTrans_opts_s {
+    char*    conn_string;
+    char*    compression;
+    char*    encryption;
+    char*    username;
+    char*    password;
+    uint64_t timeout;
+    int      polling;                       // polling the transport or not when pub msg
+}nTrans_opts_t, * nTrans_opts;
 
 /// -- callbacks type
 typedef void (*nTrans_ConnectedCB)   (nTrans t, void* closure);
@@ -104,13 +98,13 @@ void     nTrans_SetErrHandler(nTrans trans, nTrans_ErrHandler cb, void* closure)
 /// -- publish msg, thread safe
 //  return NAT_OK   if queue ok
 //         !=NAT_OK if queue err, use natsTrans_LastErr() to get err info
-natsStatus  nTrans_Pub(nTrans trans, constr subj, convoid data, int dataLen);
-natsStatus  nTrans_PubReq(nTrans trans, constr subj, convoid data, int dataLen, constr reply);
+natsStatus  nTrans_Pub(nTrans trans, constr subj, conptr data, int dataLen);
+natsStatus  nTrans_PubReq(nTrans trans, constr subj, conptr data, int dataLen, constr reply);
 
 /// -- request msg, thread safe
 //  return NAT_OK   if queue ok
 //         !=NAT_OK if queue err, use natsTrans_LastErr() to get err info
-natsStatus  nTrans_Req(nTrans trans, constr subj, convoid data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
+natsStatus  nTrans_Req(nTrans trans, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
 
 /// -- create a new subscriber in natsTrans
 //  The subject can have wildcards (partial:*, full:>).
@@ -187,15 +181,15 @@ void        nTPool_SetErrHandlerByName(nTPool p, constr name, nTrans_ErrHandler 
 //   in normal mode, the msg will be publishing via the first connected url
 //   in poll   mode, the msg will be publishing via polling all the connected urls, a msg only publish once
 //
-natsStatus  nTPool_Pub    (nTPool p, constr subj, convoid data, int dataLen);
-natsStatus  nTPool_PollPub(nTPool p, constr subj, convoid data, int dataLen);
+natsStatus  nTPool_Pub    (nTPool p, constr subj, conptr data, int dataLen);
+natsStatus  nTPool_PollPub(nTPool p, constr subj, conptr data, int dataLen);
 
-natsStatus  nTPool_PubReq    (nTPool p, constr subj, convoid data, int dataLen, constr reply);
-natsStatus  nTPool_PollPubReq(nTPool p, constr subj, convoid data, int dataLen, constr reply);
+natsStatus  nTPool_PubReq    (nTPool p, constr subj, conptr data, int dataLen, constr reply);
+natsStatus  nTPool_PollPubReq(nTPool p, constr subj, conptr data, int dataLen, constr reply);
 
 /// -- request msg
-natsStatus  nTPool_Req    (nTPool p, constr subj, convoid data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
-natsStatus  nTPool_PollReq(nTPool p, constr subj, convoid data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
+natsStatus  nTPool_Req    (nTPool p, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
+natsStatus  nTPool_PollReq(nTPool p, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
 
 /// -- subscrib msg in specific nTrans
 /// 

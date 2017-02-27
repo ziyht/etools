@@ -77,7 +77,7 @@ typedef struct nTrans_PubMsg_s{
     int   data_len;
 }ntPubMsg_t, ntPubMsg, * ntPubMsg_p;
 
-static inline ntPubMsg_p __pubMsg_New(constr subj, int64_t timestamp, convoid data, int data_len)
+static inline ntPubMsg_p __pubMsg_New(constr subj, int64_t timestamp, conptr data, int data_len)
 {
     // data_base format: "[subj\0][yyyymmddhhmmss data]\0", the length of "yyyymmddhhmmss " is 15
     //                    | SUBJ ||      DATA         |
@@ -612,7 +612,7 @@ inline constr nTrans_GetConnUrls(nTrans trans)
 
     trans->conn.s = natsConnection_GetConnectedUrl(trans->conn.nc, trans->conn.conn_urls, 512);
 
-    is1_ret(trans->conn.s == NATS_OK, trans->conn.conn_urls);
+    is1_exeret(trans->conn.s == NATS_OK, trans->conn.urls = 0, trans->conn.conn_urls);
     return NULL;
 }
 
@@ -620,10 +620,12 @@ constr      nTrans_GetUrls(nTrans trans)
 {
     is0_ret(trans, NULL);
 
-    if(!trans->conn.urls)
+    if(trans->conn.nc)
     {
-        trans->conn.urls = trans->conn.nc->opts->url;
+        strncpy(trans->conn.conn_urls, trans->conn.nc->opts->url, 512);
+        trans->conn.urls = trans->conn.conn_urls;
     }
+
     return trans->conn.urls;
 }
 
@@ -671,7 +673,7 @@ inline void nTrans_SetErrHandler(nTrans trans, nTrans_ErrHandler cb, void* closu
     trans->conn.err_closure = closure;
 }
 
-inline natsStatus nTrans_Pub(nTrans trans, constr subj, convoid data, int data_len)
+inline natsStatus nTrans_Pub(nTrans trans, constr subj, conptr data, int data_len)
 {
     is0_exeret(trans, last_err = "invalid nTrans (nullptr)", NATS_ERR);
 #if !USE_MEGPOOL
@@ -708,7 +710,7 @@ inline natsStatus nTrans_Pub(nTrans trans, constr subj, convoid data, int data_l
     return trans->conn.s;
 }
 
-natsStatus  nTrans_PubReq(nTrans trans, constr subj, convoid data, int dataLen, constr reply)
+natsStatus  nTrans_PubReq(nTrans trans, constr subj, conptr data, int dataLen, constr reply)
 {
     is0_exeret(trans, last_err = "invalid nTrans (nullptr)", NATS_ERR);
 
@@ -739,7 +741,7 @@ nTrans_Request(natsMsg **replyMsg, natsConnection *nc, const char *subj,
     return NATS_UPDATE_ERR_STACK(s);
 }
 
-natsStatus  nTrans_Req(nTrans trans, constr subj, convoid data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout)
+natsStatus  nTrans_Req(nTrans trans, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout)
 {
     is0_exeret(trans, errset(G, "invalid nTrans (nullptr)"), NATS_ERR);
 
@@ -886,6 +888,21 @@ inline constr nTrans_LastErr(nTrans trans)
 
 // --
 static void _nTPool_ExeLazyThread(nTPool p);
+
+static void __natsTrans_ClosedCB_DestroySubs(nTrans t){
+    ejson itr; ntSubscriber s;
+
+    mutex_lock(t->sub_mu);
+    ejso_itr(t->sub_dic, itr)
+    {
+        s = ejso_valR(itr);
+
+        natsSubscription_Destroy(s->sub);
+        s->sub = 0;
+    }
+    mutex_ulck(t->sub_mu);
+}
+
 static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
 {
     nTPool p = NULL; nTrans t; int quit_wait_thread = 0;
@@ -899,6 +916,12 @@ static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
         p = t->self_node->p;
         nTPool_lock(p);
 
+        if(!t->conn.urls && t->conn.nc)
+        {
+            strncpy(t->conn.conn_urls, t->conn.nc->opts->url, 512);
+            t->conn.urls = t->conn.conn_urls;
+        }
+
         if(!p->quit)
         {
             _nTPool_polling_next(p, t);
@@ -907,7 +930,10 @@ static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
             nTPool_del_conntrans(p, t->self_node);
             nTPool_add_lazytrans(p, t->self_node);
 
-            natsOptions_Destroy(t->conn.nc->opts); t->conn.nc->opts = 0;
+            __natsTrans_ClosedCB_DestroySubs(t);
+
+            natsConnection* nc = t->conn.nc; t->conn.nc = 0;
+            natsConnection_Destroy(nc);
 
             _nTPool_ExeLazyThread(p);
         }
@@ -1210,6 +1236,7 @@ void nTPool_Destroy(nTPool_p _p)
     nTrans_ht_node nt_node;
     ejson ebackup;
     ejson itr;
+    int free_self_here = 0;
 
     if(p->quit) return;
 
@@ -1238,12 +1265,14 @@ void nTPool_Destroy(nTPool_p _p)
 
     // -- destroy transs
     p->conn_num = nTPool_cnt_conntrans(p);
+    free_self_here = !p->conn_num;
     ebackup = p->conn_transs; p->conn_transs = 0;
 
     ejso_itr(ebackup, itr)
     {
         nt_node = ejso_valP(itr);
         nTrans_Destroy(&nt_node->t);    // release trans in CloseCB() of nTrans
+        natsOptions_Destroy(nt_node->opts);
     }
 
     ejso_free(ebackup);
@@ -1252,6 +1281,20 @@ void nTPool_Destroy(nTPool_p _p)
     ejso_free(p->urls); p->urls = 0;
 
     nTPool_unlock(p);
+
+    if(free_self_here)
+    {
+        if(p->wait_thread)  __mutex_ulck(p->wait_mutex);    // p will be free in wait_thread
+        else                free(p);
+
+        pool_count--;
+        if (conn_count <= 0 && pool_count <= 0) {
+            // fprintf(stderr, "exe nats_Close()\n");
+            nats_Close();
+            conn_count = 0;
+            pool_count = 0;
+        }
+    }
 }
 
 static void* __nTPool_waitThread(void* d)
@@ -1349,6 +1392,38 @@ ok_return:
     return out;
 }
 
+static void _nTPool_lazy_thread_reSub(nTrans trans){
+    ejson itr; ntSubscriber ntSub;
+
+    mutex_lock(trans->sub_mu);
+
+    ejso_itr(trans->sub_dic, itr)
+    {
+        ntSub = ejso_valR(itr);
+
+        trans->conn.s = natsConnection_Subscribe(&ntSub->sub, trans->conn.nc, ntSub->subj, __natsTrans_MsgHandler, ntSub);
+
+        if(trans->conn.s == NATS_OK)
+            trans->conn.s = natsSubscription_SetPendingLimits(ntSub->sub, -1, -1);
+        else
+        {
+            ejso_freeO(trans->sub_dic, itr);
+            trans->last_err = (char*)nats_GetLastError(&trans->conn.s);
+            continue;
+        }
+
+        if(trans->conn.s != NATS_OK)
+        {
+            natsSubscription_Unsubscribe(ntSub->sub);
+            ejso_freeO(trans->sub_dic, itr);
+            trans->last_err = (char*)nats_GetLastError(&trans->conn.s);
+            continue;
+        }
+    }
+
+    mutex_ulck(trans->sub_mu);
+}
+
 static void* _nTPool_lazy_thread(void* _p)
 {
     nTPool            p = (nTPool)_p;
@@ -1389,6 +1464,9 @@ static void* _nTPool_lazy_thread(void* _p)
                 }
 
                 nTPool_unlock(p);
+
+                _nTPool_lazy_thread_reSub(nt_node->t);
+
                 if(nt_node->connected_cb)
                     nt_node->connected_cb(nt_node->t, nt_node->connected_closure);
             }
@@ -1402,13 +1480,15 @@ static void* _nTPool_lazy_thread(void* _p)
 
 static void _nTPool_ExeLazyThread(nTPool p)
 {
-    if( p->lazy_thread == 0)
+    if(p->quit) return;
+
+    if(p->lazy_thread == 0)
     {
         __thread_create(p->lazy_thread, _nTPool_lazy_thread, p);
         return ;
     }
 #if (_WIN32)
-        DWORD exitCode;
+    DWORD exitCode;
     GetExitCodeThread(p->lazy_thread, &exitCode);
     if(exitCode != STILL_ACTIVE)
 #else
@@ -1664,6 +1744,8 @@ nTrans nTPool_Del(nTPool p, constr name)
         nTPool_del_url(p, url);
     }
     if(fd->t)   fd->t->self_node = NULL;    // fd->t == NULL, when add a lazy url but can not connected
+
+    natsOptions_Destroy(fd->opts);
 
     nTPool_unlock(p);
 
@@ -2015,7 +2097,7 @@ inline void nTPool_SetErrHandlerByName(nTPool p, constr name, nTrans_ErrHandler 
     }
 }
 
-inline natsStatus  nTPool_Pub(nTPool p, constr subj, convoid data, int dataLen)
+inline natsStatus  nTPool_Pub(nTPool p, constr subj, conptr data, int dataLen)
 {
     natsStatus     s = NATS_ERR;
     nTrans_ht_node nt_node; ejson itr;
@@ -2042,7 +2124,7 @@ inline natsStatus  nTPool_Pub(nTPool p, constr subj, convoid data, int dataLen)
     return p->s = s;
 }
 
-inline natsStatus  nTPool_PollPub(nTPool p, constr subj, convoid data, int dataLen)
+inline natsStatus  nTPool_PollPub(nTPool p, constr subj, conptr data, int dataLen)
 {
     is0_exeret(p, errset(p, "invalid nTPool (nullptr)"), NATS_ERR);
 
@@ -2092,7 +2174,7 @@ static void  _nTPool_polling_next(nTPool p, nTrans reject)
                                     : 0;
 }
 
-natsStatus  nTPool_PubReq    (nTPool p, constr subj, convoid data, int dataLen, constr reply)
+natsStatus  nTPool_PubReq    (nTPool p, constr subj, conptr data, int dataLen, constr reply)
 {
     natsStatus     s = NATS_ERR;
     nTrans_ht_node nt_node; ejson itr;
@@ -2117,7 +2199,7 @@ natsStatus  nTPool_PubReq    (nTPool p, constr subj, convoid data, int dataLen, 
     nTPool_unlock(p);
     return p->s = s;
 }
-natsStatus  nTPool_PollPubReq(nTPool p, constr subj, convoid data, int dataLen, constr reply)
+natsStatus  nTPool_PollPubReq(nTPool p, constr subj, conptr data, int dataLen, constr reply)
 {
     is0_exeret(p, errset(p, "invalid nTPool (nullptr)"), NATS_ERR);
 
@@ -2133,7 +2215,7 @@ natsStatus  nTPool_PollPubReq(nTPool p, constr subj, convoid data, int dataLen, 
     return p->s;
 }
 
-natsStatus  nTPool_Req    (nTPool p, constr subj, convoid data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout)
+natsStatus  nTPool_Req    (nTPool p, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout)
 {
     nTrans_ht_node nt_node; ejson itr;
     nTrans         nt = 0;
@@ -2161,7 +2243,7 @@ natsStatus  nTPool_Req    (nTPool p, constr subj, convoid data, int dataLen, con
     return p->s;
 }
 
-natsStatus  nTPool_PollReq(nTPool p, constr subj, convoid data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout)
+natsStatus  nTPool_PollReq(nTPool p, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout)
 {
     nTrans         nt;
     is0_exeret(p, errset(p, "invalid nTPool (nullptr)"), NATS_ERR);
@@ -2195,18 +2277,18 @@ natsStatus  nTPool_Sub(nTPool p, constr name, constr subj, nTrans_MsgHandler onM
             nt_node = ejso_valP(itr);
 
             nt = nt_node->t;
-            nTrans_Sub(nt, subj, onMsg, closure);
+            p->s = nTrans_Sub(nt, subj, onMsg, closure);
         }
     }
     else
     {
-        nt = nTPool_Get(p, name);
-        nTrans_Sub(nt, subj, onMsg, closure);
+        nt_node = nTPool_get_conntrans(p, name);
+        p->s = nt_node ? nTrans_Sub(nt_node->t, subj, onMsg, closure) : NATS_ERR;
     }
 
     nTPool_unlock(p);
 
-    return nt ? nt->conn.s : NATS_ERR;
+    return p->s;
 }
 
 natsStatus  nTPool_Unsub(nTPool p, constr name, constr subj)
