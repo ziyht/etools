@@ -81,7 +81,7 @@ onMsg2(nTrans t __unused, natsSubscription *sub __unused, natsMsg *msg, void *cl
 static void ClosedCB      (nTrans t, void* closure __unused)
 {
     constr name = nTrans_GetName(t);
-    fprintf(stderr, "%s%sconnection closed\n", name ? name : "", name ? ":" : "");
+    fprintf(stderr, "%s%s%sconnection closed\n", name ? name : "", name ? ":" : "", nTrans_GetUrls(t));
 }
 
 static void DisconnectedCB(nTrans t, void* closure __unused)

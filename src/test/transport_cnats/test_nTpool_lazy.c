@@ -10,8 +10,9 @@ void natsTrans_pool_lazytest()
 
     extern char* g_url;
     cstr url = g_url ? g_url :
-                            "nats://172.18.4.205:4242,"
-                            "nats://172.18.1.181:4242";
+                            "nats://172.18.4.205:4242"
+                            ",nats://172.18.1.181:4242"
+                            ",nats://0.0.0.0:4242";
     nTrans_opts_t opts[] = {{url, 0, 0, "", "", 0, 0}};
 
     start = nats_Now();
@@ -84,4 +85,6 @@ void natsTrans_pool_lazytest()
     nTPool_Destroy(&p);
 
     sleep(2);
+
+    getchar();
 }

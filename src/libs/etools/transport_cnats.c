@@ -104,7 +104,7 @@ typedef struct nTrans_Subscriber_s{
 
 typedef struct nTrans_ht_s* nTrans_ht_node;
 typedef struct nTrans_s{
-    ntConnector_t   conn;       // only one connector in natsTrans 
+    ntConnector_t   conn;       // only one connector in natsTrans
     ntPublisher_t   pub;        // only one publisher in natsTrans
     ejson           sub_dic;    // subscriber in hash table
     mutex_t         sub_mu;
@@ -185,7 +185,7 @@ typedef struct nTPool_s{
 
     nTrans_ht_node  polling_now;
 
-    urls_ht         urls;           // to store all the server urls(with user and pass) that connected or will connected to 
+    urls_ht         urls;           // to store all the server urls(with user and pass) that connected or will connected to
 
     natsStatus      s;              // last status
     ntStatistics    stats;          // statistics for all transs
@@ -723,17 +723,18 @@ static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
 
     _nTrans_stopPub(t);
     _nTrans_setPubSemToZero(t);
+
+    if(!t->conn.urls)
+    {
+        strncpy(t->conn.conn_urls, nc->opts->url, 512);
+        t->conn.urls = t->conn.conn_urls;
+    }
+
 #if 1
     if(t->self_node)
     {
         p = t->self_node->p;
         nTPool_lock(p);
-
-        if(!t->conn.urls)
-        {
-            strncpy(t->conn.conn_urls, nc->opts->url, 512);
-            t->conn.urls = t->conn.conn_urls;
-        }
 
         if(!p->quit)
         {
@@ -1298,8 +1299,8 @@ static void _nTPool_ExeLazyThread(nTPool p)
     }
 #if (_WIN32)
     DWORD exitCode;
-	GetExitCodeThread(p->lazy_thread, &exitCode);
-	if(exitCode != STILL_ACTIVE)
+    GetExitCodeThread(p->lazy_thread, &exitCode);
+    if(exitCode != STILL_ACTIVE)
 #else
     else if(pthread_kill(p->lazy_thread, 0) == ESRCH)
 #endif
