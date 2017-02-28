@@ -1,7 +1,7 @@
 #include "test_main.h"
 
 
-void natsTrans_pool_lazytest()
+void nTpool_lazy_test()
 {
     int64_t         last   = 0;
     int64_t         start __unused = 0;
@@ -85,6 +85,4 @@ void natsTrans_pool_lazytest()
     nTPool_Destroy(&p);
 
     sleep(2);
-
-    getchar();
 }

@@ -31,6 +31,15 @@ typedef uv_thread_t thread_t;
 #include "compat.h"
 #endif
 
+#define __DEBUG_ 0
+
+#if __DEBUG_
+static constr _llog_basename(constr path){static constr slash; if (slash) {return slash + 1;}else{slash = strrchr(path, '/');}if (slash) {return slash + 1;}return 0;}
+#define log(fmt, ...)   fprintf(stdout, "%s(%d):" fmt "%s", _llog_basename(__FILE__), __LINE__, __VA_ARGS__)
+#define llog(...)       log(__VA_ARGS__, "\n");fflush(stdout)
+#else
+#define llog(...)
+#endif
 
 #if defined(_WIN32)
 #define __unused
@@ -68,10 +77,63 @@ __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
 #define is0_elsret(cond, expr, ret) if(!(cond)){expr;} else return ret
 #define is1_elsret(cond, expr, ret) if( (cond)){expr;} else return ret
 
-/// ---------------------------- natsTrans definition ---------------------
-static int    conn_cnt;
-static int    pool_cnt;
+/// --------------------- static count record -----------------------------
+static int          __cnt_init;
+static int          __cnt_conn;
+static int          __cnt_pool;
+static __mutex_t    __cnt_mut;
 
+static inline void __cnt_connInc()
+{
+    if(!__cnt_init)
+    {
+        __mutex_init(__cnt_mut);
+        __cnt_init = 1;
+    }
+
+    __mutex_lock(__cnt_mut);
+    __cnt_conn++;
+    __mutex_ulck(__cnt_mut);
+}
+
+static inline void __cnt_poolInc()
+{
+    if(!__cnt_init)
+    {
+        __mutex_init(__cnt_mut);
+        __cnt_init = 1;
+    }
+
+    __mutex_lock(__cnt_mut);
+    __cnt_pool++;
+    __mutex_ulck(__cnt_mut);
+}
+
+static inline void __cnt_connDec()
+{
+    __mutex_lock(__cnt_mut);
+    __cnt_conn--;
+    if (__cnt_conn <= 0 && __cnt_pool <= 0) {
+        llog(stderr, "exe nats_Close()\n");
+        nats_Close();
+        __cnt_conn = 0;
+        __cnt_pool = 0;
+    }
+    __mutex_ulck(__cnt_mut);
+}
+
+static inline void __cnt_poolDec()
+{
+    __mutex_lock(__cnt_mut);
+    __cnt_pool--;
+    if (__cnt_conn <= 0 && __cnt_pool <= 0) {
+        llog(stderr, "exe nats_Close()\n");
+        nats_Close();
+        __cnt_conn = 0;
+        __cnt_pool = 0;
+    }
+    __mutex_ulck(__cnt_mut);
+}
 
 /// ---------------------------- natsTrans definition ---------------------
 typedef struct enats_Connector_s{
@@ -284,12 +346,11 @@ static inline enats __enats_ConnectTo(natsOptions_p opts)
         _out->sub_dic = ejso_new(_OBJ_);
 
         // others
-        conn_count++;
+        __conn_inc();
         return _out;
     }
 
 err_return:
-    natsConnection_Destroy(nc);
     free(_out);
 
     last_err = (s == NATS_OK) ? strerror(errno)
@@ -316,7 +377,7 @@ void enats_join(enats trans)
     }
 }
 
-void enats_Destroy(enats_p _trans)
+void enats_destroy(enats_p _trans)
 {
     if(!_trans || !(*_trans))  return;
     enats t = *_trans;
@@ -346,13 +407,7 @@ void enats_Destroy(enats_p _trans)
     // free(*_trans);       // free in CloseCB
     *_trans = NULL;
 
-    // -- release cnats if needed
-    conn_count--;
-    if(conn_count <= 0 && pool_count <= 0)
-    {
-//      fprintf(stderr, "exe nats_Close()");
-        nats_Close();
-    }
+    __conn_dec();
 }
 
 inline constr enats_GetConnUrls(enats trans)
@@ -474,6 +529,8 @@ natsStatus  enats_Sub(enats trans, constr subj, enats_MsgHandler onMsg, void* cl
 {
     is0_exeret(trans, errset(G, "invalid enats (nullptr)"), NATS_ERR);
     is0_exeret(onMsg, errfmt(trans, "null callbacks for subj %s", subj), NATS_ERR);
+    is0_exeret(subj , errset(trans, "null subj"), NATS_ERR);
+    is1_exeret(strstr(subj, "..") , errfmt(trans, "subj %s has \"..\" in it", subj), NATS_ERR);
 
     mutex_lock(trans->sub_mu);
     if(!trans->sub_dic) trans->sub_dic = ejso_new(_OBJ_);
@@ -808,8 +865,6 @@ static enats_ht_node __enatp_getNode(enatp p, constr name);
 static void*         __enatp_waitThread(void*);
 
 // -- micros
-#define enatp_init_mutex(p)     __mutex_init((p)->mutex);__mutex_init((p)->wait_mutex)
-#define enatp_destrot_mutex(p)  __mutex_free((p)->mutex);__mutex_free((p)->wait_mutex)
 #define enatp_lock(p)           __mutex_lock((p)->mutex)
 #define enatp_unlock(p)         __mutex_ulck((p)->mutex)
 
@@ -849,7 +904,7 @@ inline enatp enatp_New()
     enatp out = calloc(1, sizeof(enatp_t));
 
     is0_exeret(out, errset(G, "mem faild in calloc new enatp"), 0);
-    enatp_init_mutex(out);
+    __mutex_init(out->mutex);
 
     out->conn_transs = ejso_new(_OBJ_);
     out->poll_transs = ejso_new(_OBJ_);
@@ -916,16 +971,10 @@ void enatp_Destroy(enatp_p _p)
 
     if(free_self_here)
     {
-        if(p->wait_thread)  __mutex_ulck(p->wait_mutex);    // p will be free in wait_thread
+        if(p->wait_thread)  __mutex_ulck(p->wait_mutex);    // p will be free in enatp_Join()
         else                free(p);
 
-        pool_count--;
-        if (conn_count <= 0 && pool_count <= 0) {
-            // fprintf(stderr, "exe nats_Close()\n");
-            nats_Close();
-            conn_count = 0;
-            pool_count = 0;
-        }
+        __pool_dec();
     }
 }
 
@@ -944,6 +993,7 @@ void   enatp_Join(enatp p)
 
     if(!p->quit && !p->wait_thread)
     {
+        __mutex_init(p->wait_mutex);
         __mutex_lock(p->wait_mutex);
         is1_exeret(__thread_create(p->wait_thread, __enatp_waitThread, p),
                    errfmt(G, "create wait thread for enatp faild: %s", strerror(errno)),
@@ -953,7 +1003,7 @@ void   enatp_Join(enatp p)
         free_enatp_here = 1;
     }
 
-    while(p->conn_num) sleep(1);
+    while(p->conn_num) usleep(100000);
 
     if(free_enatp_here)
         free(p);
@@ -1149,8 +1199,8 @@ natsStatus enatp_AddLazy(enatp p, constr name, constr urls)
     is1_exeret(enatp_get_conenats(p, name), errfmt(p, "name \"%s\" already in enatp", name), 0);
 
     // -- check urls in pool, if pool have one of the urls, return
-    is1_exeret(s = natsOptions_Create(&opts)      != NATS_OK, errset(p, nats_GetLastError(&s)), NATS_ERR);
-    is1_exeret(s = __processUrlString(opts, urls) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NATS_ERR);
+    is1_exeret((s = natsOptions_Create(&opts)     ) != NATS_OK, errset(p, nats_GetLastError(&s)), NATS_ERR);
+    is1_exeret((s = __processUrlString(opts, urls)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NATS_ERR);
 
     c = opts->url ? 1 : opts->serversCount;
     for(i = 0; i < c; i++)
@@ -1564,6 +1614,17 @@ void        enatp_SetConnectedCB(enatp p, int type, enats_ConnectedCB cb, void* 
 {
     is0_ret(p, );
     enats_ht_node nt_node; ejson itr;
+
+    enatp_lock(p);
+    if(type == CONN_TRANS || type == ALL_TRANS)
+    {
+        ejso_itr(p->conn_transs, itr)
+        {
+            nt_node = ejso_valP(itr);
+            nt_node->connected_cb      = cb;
+            nt_node->connected_closure = closure;
+        }
+    }
     if(type == LAZY_TRANS || type == ALL_TRANS)
     {
         ejso_itr(p->lazy_transs, itr)
@@ -1573,17 +1634,22 @@ void        enatp_SetConnectedCB(enatp p, int type, enats_ConnectedCB cb, void* 
             nt_node->connected_closure = closure;
         }
     }
+    enatp_unlock(p);
 }
 
 void        enatp_SetClosedCB(enatp p, int type, enats_ClosedCB cb, void* closure)
 {
     is0_ret(p, );
     enats_ht_node nt_node; ejson itr;
+
+    enatp_lock(p);
     if(type == CONN_TRANS || type == ALL_TRANS)
     {
         ejso_itr(p->conn_transs, itr)
         {
             nt_node = ejso_valP(itr);
+            nt_node->closed_cb              = cb;
+            nt_node->closed_closure         = closure;
             nt_node->t->conn.closed_cb      = cb;
             nt_node->t->conn.closed_closure = closure;
         }
@@ -1597,16 +1663,21 @@ void        enatp_SetClosedCB(enatp p, int type, enats_ClosedCB cb, void* closur
             nt_node->closed_closure = closure;
         }
     }
+    enatp_unlock(p);
 }
 void        enatp_SetDisconnectedCB(enatp p, int type, enats_DisconnectedCB cb, void* closure)
 {
     is0_ret(p, );
     enats_ht_node nt_node; ejson itr;
+
+    enatp_lock(p);
     if(type == CONN_TRANS || type == ALL_TRANS)
     {
         ejso_itr(p->conn_transs, itr)
         {
             nt_node = ejso_valP(itr);
+            nt_node->disconnected_cb              = cb;
+            nt_node->disconnected_closure         = closure;
             nt_node->t->conn.disconnected_cb      = cb;
             nt_node->t->conn.disconnected_closure = closure;
         }
@@ -1620,16 +1691,21 @@ void        enatp_SetDisconnectedCB(enatp p, int type, enats_DisconnectedCB cb, 
             nt_node->disconnected_closure = closure;
         }
     }
+    enatp_unlock(p);
 }
 void        enatp_SetReconnectedCB(enatp p, int type, enats_ReconnectedCB cb, void* closure)
 {
     is0_ret(p, );
     enats_ht_node nt_node; ejson itr;
+
+    enatp_lock(p);
     if(type == CONN_TRANS || type == ALL_TRANS)
     {
         ejso_itr(p->conn_transs, itr)
         {
             nt_node = ejso_valP(itr);
+            nt_node->reconnected_cb              = cb;
+            nt_node->reconnected_closure         = closure;
             nt_node->t->conn.reconnected_cb      = cb;
             nt_node->t->conn.reconnected_closure = closure;
         }
@@ -1643,16 +1719,21 @@ void        enatp_SetReconnectedCB(enatp p, int type, enats_ReconnectedCB cb, vo
             nt_node->reconnected_closure = closure;
         }
     }
+    enatp_unlock(p);
 }
 void        enatp_SetErrHandler(enatp p, int type, enats_ErrHandler cb, void* closure)
 {
     is0_ret(p, );
     enats_ht_node nt_node; ejson itr;
+
+    enatp_lock(p);
     if(type == CONN_TRANS || type == ALL_TRANS)
     {
         ejso_itr(p->conn_transs, itr)
         {
             nt_node = ejso_valP(itr);
+            nt_node->err_handler         = cb;
+            nt_node->err_closure         = closure;
             nt_node->t->conn.err_handler = cb;
             nt_node->t->conn.err_closure = closure;
         }
@@ -1666,6 +1747,7 @@ void        enatp_SetErrHandler(enatp p, int type, enats_ErrHandler cb, void* cl
             nt_node->err_closure = closure;
         }
     }
+    enatp_unlock(p);
 }
 
 void        enatp_SetConnectedCBByName(enatp p, constr name, enats_ConnectedCB cb, void* closure)
@@ -1683,11 +1765,9 @@ inline void enatp_SetClosedCBByName(enatp p, constr name, enats_ClosedCB cb, voi
     is0_ret(n, );
 
     enats_SetClosedCB(n->t, cb, closure);
-    if(!n->t)
-    {
-        n->closed_cb      = cb;
-        n->closed_closure = closure;
-    }
+
+    n->closed_cb      = cb;
+    n->closed_closure = closure;
 }
 
 inline void enatp_SetDisconnectedCBByName(enatp p, constr name, enats_DisconnectedCB cb, void* closure)
@@ -1696,11 +1776,9 @@ inline void enatp_SetDisconnectedCBByName(enatp p, constr name, enats_Disconnect
     is0_ret(n, );
 
     enats_SetDisconnectedCB(n->t, cb, closure);
-    if(!n->t)
-    {
-        n->disconnected_cb      = cb;
-        n->disconnected_closure = closure;
-    }
+
+    n->disconnected_cb      = cb;
+    n->disconnected_closure = closure;
 }
 
 inline void enatp_SetReconnectedCBByName(enatp p, constr name, enats_ReconnectedCB cb, void* closure)
@@ -1709,11 +1787,9 @@ inline void enatp_SetReconnectedCBByName(enatp p, constr name, enats_Reconnected
     is0_ret(n, );
 
     enats_SetReconnectedCB(n->t, cb, closure);
-    if(!n->t)
-    {
-        n->reconnected_cb      = cb;
-        n->reconnected_closure = closure;
-    }
+
+    n->reconnected_cb      = cb;
+    n->reconnected_closure = closure;
 }
 
 inline void enatp_SetErrHandlerByName(enatp p, constr name, enats_ErrHandler cb, void* closure)
@@ -1722,11 +1798,9 @@ inline void enatp_SetErrHandlerByName(enatp p, constr name, enats_ErrHandler cb,
     is0_ret(n, );
 
     enats_SetErrHandler(n->t, cb, closure);
-    if(!n->t)
-    {
-        n->err_handler = cb;
-        n->err_closure = closure;
-    }
+
+    n->err_handler = cb;
+    n->err_closure = closure;
 }
 
 inline natsStatus  enatp_Pub(enatp p, constr subj, conptr data, int dataLen)
@@ -2126,6 +2200,7 @@ static void __on_closed(natsConnection* nc __unused, void* trans)
 
             natsConnection* nc = t->conn.nc; t->conn.nc = 0;
             natsConnection_Destroy(nc);
+            __conn_dec();
 
             _enatp_ExeLazyThread(p);
         }
@@ -2141,32 +2216,26 @@ static void __on_closed(natsConnection* nc __unused, void* trans)
 
     if(p && p->quit)
     {
-        enatp_lock(p);
-        if(p->conn_num > 0) // p->conn_num will be set only when call enatp_destroy()
+        nTPool_lock(p);
+        if(p->conn_num > 0)     // p->conn_num will be set only when call nTPool_destroy()
             p->conn_num --;
-
-        if(p->conn_num == 0 && p->wait_thread)
-            quit_wait_thread = 1;
 
         if(p->conn_num == 0)
         {
-            pool_count--;
-            if (conn_count <= 0 && pool_count <= 0) {
-                // fprintf(stderr, "exe nats_Close()\n");
-                nats_Close();
-                conn_count = 0;
-                pool_count = 0;
-            }
+            __pool_dec();
+
+            if(p->wait_thread)  quit_wait_thread = 1;
+            else                free(p);
         }
-
-        enatp_unlock(p);
-
-        if(!p->wait_thread && p->conn_num == 0)
-            free(p);
+        else
+            nTPool_unlock(p);
     }
 
     if(quit_wait_thread)
+    {
+        nTPool_unlock(p);
         __mutex_ulck(p->wait_mutex);
+    }
 }
 
 static void __on_disconnected(natsConnection* nc __unused, void* trans)
@@ -2175,7 +2244,7 @@ static void __on_disconnected(natsConnection* nc __unused, void* trans)
 
     if(!t->conn.urls)
     {
-        strncpy(t->conn.conn_urls, nc->opts->url, 512);
+        strncpy(t->conn.conn_urls, nc->url->fullUrl, 512);
         t->conn.urls = t->conn.conn_urls;
     }
 

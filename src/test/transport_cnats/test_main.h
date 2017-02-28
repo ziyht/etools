@@ -21,7 +21,7 @@ void nTrans_pub_test();
 void nTrans_multi_conn_test();
 
 void nTpool_nrom_test();
-void natsTrans_pool_lazytest();
+void nTpool_lazy_test();
 
 void server_max_collect_test();
 
@@ -78,23 +78,11 @@ onMsg2(nTrans t __unused, natsSubscription *sub __unused, natsMsg *msg, void *cl
     natsMsg_Destroy(msg);
 }
 
-static void ClosedCB      (nTrans t, void* closure __unused)
-{
-    constr name = nTrans_GetName(t);
-    fprintf(stderr, "%s%s%sconnection closed\n", name ? name : "", name ? ":" : "", nTrans_GetUrls(t));
-}
+void ClosedCB      (nTrans t, void* closure __unused);
 
-static void DisconnectedCB(nTrans t, void* closure __unused)
-{
-    constr name = nTrans_GetName(t);
-    fprintf(stderr, "%s%sconnection disconnected\n", name ? name : "", name ? ":" : "");
-}
+void DisconnectedCB(nTrans t, void* closure __unused);
 
-static void ReconnectedCB (nTrans t, void* closure __unused)
-{
-    constr name = nTrans_GetName(t);
-    fprintf(stderr, "%s%sconnection reconnected\n", name ? name : "", name ? ":" : "");
-}
+void ReconnectedCB (nTrans t, void* closure __unused);
 
 
 #endif

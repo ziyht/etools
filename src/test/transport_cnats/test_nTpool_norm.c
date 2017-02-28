@@ -19,7 +19,9 @@ void nTpool_nrom_test()
 
     nTrans_opts_t opts[] = {{""
                              "nats://172.18.4.205:4242,"
-                             "nats://172.18.1.181:4242", "", "", "", 0, 0, 0}};
+                             "nats://0.0.0.0:4242"
+                             ",nats://0.0.0.0:4243"
+                             "", "", "", "", 0, 0, 0}};
 
     start = nats_Now();
     char buf[100];
@@ -33,9 +35,8 @@ void nTpool_nrom_test()
         return;
     }
 
-
-    t = nTPool_Add(p, "trans1", "nats://172.18.1.181:4242");
     nTPool_AddOpts(p, opts);
+    t = nTPool_Add(p, "trans1", "nats://172.18.1.181:4242");
 
     if(!t)
         fprintf(stderr, "nTrans add err: %s\n", nTPool_LastErr(p));
@@ -44,18 +45,7 @@ void nTpool_nrom_test()
 
 
 
-    nTPool_Sub(p, "trans2", "natsTrans_pool_test", onMsg3, 0/*"recive from [2]"*/);
-    nTPool_SetClosedCBByName(p, "trans2", ClosedCB, 0);
-    nTPool_SetDisconnectedCBByName(p, "trans2", DisconnectedCB, 0);
-    nTPool_SetReconnectedCBByName(p, "trans2", ReconnectedCB, 0);
-
-    t =  nTPool_Get(p, "trans1");
-
-    //nTPool_NewSubscriber(p, "trans1", "natsTrans_pool_test", onMsg3, 0/*"recive from [1]"*/);
-    nTPool_SetClosedCBByName(p, "trans1", ClosedCB, 0);
-    nTPool_SetDisconnectedCBByName(p, "trans1", DisconnectedCB, 0);
-    nTPool_SetReconnectedCBByName(p, "trans1", ReconnectedCB, 0);
-
+    nTPool_Sub(p, "nTrans2", "natsTrans_pool_test", onMsg3, 0/*"recive from [2]"*/);
 
     nTPool_SetClosedCBByName(p, "nTrans0", ClosedCB, 0);
     nTPool_SetDisconnectedCBByName(p, "nTrans0", DisconnectedCB, 0);
@@ -63,6 +53,9 @@ void nTpool_nrom_test()
     nTPool_SetClosedCBByName(p, "nTrans1", ClosedCB, 0);
     nTPool_SetDisconnectedCBByName(p, "nTrans1", DisconnectedCB, 0);
     nTPool_SetReconnectedCBByName(p, "nTrans1", ReconnectedCB, 0);
+    nTPool_SetClosedCBByName(p, "nTrans2", ClosedCB, 0);
+    nTPool_SetDisconnectedCBByName(p, "nTrans2", DisconnectedCB, 0);
+    nTPool_SetReconnectedCBByName(p, "nTrans2", ReconnectedCB, 0);
 
     for(i = 0; i < 100000; i++)
     {
@@ -83,7 +76,9 @@ void nTpool_nrom_test()
 
     sleep(1);
     fprintf(stderr, "published:%d (over)\n%s\n", i, nTPool_GetStatsStr(p, STATS_ALL|STATS_SINGEL, "test"));
+
     nTPool_Destroy(&p);
 
     sleep(2);
+    //getchar();
 }

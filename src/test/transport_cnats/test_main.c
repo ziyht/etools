@@ -13,10 +13,9 @@ void nTrans_test()
 {
     // nTrans_pub_test();
     // nTrans_multi_conn_test();
-    // nTpool_nrom_test();
-    natsTrans_pool_lazytest();
 
-
+    nTpool_nrom_test();
+    // nTpool_lazy_test();
 
     // server_max_collect_test();
 }
@@ -36,4 +35,26 @@ int main(int argc, char* argv[])
     nTrans_test();
 
     return 0;
+}
+
+
+
+
+
+void ClosedCB      (nTrans t, void* closure __unused)
+{
+    printf("%s:%sconnection closed\n", nTrans_GetName(t), nTrans_GetUrls(t));
+    fflush(stdout);
+}
+
+void DisconnectedCB(nTrans t, void* closure __unused)
+{
+    printf("%s:%sconnection disconnected\n", nTrans_GetName(t), nTrans_GetUrls(t));
+    fflush(stdout);
+}
+
+void ReconnectedCB (nTrans t, void* closure __unused)
+{
+    printf("%s:%sconnection reconnected\n", nTrans_GetName(t), nTrans_GetUrls(t));
+    fflush(stdout);
 }

@@ -147,8 +147,8 @@ natsStatus  enats_pubReq(enats trans, constr subj, conptr data, int dataLen, con
 ///     2. Messages will be delivered to the associated natsTrans_MsgHandler
 ///        and using eMsg_free() to free the msg after using it
 ///
-natsStatus  enats_Sub(enats trans, constr subj, enats_msgHandler onMsg, void* closure);
-natsStatus  enats_unSub(enats trans, constr subj);
+natsStatus  enats_sub(enats trans, constr subj, enats_msgHandler onMsg, void* closure);
+natsStatus  enats_unsub(enats trans, constr subj);
 
 /// -- request msg, thread safe
 //  return
@@ -189,9 +189,9 @@ constr       enats_lastErr(enats trans);
 
 
 enatp enatp_New();
-void   enatp_Destroy(enatp_p _p);
+void  enatp_Destroy(enatp_p _p);
 
-void   enatp_Join(enatp p);   // blocking until p is been destoried
+void  enatp_Join(enatp p);   // blocking until p is been destoried
 
 /// -- add a connection in enatp
 //           tag    user     pass         server       port
