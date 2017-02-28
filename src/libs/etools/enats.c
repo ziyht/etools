@@ -135,66 +135,107 @@ static inline void __cnt_poolDec()
     __mutex_ulck(__cnt_mut);
 }
 
-/// ---------------------------- natsTrans definition ---------------------
-typedef struct enats_Connector_s{
-    natsConnection* nc;             // connect handler of cnats
-    ntStatistics    stats;          // statistics
-    natsStatus      s;              // last status
-    char            stats_buf[512]; // buf to store statistic info, used by enats_GetStatsStr()
-    char            conn_urls[512]; // buf to store connected urls, used by enats_GetConnUrls()
-    char*           urls;
+/// ---------------------------- enats  ---------------------
+typedef struct __conn_s{
+    natsConnection*     nc;             // connect handler of cnats
+    natsStatus          s;              // last status
+    estr                stats;          // buf to store statistic info, used by enats_GetStatsStr()
+    estr                connurls;       // buf to store connected urls, used by enats_GetConnUrls()
+    estr                urls;
 
-    enats_closedCB       closed_cb;
-    void*                closed_closure;
-    enats_disconnectedCB disconnected_cb;
-    void*                disconnected_closure;
-    enats_reconnectedCB  reconnected_cb;
-    void*                reconnected_closure;
-    enats_errHandler     err_handler;
-    void*                err_closure;
-}ntConnector_t, * ntConnector;
+    enats_evtHandler    closed_cb;
+    void*               closed_closure;
+    enats_evtHandler    disconnected_cb;
+    void*               disconnected_closure;
+    enats_evtHandler    reconnected_cb;
+    void*               reconnected_closure;
+    enats_evtHandler    err_handler;
+    void*               err_closure;
+}__conn_t, * __conn;
 
-typedef struct enats_Publisher_s{
-    bool            stop;           // stop
-    bool            quit;           // quit thread if quit == 1
-    bool            joined;         //
-    thread_t        thread;         // thread handler
-    mutex_t         mutex;
-}ntPublisher_t, * ntPublisher;
+typedef struct __subs_s{
+    natsSubscription*  sub;
 
-typedef struct enats_Subscriber_s{
-    char                subj[256];
-    natsSubscription*   sub;
-
-    enats              t;             // father natsTrans
-    enats_msgHandler   msg_cb;
+    enats              t;             // father enats
+    enats_msgHandler   msg_handler;
     void*              msg_closure;
-}ntSubscriber_t, * ntSubscriber;
+}__subs_t, * __subs;
 
 typedef struct enats_ht_s* enats_ht_node;
 typedef struct enats_s{
-    ntConnector_t   conn;       // only one connector in natsTrans
-    ntPublisher_t   pub;        // only one publisher in natsTrans
-    ejson           sub_dic;    // subscriber in hash table
+    // -- connection
+    __conn_t        conn;           // only one connector in natsTrans
+
+    // -- subscriber
+    ejson           sub_dic;        // subscriber in hash table
     mutex_t         sub_mu;
 
-    enats_ht_node   self_node;  // point to the enats_ht_node which have this enats in a enatp, or NULL if it is not a enatp enats
+    // -- for quit control
+    __thread_t      wait_thread;    // only for wait when needed
+    __mutex_t		wait_mutex;
+    int             quit;
+
+    enats_ht_node   self_node;      // point to the enats_ht_node which have this enats in a enatp, or NULL if it is not a enatp enats
     bool            quit;
-    char*           last_err;
-    char            last_err_buf[256];
+    estr            err;
 }enats_t;
+
+/// ------------------ enats Pool ---------------------------
+typedef struct enatp_node_s{
+    char                name[64];
+    enats               t;
+    enatp               p;                     // point to the enatp which have this node
+
+    natsOptions*        opts;                  // back up of opts in t
+    enats_evtHandler    connected_cb;
+    void*               connected_closure;
+
+    enats_evtHandler    closed_cb;
+    void*               closed_closure;
+    enats_evtHandler    disconnected_cb;
+    void*               disconnected_closure;
+    enats_evtHandler    reconnected_cb;
+    void*               reconnected_closure;
+    enats_evtHandler    err_handler;
+    void*               err_closure;
+}enatp_node_t, * enatp_node;
+
+typedef struct __attribute__ ((__packed__)) enatp_s{
+    natsStatus      s;                  // last status
+
+    // -- for enats manager
+    ejson           conn_transs;        // transs connected to server
+    ejson           poll_transs;        // transs in polling queue, sure connected
+    ejson           lazy_transs;        // transs have not connected to server yet
+
+    ejson           polling_itr;        // point to the ejson obj in poll_transs who is polling now
+    enats           polling_now;        // the enats in polling_itr
+
+    ejson           urls;               // to store all the server urls(with user and pass) that connected or will connected to
+
+    __thread_t      lazy_thread;
+    __mutex_t		mutex;
+
+    // -- for quit control
+    __thread_t      wait_thread;        // only for wait when needed
+    __mutex_t		wait_mutex;
+    int             conn_num;           // the num of connected trans
+    int             quit;
+
+    // -- other
+    estr            err;                // last err
+    estr            stats;              // to store statistic info
+    estr            connurls;
+}enatp_t;
 
 static constr last_err;
 static char   last_err_buf[1024] __unused;
 
 // -- helpler
 typedef natsOptions* natsOptions_p;
-static enats       __enats_ConnectTo(natsOptions_p opts);
-static constr      __enats_MakeUrls(constr user, constr pass, constr url, int *c);
+static enats       __enats_connectTo(natsOptions_p opts);
+static constr      __enats_makeUrls(constr user, constr pass, constr url, int *c);
 static natsStatus  __processUrlString(natsOptions *opts, constr urls);   // parse cnats url, copy from cnats src
-
-// -- micros
-#define _enats_quitPubThread(t)     __mutex_ulck((t)->pub.mutex)
 
 // -- callbacks for events
 static void __on_closed      (natsConnection* nc, void* trans);         // handler connection closed
@@ -202,20 +243,53 @@ static void __on_disconnected(natsConnection* nc, void* trans);         // handl
 static void __on_reconnected (natsConnection* nc, void* trans);         // handler connection reconnected
 static void __on_erroccurred (natsConnection* nc, natsSubscription* subscription, natsStatus err, void* closure);      // errors encountered while processing inbound messages
 
-// -- callbacks for pubulisher
-static void* __join(void* trans_);   // a thread
-
 // -- callbacks for subscriber
 static void __on_msg(natsConnection* nc, natsSubscription* sub, natsMsg* msg, void *trans);
 
+static void* __enats_waitThread(void* trans_);
 
+// -- static err handle for enats
 #define G ((enats)0)     // globel err
-#define errset(h, err) do{if(h) h->last_err = err;else last_err = err;}while(0)
-#define errfmt(h, ...) do{if(h) {h->last_err = h->last_err_buf; sprintf(h->last_err, ##__VA_ARGS__);}else{last_err = last_err_buf; sprintf(h->last_err_buf, ##__VA_ARGS__);}}while(0)
+#define errset(h, str) do{if(h) {h->err = estr_wrs(h->err, str);}else{last_err = str;}}while(0)
+#define errfmt(h, ...) do{if(h) {h->err = estr_wrp(h->err, ##__VA_ARGS__);}else{last_err = last_err_buf; sprintf(last_err_buf, ##__VA_ARGS__);}}while(0)
 
+
+static inline enats __enats_connectTo(natsOptions_p opts)
+{
+    natsConnection* nc   = NULL;
+    natsStatus      s    = NATS_OK;
+    enats           t    = calloc(1, sizeof(*t));
+
+    is0_exeret(t, errfmt(G, "__enats_connectTo: alloc for new enats faild: %s", strerror(errno)), 0);
+
+    natsOptions_SetClosedCB      (opts, __on_closed,       t);
+    natsOptions_SetDisconnectedCB(opts, __on_disconnected, t);
+    natsOptions_SetReconnectedCB (opts, __on_reconnected,  t);
+    natsOptions_SetErrorHandler  (opts, __on_erroccurred,  t);
+    natsOptions_SetMaxReconnect  (opts, -1                   );
+    natsOptions_SetNoRandomize   (opts, true                 );
+
+    s = natsConnection_Connect(&nc, opts);
+    is0_exeret(s == NATS_OK, errfmt(G, "__enats_connectTo: natsConnection_Connect() faild: %s", nats_GetLastError(&s)); free(t);, 0);
+
+
+    // -- init connector
+    t->conn.nc    = nc;
+    t->conn.s     = s;
+
+    // -- init subscribe
+    mutex_init(t->sub_mu);
+    t->sub_dic = ejso_new(_OBJ_);
+
+    // -- others
+    __cnt_connInc();
+    return t;
+}
+
+/// ---------------------------- enats  ---------------------
 enats enats_new(constr urls)
 {
-    is1_exeret(!urls || !*urls, errset(G, "urls is null or empty"), NULL);
+    is1_exeret(!urls || !*urls, errset(G, "enats_new: urls is null or empty");, NULL);
 
     natsOptions*    opts = NULL;
     natsStatus      s    = NATS_OK;
@@ -230,7 +304,7 @@ enats enats_new(constr urls)
 
     if(s == NATS_OK)
     {
-        _out = __enats_ConnectTo(opts);
+        _out = __enats_connectTo(opts);
         natsOptions_Destroy(opts);
     }
 
@@ -239,8 +313,8 @@ enats enats_new(constr urls)
 
 enats enats_new2(constr user, constr pass, constr url)
 {
-    constr urls = __enats_MakeUrls(user, pass, url, 0);
-    enats _out = enats_New(urls);
+    constr urls = __enats_makeUrls(user, pass, url, 0);
+    enats _out  = enats_new(urls);
     free((char*)urls);
 
     return _out;
@@ -253,8 +327,8 @@ enats enats_new3(constr user, constr pass, constr server, int port)
     char url[64];
     sprintf(url, "%s:%d", server, port);
 
-    constr urls = __enats_MakeUrls(user, pass, url, 0);
-    enats _out = enats_New(urls);
+    constr urls = __enats_makeUrls(user, pass, url, 0);
+    enats _out = enats_new(urls);
     free((char*)urls);
 
     return _out;
@@ -316,46 +390,12 @@ enats enats_new4(enats_opts _opts)
     return _out;
 }
 
-static inline enats __enats_ConnectTo(natsOptions_p opts)
+static void* __enats_waitThread(void* trans_)
 {
-    natsConnection* nc   = NULL;
-    natsStatus      s    = NATS_OK;
-    enats          _out = calloc(1, sizeof(*_out));
+    enats t = (enats)trans_;
 
-    if(!_out)
-        goto err_return;
-
-    natsOptions_SetClosedCB      (opts, __on_closed,       _out);
-    natsOptions_SetDisconnectedCB(opts, __on_disconnected, _out);
-    natsOptions_SetReconnectedCB (opts, __on_reconnected,  _out);
-    natsOptions_SetErrorHandler  (opts, __on_reconnected,  _out);
-    natsOptions_SetMaxReconnect  (opts, -1                     );
-    natsOptions_SetNoRandomize   (opts, true                   );
-
-    s = natsConnection_Connect(&nc, opts);
-
-    // -- init
-    if(s == NATS_OK)
-    {
-        // -- init connector
-        _out->conn.nc    = nc;
-        _out->conn.s     = s;
-
-        // -- init subscribe
-        mutex_init(_out->sub_mu);
-        _out->sub_dic = ejso_new(_OBJ_);
-
-        // others
-        __conn_inc();
-        return _out;
-    }
-
-err_return:
-    free(_out);
-
-    last_err = (s == NATS_OK) ? strerror(errno)
-                              : nats_GetLastError(&s);
-    return NULL;
+    __mutex_lock(pub->mutex);
+    return 0;
 }
 
 void enats_join(enats trans)
@@ -366,7 +406,7 @@ void enats_join(enats trans)
     if(!trans->quit && !trans->pub.thread)
     {
         __mutex_lock(trans->pub.mutex);
-        is1_exeret(__thread_create(trans->pub.thread, __natsTrans_PubThreadCB, trans),
+        is1_exeret(__thread_create(trans->pub.thread, __enats_waitThread, trans),
                    errfmt(G, "create wait thread for nTPool faild: %s", strerror(errno)),
         );
 
@@ -407,10 +447,10 @@ void enats_destroy(enats_p _trans)
     // free(*_trans);       // free in CloseCB
     *_trans = NULL;
 
-    __conn_dec();
+    __cnt_connDec();
 }
 
-inline constr enats_GetConnUrls(enats trans)
+inline constr enats_getConnUrls(enats trans)
 {
     is0_ret(trans, NULL);
 
@@ -420,7 +460,7 @@ inline constr enats_GetConnUrls(enats trans)
     return NULL;
 }
 
-constr      enats_GetUrls(enats trans)
+inline constr enats_getUrls(enats trans)
 {
     is0_ret(trans, NULL);
 
@@ -433,35 +473,35 @@ constr      enats_GetUrls(enats trans)
     return trans->conn.urls;
 }
 
-inline constr enats_GetName(enats trans)
+inline constr enats_getName(enats trans)
 {
     is0_ret(trans, NULL);
 
     return trans->self_node ? trans->self_node->name : NULL;
 }
 
-inline enatp enats_GetPool(enats trans)
+inline enatp enats_getPool(enats trans)
 {
     is0_ret(trans, NULL);
 
     return trans->self_node ? trans->self_node->p : NULL;
 }
 
-inline void enats_SetClosedCB(enats trans, enats_ClosedCB cb, void* closure)
+inline void enats_setClosedCB(enats trans, enats_closedCB cb, void* closure)
 {
     is0_ret(trans, );
 
     trans->conn.closed_cb       = cb;
     trans->conn.closed_closure  = closure;
 }
-inline void enats_SetDisconnectedCB(enats trans, enats_DisconnectedCB cb, void* closure)
+inline void enats_setDisconnectedCB(enats trans, enats_disconnectedCB cb, void* closure)
 {
     is0_ret(trans, );
 
     trans->conn.disconnected_cb       = cb;
     trans->conn.disconnected_closure  = closure;
 }
-inline void enats_SetReconnectedCB(enats trans, enats_ReconnectedCB cb, void* closure)
+inline void enats_setReconnectedCB(enats trans, enats_reconnectedCB cb, void* closure)
 {
     is0_ret(trans, );
 
@@ -469,7 +509,7 @@ inline void enats_SetReconnectedCB(enats trans, enats_ReconnectedCB cb, void* cl
     trans->conn.reconnected_closure  = closure;
 }
 
-inline void enats_SetErrHandler(enats trans, enats_ErrHandler cb, void* closure)
+inline void enats_setErrHandler(enats trans, enats_errHandler cb, void* closure)
 {
     is0_ret(trans, );
 
@@ -477,14 +517,14 @@ inline void enats_SetErrHandler(enats trans, enats_ErrHandler cb, void* closure)
     trans->conn.err_closure = closure;
 }
 
-inline natsStatus enats_Pub(enats trans, constr subj, conptr data, int data_len)
+natsStatus enats_pub(enats trans, constr subj, conptr data, int data_len)
 {
     is0_exeret(trans, last_err = "invalid enats (nullptr)", NATS_ERR);
     trans->conn.s = natsConnection_Publish(trans->conn.nc, subj, data, data_len);
     return trans->conn.s;
 }
 
-natsStatus  enats_PubReq(enats trans, constr subj, conptr data, int dataLen, constr reply)
+natsStatus  enats_pubReq(enats trans, constr subj, conptr data, int dataLen, constr reply)
 {
     is0_exeret(trans, last_err = "invalid enats (nullptr)", NATS_ERR);
 
@@ -525,7 +565,7 @@ natsStatus  enats_Req(enats trans, constr subj, conptr data, int dataLen, constr
     return trans->conn.s;
 }
 
-natsStatus  enats_Sub(enats trans, constr subj, enats_MsgHandler onMsg, void* closure)
+natsStatus  enats_Sub(enats trans, constr subj, enats_msgHandler onMsg, void* closure)
 {
     is0_exeret(trans, errset(G, "invalid enats (nullptr)"), NATS_ERR);
     is0_exeret(onMsg, errfmt(trans, "null callbacks for subj %s", subj), NATS_ERR);
@@ -542,7 +582,7 @@ natsStatus  enats_Sub(enats trans, constr subj, enats_MsgHandler onMsg, void* cl
     ntSub->t           = trans;
     ntSub->msg_handler = onMsg;
     ntSub->msg_closure = closure;
-    trans->conn.s = natsConnection_Subscribe(&ntSub->sub, trans->conn.nc, subj, __natsTrans_MsgHandler, ntSub);
+    trans->conn.s = natsConnection_Subscribe(&ntSub->sub, trans->conn.nc, subj, __on_msg, ntSub);
 
     if(trans->conn.s == NATS_OK)
         trans->conn.s = natsSubscription_SetPendingLimits(ntSub->sub, -1, -1);
@@ -587,7 +627,7 @@ natsStatus  enats_unSub(enats trans, constr subj)
     return trans->conn.s;
 }
 
-inline ntStatistics enats_GetStats(enats trans, constr subj)
+inline ntStatistics enats_stats(enats trans, constr subj)
 {
     is0_exeret(trans, errset(G, "invalid enats (nullptr)");, ZERO_STATS);
 
@@ -624,33 +664,30 @@ inline ntStatistics enats_GetStats(enats trans, constr subj)
     return trans->conn.stats;
 }
 
-inline constr enats_GetStatsStr(enats trans, int mode, constr subj)
+inline constr enats_statsS(enats trans, int mode, constr subj)
 {
     is0_exeret(trans, last_err = "invalid enats (nullptr)", "");
 
-    enats_GetStats(trans, subj);
+    enats_stats(trans, subj);
 
     if (trans->conn.s == NATS_OK)
     {
         char*           buf   = trans->conn.stats_buf;
         ntStatistics*   stats =&trans->conn.stats;
         int len = 0;
-        if (mode & STATS_IN)
-        {
+
             len += snprintf(buf + len, 1024 - len, "In Msgs: %9" PRIu64 " - "\
                    "In Bytes: %9" PRIu64 " - ", stats->inMsgs, stats->inBytes);
-        }
-        if (mode & STATS_OUT)
-        {
+
+
             len += snprintf(buf + len, 1024 - len, "Out Msgs: %9" PRIu64 " - "\
                    "Out Bytes: %9" PRIu64 " - ", stats->outMsgs, stats->outBytes);
-        }
-        if (mode & STATS_COUNT)
-        {
+
+
             len += snprintf(buf + len, 1024 - len, "Delivered: %9" PRId64 " - ", stats->deliveredMsgs);
             len += snprintf(buf + len, 1024 - len, "Pending: %5d - ", stats->pendingMsgs);
             len += snprintf(buf + len, 1024 - len, "Dropped: %5" PRId64 " - ", stats->droppedMsgs);
-        }
+
         len += snprintf(buf + len, 1024 - len, "Reconnected: %3" PRIu64 "", stats->reconnects);
     }
 
@@ -668,21 +705,14 @@ static void _enatp_ExeLazyThread(enatp p);
 
 
 
-static void* __natsTrans_PubThreadCB(void* trans_)
-{
-    enats t = (enats)trans_;
-
-    ntPublisher  pub = &t->pub;
-    __mutex_lock(pub->mutex);
-    return 0;
-}
 
 
-static inline void __on_msg(natsConnection *nc __unused, natsSubscription *sub, natsMsg *msg, void *subscriber)
+
+static inline void __on_msg(natsConnection* nc __unused, natsSubscription* sub, natsMsg* msg, void *subscriber)
 {
     ntSubscriber s = (ntSubscriber)subscriber;
 
-    s->msg_handler(s->t, sub, msg, s->msg_closure);
+    s->msg_handler(s->t, sub, (eMsg)msg, s->msg_closure);
 }
 
 #define USERPASS_ERR    0
@@ -812,12 +842,12 @@ static inline natsStatus __processUrlString(natsOptions *opts, constr urls)
 
 
 /// ------------------ natsTrans Pool ---------------------------
-typedef struct enats_ht_s{
-    char            name[64];
-    enats          t;
-    enatp          p;          // point to the enatp which have this node
+typedef struct enatp_node_s{
+    char                 name[64];
+    enats                t;
+    enatp                p;                     // point to the enatp which have this node
 
-    natsOptions*         opts;                 // used by lazy mode
+    natsOptions*         opts;                  // back up of opts in t
     enats_connectedCB    connected_cb;
     void*                connected_closure;
 
@@ -829,32 +859,35 @@ typedef struct enats_ht_s{
     void*                reconnected_closure;
     enats_errHandler     err_handler;
     void*                err_closure;
-}enats_ht_t, * enats_ht, enats_ht_node_t;
+}enatp_node_t, * enatp_node;
 
-typedef struct enatp_s{
-    ejson       conn_transs;    // transs connected to server
-    ejson       poll_transs;    // transs in polling queue, sure connected
-    ejson       lazy_transs;    // transs have not connected to server yet
+typedef struct __attribute__ ((__packed__)) enatp_s{
 
-    ejson       polling_itr;
-    enats       polling_now;
+    // -- for enats manager
+    ejson       conn_transs;            // transs connected to server
+    ejson       poll_transs;            // transs in polling queue, sure connected
+    ejson       lazy_transs;            // transs have not connected to server yet
 
-    ejson       urls;           // to store all the server urls(with user and pass) that connected or will connected to
+    ejson       polling_itr;            // point to the ejson obj in poll_transs who is polling now
+    enats       polling_now;            // the enats in polling_itr
 
-    natsStatus      s;              // last status
-    ntStatistics    stats;          // statistics for all transs
+    ejson       urls;                   // to store all the server urls(with user and pass) that connected or will connected to
 
-    __thread_t      wait_thread;    // only for wait when needed
+    __mutex_t		mutex;
+
+    natsStatus      s;                  // last status
+
+    // -- for quit control
+    __thread_t      wait_thread;        // only for wait when needed
     __mutex_t		wait_mutex;
     __thread_t      lazy_thread;
-    __mutex_t		mutex;
-    int             conn_num;       // the num of connected trans
+    int             conn_num;           // the num of connected trans
     int             quit;
 
-    char*           last_err;
-    char            stats_buf[768]; // buf to store statistic info, if can not contained, it will use the next 1024 + 256
-    char            conn_urls[1024];
-    char            last_err_buf[256];
+    // -- other
+    estr            err;                // last err
+    estr            stats;              // to store statistic info
+    estr            connurls;
 }enatp_t;
 
 // -- global
@@ -911,7 +944,8 @@ inline enatp enatp_New()
     out->lazy_transs = ejso_new(_OBJ_);
     out->urls        = ejso_new(_OBJ_);
 
-    pool_count++;
+    __cnt_poolInc();
+
     return out;
 }
 
@@ -958,7 +992,7 @@ void enatp_Destroy(enatp_p _p)
     ejso_itr(ebackup, itr)
     {
         nt_node = ejso_valP(itr);
-        enats_Destroy(&nt_node->t);    // release trans in CloseCB() of enats
+        enats_destroy(&nt_node->t);    // release trans in CloseCB() of enats
         natsOptions_Destroy(nt_node->opts);
     }
 
@@ -974,7 +1008,7 @@ void enatp_Destroy(enatp_p _p)
         if(p->wait_thread)  __mutex_ulck(p->wait_mutex);    // p will be free in enatp_Join()
         else                free(p);
 
-        __pool_dec();
+        __cnt_poolDec();
     }
 }
 
@@ -1083,7 +1117,7 @@ static void _enatp_lazy_thread_reSub(enats trans){
     {
         ntSub = ejso_valR(itr);
 
-        trans->conn.s = natsConnection_Subscribe(&ntSub->sub, trans->conn.nc, ntSub->subj, __natsTrans_MsgHandler, ntSub);
+        trans->conn.s = natsConnection_Subscribe(&ntSub->sub, trans->conn.nc, ntSub->subj, __on_msg, ntSub);
 
         if(trans->conn.s == NATS_OK)
             trans->conn.s = natsSubscription_SetPendingLimits(ntSub->sub, -1, -1);
@@ -1464,7 +1498,7 @@ constr enatp_GetConnUrls(enatp p)
     {
         nt_node = ejso_valP(itr);
 
-        enats_GetConnUrls(nt_node->t);
+        enats_connurls(nt_node->t);
         if(nt_node->t->conn.s == NATS_OK)
         {
             len += snprintf(p->conn_urls + len, 1024 - len, "[%s]%s", nt_node->name, nt_node->t->conn.conn_urls);

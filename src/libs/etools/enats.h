@@ -14,14 +14,14 @@
 #include "etype.h"
 
 typedef struct ntStatistics_s{
-    // for conn
+    // -- for conn
     uint64_t    inMsgs;
     uint64_t    outMsgs;
     uint64_t    inBytes;
     uint64_t    outBytes;
     uint64_t    reconnects;
 
-    // for sub
+    // -- for sub
     int         pendingMsgs;
     int         pendingBytes;
     int         maxPendingMsgs;
@@ -42,31 +42,25 @@ typedef struct enats_opts_s {
 typedef struct eMsg_s
 {
     struct __natsGCItem{
-        void* next;
-        void* freeCb;
+        void* reserved1;
+        void* reserved2;
     }gc;
 
     const char          *subject;
     const char          *reply;
     const char          *data;
     int                 dataLen;
-
-    void* reserved;
 }eMsg_t, * eMsg;
 
-static inline void eMsg_free(eMsg msg){ if(msg->gc.freeCb) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
+static inline void eMsg_free(eMsg msg){ if(msg->gc.reserved2) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
 
 typedef struct enats_s* enats, ** enats_p;
 typedef struct enatp_s* enatp, ** enatp_p;
 
 /// -- callbacks type
-typedef void (*enats_connectedCB)   (enats t, void* closure);
-typedef void (*enats_closedCB)      (enats t, void* closure);
-typedef void (*enats_disconnectedCB)(enats t, void* closure);
-typedef void (*enats_reconnectedCB) (enats t, void* closure);
-typedef void (*enats_errHandler)    (enats t, natsSubscription *subscription, natsStatus err, void* closure);
-
-typedef void (*enats_msgHandler)    (enats t, natsSubscription *sub, eMsg msg, void *closure);
+typedef void (*enats_evtHandler) (enats t, void* closure);
+typedef void (*enats_errHandler) (enats t, natsSubscription *subscription, natsStatus err, void* closure);
+typedef void (*enats_msgHandler) (enats t, natsSubscription *sub, eMsg msg, void *closure);
 
 /// -------------------- enats API -------------------------------
 /// -- make a natsTrans handle connect to the urls
@@ -84,18 +78,18 @@ enats enats_new3(constr user, constr pass, constr server, int port);
 enats enats_new4(enats_opts opts);
 
 /// -- wait here, blocking, it will unlock when you destroy the enats
-void  enats_join(enats trans);
+void  enats_join(enats e);
 
 /// -- Destroy the handle and release resources
-void  enats_destroy(enats_p _trans);
+void  enats_destroy(enats_p _e);
 
 /// -- return the urls that have been connected/reserved by natsTrans
-constr enats_getConnUrls(enats trans);
-constr enats_getUrls(enats trans);
+constr enats_connurls(enats e);
+constr enats_urls(enats e);
 
-/// -- return pool infomation if the trans in a enatp, or return NULL
-constr enats_getName(enats trans);
-enatp  enats_getPool(enats trans);
+/// -- return pool infomation if the enats in a enatp, else return NULL
+constr enats_name(enats e);
+enatp  enats_pool(enats e);
 
 ///
 /// \brief -- set callbacks, those callback will be called when event happen
@@ -109,10 +103,10 @@ enatp  enats_getPool(enats trans);
 ///     and cnats will also try to reconnect the server when disconnected,
 ///     so do not need to stop / start publisher or do reconnect oprts in the callbacks
 ///
-void enats_setClosedCB      (enats trans, enats_closedCB       cb, void* closure);
-void enats_setDisconnectedCB(enats trans, enats_disconnectedCB cb, void* closure);
-void enats_setReconnectedCB (enats trans, enats_reconnectedCB  cb, void* closure);
-void enats_setErrHandler    (enats trans, enats_errHandler     cb, void* closure);
+void enats_setClosedCB      (enats e, enats_evtHandler cb, void* closure);
+void enats_setDisconnectedCB(enats e, enats_evtHandler cb, void* closure);
+void enats_setReconnectedCB (enats e, enats_evtHandler cb, void* closure);
+void enats_setErrHandler    (enats e, enats_errHandler cb, void* closure);
 
 ///
 /// \brief -- publish msg through enats, thread safe
@@ -125,8 +119,8 @@ void enats_setErrHandler    (enats trans, enats_errHandler     cb, void* closure
 /// \return - NAT_OK   if queue ok
 ///         - !=NAT_OK if queue err, use natsTrans_LastErr() to get err info
 ///
-natsStatus  enats_pub   (enats trans, constr subj, conptr data, int dataLen);
-natsStatus  enats_pubReq(enats trans, constr subj, conptr data, int dataLen, constr reply);
+natsStatus  enats_pub (enats e, constr subj, conptr data, int dataLen);
+natsStatus  enats_pubr(enats e, constr subj, conptr data, int dataLen, constr reply);
 
 /// -- create a new subscriber in natsTrans
 //
@@ -147,8 +141,8 @@ natsStatus  enats_pubReq(enats trans, constr subj, conptr data, int dataLen, con
 ///     2. Messages will be delivered to the associated natsTrans_MsgHandler
 ///        and using eMsg_free() to free the msg after using it
 ///
-natsStatus  enats_sub(enats trans, constr subj, enats_msgHandler onMsg, void* closure);
-natsStatus  enats_unsub(enats trans, constr subj);
+natsStatus  enats_sub  (enats e, constr subj, enats_msgHandler onMsg, void* closure);
+natsStatus  enats_unsub(enats e, constr subj);
 
 /// -- request msg, thread safe
 //  return
@@ -158,7 +152,7 @@ natsStatus  enats_unsub(enats trans, constr subj);
 /// \brief enats_req -- request a msg through the trans, it will autolly subscribe the reply before publish the data
 ///                     and autolly unsubscribe it when recieve a msg
 ///
-/// \param trans    : enats transport handle
+/// \param e        : enats transport handle
 /// \param subj     : the subject you want to publish to
 /// \param data     : the data you want to publish
 /// \param dataLen  : the lengh of the publish data
@@ -171,27 +165,28 @@ natsStatus  enats_unsub(enats trans, constr subj);
 /// \note:
 ///     if timeout = 0, this API will wait forever unless recieve a msg
 ///
-natsStatus  enats_req(enats trans, constr subj, conptr data, int dataLen, constr reply, eMsg* replyMsg, int64_t timeout);
+natsStatus  enats_req(enats e, constr subj, conptr data, int dataLen, constr reply, eMsg* replyMsg, int64_t timeout);
 
-/// -- get statistics of natsTrans
-#define STATS_IN        0x1
-#define STATS_OUT       0x2
-#define STATS_COUNT     0x4
-#define STATS_ALL       0x7
-ntStatistics enats_getStats(enats trans, constr subj);
-constr       enats_getStatsStr(enats trans, int mode, constr subj);
+/// \brief -- get statistics of enats
+///
+/// \param trans: enats transport handle
+/// \param subj : the specific subject you want to query
+/// \return
+///
+ntStatistics enats_stats (enats e, constr subj);
+constr       enats_statsS(enats e, int mode, constr subj);
 
 /// -- get the lats err info of natsTrans, trans can be NULL
-constr       enats_lastErr(enats trans);
+constr       enats_err(enats e);
+
 
 /// ---------------------------------------------------------
 /// ---------------- natsTrans Pool API ---------------------
 
+enatp enatp_new();
+void  enatp_destroy(enatp_p _p);
 
-enatp enatp_New();
-void  enatp_Destroy(enatp_p _p);
-
-void  enatp_Join(enatp p);   // blocking until p is been destoried
+void  enatp_join(enatp p);   // blocking until p is been destoried
 
 /// -- add a connection in enatp
 //           tag    user     pass         server       port
@@ -202,7 +197,7 @@ void  enatp_Join(enatp p);   // blocking until p is been destoried
 //    in lazy   mode, the unconnected urls are added to a lazy_loop which try to connect to server autolly every second, always return NATS_OK except for the last condition
 //    in both   mode, if one url in urls is in enatp already, return NATS_ERR
 //
-enats      enatp_Add(enatp p, constr name, constr urls);
+enats       enatp_Add(enatp p, constr name, constr urls);
 natsStatus  enatp_AddLazy(enatp p, constr name, constr urls);
 natsStatus  enatp_AddOpts(enatp p, enats_opts opts);
 natsStatus  enatp_AddOptsLazy(enatp p, enats_opts opts);
@@ -257,14 +252,6 @@ natsStatus  enatp_PollReq(enatp p, constr subj, conptr data, int dataLen, constr
 natsStatus  enatp_Sub(enatp p, constr name, constr subj, enats_MsgHandler onMsg, void* closure);
 natsStatus  enatp_Unsub(enatp p, constr name, constr subj);
 
-/*
-#define STATS_IN        1<<0
-#define STATS_OUT       1<<1
-#define STATS_COUNT     1<<2
-#define STATS_ALL       1<<3 - 1
-*/
-#define STATS_SINGEL    1<<4    // default is off
-#define STATS_SUM_OFF   1<<5    // default is on
 ntStatistics enatp_GetStats(enatp p, constr subj);
 constr       enatp_GetStatsStr(enatp p, int mode, constr subj);
 

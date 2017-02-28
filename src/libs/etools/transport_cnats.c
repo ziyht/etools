@@ -27,7 +27,7 @@ typedef uv_thread_t thread_t;
 #include "ejson.h"
 
 #undef  VERSION
-#define VERSION     1.1.4       // bugfix for lazy thread operation
+#define VERSION     1.1.5       // fix bug of errfmt in nTrans
 
 #define __DEBUG_ 0
 
@@ -308,7 +308,7 @@ static void* _nTPool_lazy_thread(void* p);
 
 #define G ((nTrans)0)     // globel err
 #define errset(h, err) do{if(h) h->last_err = err;else last_err = err;}while(0)
-#define errfmt(h, ...) do{if(h) {h->last_err = h->last_err_buf; sprintf(h->last_err, ##__VA_ARGS__);}else{last_err = last_err_buf; sprintf(h->last_err_buf, ##__VA_ARGS__);}}while(0)
+#define errfmt(h, ...) do{if(h) {h->last_err = h->last_err_buf; sprintf(h->last_err, ##__VA_ARGS__);}else{last_err = last_err_buf; sprintf(last_err_buf, ##__VA_ARGS__);}}while(0)
 
 nTrans nTrans_New(constr urls)
 {

@@ -41,7 +41,7 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr  TEST_ESTR_FS)
 add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
 add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_etp   main.c ${ETP_FS})
-#add_executable(test_enats main.c ${ENATS_FS})
+add_executable(test_enats main.c ${ENATS_FS})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})
