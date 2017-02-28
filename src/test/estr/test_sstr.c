@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "test_sstr.h"
+#include "test_main.h"
 
 void sstr_basic_test()
 {

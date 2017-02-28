@@ -8,14 +8,16 @@
 
 #include "estr.h"
 
-#define exe_ret(expr, ret) {expr;}     return ret
-#define is0_ret(cond, ret) if(!(cond)) return ret
-#define is1_ret(cond, ret) if( (cond)) return ret
+#define exe_ret(expr, ret ) { expr;      return ret;}
+#define is0_ret(cond, ret ) if(!(cond)){ return ret;}
+#define is1_ret(cond, ret ) if( (cond)){ return ret;}
+#define is0_exe(cond, expr) if(!(cond)){ expr;}
+#define is1_exe(cond, expr) if( (cond)){ expr;}
 
-#define is0_exeret(cond, expr, ret) if(!(cond)){ expr; return ret;}
-#define is1_exeret(cond, expr, ret) if( (cond)){ expr; return ret;}
-#define is0_elsret(cond, expr, ret) if(!(cond)){expr;} else return ret
-#define is1_elsret(cond, expr, ret) if( (cond)){expr;} else return ret
+#define is0_exeret(cond, expr, ret) if(!(cond)){ expr;        return ret;}
+#define is1_exeret(cond, expr, ret) if( (cond)){ expr;        return ret;}
+#define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
+#define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
 /// -- sds from redis -----------------------------
 
@@ -219,6 +221,8 @@ static inline char _sdsReqType(size_t string_size) {
 static sds _sdsNewRoom(size_t len)
 {
     cstr sh; sds s; char type; int hdrlen;
+
+    if(len < 1024) len = len * 1.2;
 
     type = _sdsReqType(len);
 
@@ -491,7 +495,7 @@ inline estr estr_wre(estr s, estr   s2 ) { return s2  ? estr_wrb(s, s2 , _estr_l
 
 estr estr_wrb(estr s, conptr ptr, size len)
 {
-    is0_ret(s, 0);
+    is0_exe(s, is0_ret(s = _estr_new(len), 0));
 
     if (_estr_cap(s) < len) {
         s = _estr_ensure(s,len - _estr_len(s));
@@ -573,7 +577,7 @@ estr estr_wrf(estr s, constr fmt, ...)     // todo : using ptr, not using index 
 {
     constr f; size_t i; va_list ap;
 
-    is0_ret(s, 0);
+    is0_exe(s, is0_ret(s = _estr_new(strlen(fmt) * 2), 0));
 
     _estr_setLen(s, 0);
     va_start(ap,fmt);
@@ -665,7 +669,8 @@ inline estr estr_cate(estr s, estr   s2 ) { return s2  ? estr_catb(s, s2, _estr_
 
 estr estr_catb(estr s, conptr ptr, size len)
 {
-    is0_ret(s, 0);
+    is0_exe(s, is0_ret(s = _estr_new(len), 0));
+
     size_t curlen = _estr_len(s);
 
     s = _estr_ensure(s, len);
@@ -746,7 +751,7 @@ estr estr_catf(estr s, constr fmt, ...)
 {
     constr f; size_t i; va_list ap;
 
-    is0_ret(s, 0);
+    is0_exe(s, is0_ret(s = _estr_new(strlen(fmt) * 2), 0));
 
     va_start(ap,fmt);
     f = fmt;            /* Next format specifier byte to process. */
@@ -1095,7 +1100,7 @@ estr estr_subs (estr s, constr from, constr to)
                 cstr new_s, new_p; int len;
 
                 //is0_exeret(new_s = estr_newLen(0, offNow), s_free((char*)s - _estr_lenH(SDS_TYPE(s)));, 0);  // new str
-                is0_exeret(new_s = _estr_new(offNow * 2), s_free((char*)s - _estr_lenH(SDS_TYPE(s)));, 0);  // new str
+                is0_exeret(new_s = _estr_new(offNow), s_free((char*)s - _estr_lenH(SDS_TYPE(s)));, 0);  // new str
 
                 // -- to new str
                 cp_s  = fd_s = s;
@@ -1722,8 +1727,6 @@ ebuf ebuf_newLen(conptr ptr, size len)
     if(!ptr)
     {
         if(len < 8)                initlen = 8;
-        if(len > SDS_MAX_PREALLOC) initlen = SDS_MAX_PREALLOC;
-
         is0_exeret(eb->s = _estr_new(len), s_free(eb);, 0);
 
         return eb;

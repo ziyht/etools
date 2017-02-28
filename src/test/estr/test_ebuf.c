@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include "test_ebuf.h"
+#include "test_main.h"
 
 void ebuf_basic_test()
 {
