@@ -2109,12 +2109,6 @@ static void __on_closed(natsConnection* nc __unused, void* trans)
     enatp p = NULL; enats t; int quit_wait_thread = 0;
     t = (enats)trans;
 
-    if(!t->conn.urls)
-    {
-        strncpy(t->conn.conn_urls, nc->opts->url, 512);
-        t->conn.urls = t->conn.conn_urls;
-    }
-
     if(t->self_node)
     {
         p = t->self_node->p;
@@ -2178,6 +2172,12 @@ static void __on_closed(natsConnection* nc __unused, void* trans)
 static void __on_disconnected(natsConnection* nc __unused, void* trans)
 {
     enats t = (enats)trans;
+
+    if(!t->conn.urls)
+    {
+        strncpy(t->conn.conn_urls, nc->opts->url, 512);
+        t->conn.urls = t->conn.conn_urls;
+    }
 
     if(t->self_node)
     {

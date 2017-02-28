@@ -27,7 +27,7 @@ typedef uv_thread_t thread_t;
 #include "ejson.h"
 
 #undef  VERSION
-#define VERSION     1.1.2       // fix bugs when conn closed
+#define VERSION     1.1.3       // make a conn.url copy when nc disconnected, so the nTrans_GetUrls() can have a result in disconnected_cb and closed_cb
 
 #if defined(_WIN32)
 #define __unused
@@ -721,16 +721,6 @@ static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
     nTPool p = NULL; nTrans t; int quit_wait_thread = 0;
     t = (nTrans)trans;
 
-    _nTrans_stopPub(t);
-    _nTrans_setPubSemToZero(t);
-
-    if(!t->conn.urls)
-    {
-        strncpy(t->conn.conn_urls, nc->opts->url, 512);
-        t->conn.urls = t->conn.conn_urls;
-    }
-
-#if 1
     if(t->self_node)
     {
         p = t->self_node->p;
@@ -768,7 +758,7 @@ static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
 
         nTPool_unlock(p);
     }
-#endif
+
     if(t->conn.closed_cb)
         t->conn.closed_cb(t, t->conn.closed_closure);
 
@@ -808,9 +798,14 @@ static void __natsTrans_ClosedCB(natsConnection* nc __unused, void* trans)
 static void __natsTrans_DisconnectedCB(natsConnection* nc __unused, void* trans)
 {
     nTrans t = (nTrans)trans;
-    _nTrans_stopPub(t);
-    _nTrans_setPubSemToZero(t);
-#if 1
+
+    // -- make a copy here, so the nTrans_GetUrls() can have a result in disconnected_cb and closed_cb
+    if(!t->conn.urls)
+    {
+        strncpy(t->conn.conn_urls, nc->opts->url, 512);
+        t->conn.urls = t->conn.conn_urls;
+    }
+
     if(t->self_node)
     {
         nTPool p = t->self_node->p;
@@ -830,7 +825,7 @@ static void __natsTrans_DisconnectedCB(natsConnection* nc __unused, void* trans)
         }
         nTPool_unlock(p);
     }
-#endif
+
     if(t->conn.disconnected_cb)
         t->conn.disconnected_cb(t, t->conn.disconnected_closure);
 }
