@@ -32,11 +32,22 @@ typedef struct ntStatistics_s{
 
 typedef struct enats_opts_s {
     char*    conn_string;
-    char*    compression;
-    char*    encryption;
+    char*    auth;
     char*    username;
     char*    password;
+    struct {
+        int   enanle;
+        char* ca;
+        char* key;
+        char* cert;
+    }tls;
     uint64_t timeout;
+
+    char*    compression;
+    char*    encryption;
+
+    int      decode;
+    int      polling;
 }enats_opts_t, * enats_opts;
 
 typedef struct eMsg_s
@@ -81,7 +92,7 @@ enats enats_new4(enats_opts opts);
 void  enats_join(enats e);
 
 /// -- Destroy the handle and release resources
-void  enats_destroy(enats_p _e);
+void  enats_destroy(enats e);
 
 /// -- return the urls that have been connected/reserved by natsTrans
 constr enats_connurls(enats e);

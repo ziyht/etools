@@ -3,6 +3,7 @@
 // -- local
 #include <string.h>
 #include <time.h>
+#include <assert.h>
 
 // -- nats
 #include "stats.h"
@@ -68,14 +69,16 @@ __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
 #define __mutex_free(mu)   pthread_mutex_destroy(&mu)
 #endif
 
-#define exe_ret(expr, ret) {expr;}     return ret
-#define is0_ret(cond, ret) if(!(cond)) return ret
-#define is1_ret(cond, ret) if( (cond)) return ret
+#define exe_ret(expr, ret ) { expr;      return ret;}
+#define is0_ret(cond, ret ) if(!(cond)){ return ret;}
+#define is1_ret(cond, ret ) if( (cond)){ return ret;}
+#define is0_exe(cond, expr) if(!(cond)){ expr;}
+#define is1_exe(cond, expr) if( (cond)){ expr;}
 
-#define is0_exeret(cond, expr, ret) if(!(cond)){ expr; return ret;}
-#define is1_exeret(cond, expr, ret) if( (cond)){ expr; return ret;}
-#define is0_elsret(cond, expr, ret) if(!(cond)){expr;} else return ret
-#define is1_elsret(cond, expr, ret) if( (cond)){expr;} else return ret
+#define is0_exeret(cond, expr, ret) if(!(cond)){ expr;        return ret;}
+#define is1_exeret(cond, expr, ret) if( (cond)){ expr;        return ret;}
+#define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
+#define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
 /// --------------------- static count record -----------------------------
 static int          __cnt_init;
@@ -138,10 +141,8 @@ static inline void __cnt_poolDec()
 /// ---------------------------- enats  ---------------------
 typedef struct __conn_s{
     natsConnection*     nc;             // connect handler of cnats
+    natsOptions*        opts;           // back up of opts in t
     natsStatus          s;              // last status
-    estr                stats;          // buf to store statistic info, used by enats_GetStatsStr()
-    estr                connurls;       // buf to store connected urls, used by enats_GetConnUrls()
-    estr                urls;
 
     enats_evtHandler    closed_cb;
     void*               closed_closure;
@@ -161,7 +162,7 @@ typedef struct __subs_s{
     void*              msg_closure;
 }__subs_t, * __subs;
 
-typedef struct enats_ht_s* enats_ht_node;
+typedef struct enatp_node_s* enatp_node;
 typedef struct enats_s{
     // -- connection
     __conn_t        conn;           // only one connector in natsTrans
@@ -171,22 +172,26 @@ typedef struct enats_s{
     mutex_t         sub_mu;
 
     // -- for quit control
-    __thread_t      wait_thread;    // only for wait when needed
-    __mutex_t		wait_mutex;
     int             quit;
+    int             wait_num;
+    thread_t        wait_thread;    // only for wait when needed
+    mutex_t		    wait_mutex;
 
-    enats_ht_node   self_node;      // point to the enats_ht_node which have this enats in a enatp, or NULL if it is not a enatp enats
-    bool            quit;
+    enatp_node      self_node;      // point to the enats_ht_node which have this enats in a enatp, or NULL if it is not a enatp enats
+
+    natsStatus      es;
     estr            err;
+    estr            stats;          // buf to store statistic info
+    estr            connurls;       // buf to store connected urls
+    estr            urls;
 }enats_t;
 
 /// ------------------ enats Pool ---------------------------
-typedef struct enatp_node_s{
+struct enatp_node_s{
     char                name[64];
     enats               t;
     enatp               p;                     // point to the enatp which have this node
 
-    natsOptions*        opts;                  // back up of opts in t
     enats_evtHandler    connected_cb;
     void*               connected_closure;
 
@@ -198,7 +203,7 @@ typedef struct enatp_node_s{
     void*               reconnected_closure;
     enats_evtHandler    err_handler;
     void*               err_closure;
-}enatp_node_t, * enatp_node;
+}enatp_node_t;
 
 typedef struct __attribute__ ((__packed__)) enatp_s{
     natsStatus      s;                  // last status
@@ -211,7 +216,7 @@ typedef struct __attribute__ ((__packed__)) enatp_s{
     ejson           polling_itr;        // point to the ejson obj in poll_transs who is polling now
     enats           polling_now;        // the enats in polling_itr
 
-    ejson           urls;               // to store all the server urls(with user and pass) that connected or will connected to
+    ejson           urls;               // to store all the connected urls
 
     __thread_t      lazy_thread;
     __mutex_t		mutex;
@@ -223,6 +228,7 @@ typedef struct __attribute__ ((__packed__)) enatp_s{
     int             quit;
 
     // -- other
+    natsStatus      es;
     estr            err;                // last err
     estr            stats;              // to store statistic info
     estr            connurls;
@@ -234,7 +240,7 @@ static char   last_err_buf[1024] __unused;
 // -- helpler
 typedef natsOptions* natsOptions_p;
 static enats       __enats_connectTo(natsOptions_p opts);
-static constr      __enats_makeUrls(constr user, constr pass, constr url, int *c);
+static estr        __enats_makeUrls(constr user, constr pass, constr url, int *c);
 static natsStatus  __processUrlString(natsOptions *opts, constr urls);   // parse cnats url, copy from cnats src
 
 // -- callbacks for events
@@ -253,255 +259,403 @@ static void* __enats_waitThread(void* trans_);
 #define errset(h, str) do{if(h) {h->err = estr_wrs(h->err, str);}else{last_err = str;}}while(0)
 #define errfmt(h, ...) do{if(h) {h->err = estr_wrp(h->err, ##__VA_ARGS__);}else{last_err = last_err_buf; sprintf(last_err_buf, ##__VA_ARGS__);}}while(0)
 
+#define USERPASS_ERR    0
+#define USERPASS_OK     1
+#define USER_ERR        2
+#define PASS_ERR        3
+static inline int __enats_CheckUserPass(constr user, constr pass)
+{
+    int _out = USERPASS_ERR;
+    if(user && *user)
+    {
+        _out = PASS_ERR;
+        last_err = "password is empty or NULL";
+    }
+    if(pass && *pass)
+    {
+        if(_out == PASS_ERR)
+            _out = USERPASS_OK;
+        else
+        {
+            _out = USER_ERR;
+            last_err = "username is empty or NULL";
+        }
+    }
 
-static inline enats __enats_connectTo(natsOptions_p opts)
+    return _out;
+}
+static inline estr __enats_makeUrls(constr user, constr pass, constr url, int* c)
+{
+    int     s;
+    char  * url_next, * url_dump;
+    int     count = 0;
+    estr    urls;
+
+    is1_exeret(!url || !*url, errset(G, "url is null or empty"), NULL);
+    is1_ret((s = __enats_CheckUserPass(user, pass)) == USER_ERR, NULL);
+
+    urls = estr_newLen(0, strlen(url) * 2);
+
+    while(*url == ',') url++;
+
+    url_dump = strdup(url);
+    url = url_dump;
+    url_next = strchr(url, ',');
+
+    do{
+        url_next ? (*url_next = '\0') : (0);
+
+        if(0 == strncmp(url, "nats://", 7))
+            url += 7;
+
+        if     (s == USERPASS_OK )  urls = estr_catf(urls, "nats://%s:%s@%s,", user, pass, url);
+        else if(s == PASS_ERR    )  urls = estr_catf(urls, "nats://%s@%s,"   , user,       url);
+        else if(s == USERPASS_ERR)  urls = estr_catf(urls, "nats://%s,"      ,             url);
+        count ++;
+
+        url = url_next ? url_next + 1 : 0;
+        url_next = url_next ? strchr(url, ',') : 0;
+    }while(url);
+
+    free(url_dump);
+
+    c ? *c = count : 0;
+    return urls;
+}
+
+static inline enats __enats_newHandle(constr urls, enats_opts e_opts)
+{
+    natsStatus      s     = NATS_OK;
+    natsOptions*    opts  = NULL;
+    estr            nurls = NULL;
+    enats e;
+
+    if(e_opts && e_opts->tls.enanle)
+    {
+       // is1_exeret(access(_opts->tls.ca  , F_OK), errfmt("ca file: %s not exist", _opts->tls.ca), NULL);
+        is1_exeret(access(e_opts->tls.key , F_OK), errfmt(G, "client key  file: %s not exist", e_opts->tls.key ), NULL);
+        is1_exeret(access(e_opts->tls.cert, F_OK), errfmt(G, "client cert file: %s not exist", e_opts->tls.cert), NULL);
+    }
+
+    // -- for urls parser
+    if(!urls)
+    {
+        char*    auth        = e_opts->auth;
+        char*    user        = e_opts->username;
+        char*    pass        = e_opts->password;
+        char*    url         = e_opts->conn_string;
+
+        nurls = ((user && *user) || (pass && *pass)) ? __enats_makeUrls(user, pass, url, 0)
+                                                     : __enats_makeUrls(auth, 0   , url, 0);
+        is0_ret(nurls, 0);
+
+        urls  = nurls;
+    }
+
+    is1_exe((s = natsOptions_Create(&opts))      != NATS_OK, errset(G, "alloc for new nats opts faild"    ); goto err_ret;);
+    is1_exe((s = __processUrlString(opts, urls)) != NATS_OK, errset(G, "__processUrlString for opts faild"); goto err_ret;);
+    is1_exe((e = calloc(1, sizeof(*e)))          == 0      , errset(G, "alloc for new enats faild"        ); goto err_ret;);
+
+    e->conn.opts = opts;
+    natsOptions_SetClosedCB      (opts, __on_closed,       e);
+    natsOptions_SetDisconnectedCB(opts, __on_disconnected, e);
+    natsOptions_SetReconnectedCB (opts, __on_reconnected,  e);
+    natsOptions_SetErrorHandler  (opts, __on_erroccurred,  e);
+    natsOptions_SetMaxReconnect  (opts, -1                  );
+    natsOptions_SetNoRandomize   (opts, true                );
+
+    if(e_opts && e_opts->tls.enanle)
+    {
+        is1_exe((s = natsOptions_SetSecure(opts, true))!= NATS_OK, errset(G, nats_GetLastError(&s)); goto err_ret;);
+
+        if(e_opts->tls.ca)
+        {
+            is1_exe((s = natsOptions_LoadCATrustedCertificates(opts, e_opts->tls.ca))           != NATS_OK, errset(G, nats_GetLastError(&s)); goto err_ret;);
+        }
+        is1_exe((s = natsOptions_LoadCertificatesChain(opts, e_opts->tls.cert, e_opts->tls.key))!= NATS_OK, errset(G, nats_GetLastError(&s)); goto err_ret;);
+
+    }
+
+    mutex_init(e->sub_mu);
+    assert(e->sub_dic = ejso_new(_OBJ_));
+
+    e->conn.s = NATS_OK;
+
+    return e;
+
+err_ret:
+    estr_free(nurls);
+    natsOptions_Destroy(opts);
+
+    return NULL;
+}
+
+static inline int   __enats_tryConnect(enats e)
 {
     natsConnection* nc   = NULL;
     natsStatus      s    = NATS_OK;
-    enats           t    = calloc(1, sizeof(*t));
 
-    is0_exeret(t, errfmt(G, "__enats_connectTo: alloc for new enats faild: %s", strerror(errno)), 0);
+    is1_ret(e->conn.nc, 1);
 
-    natsOptions_SetClosedCB      (opts, __on_closed,       t);
-    natsOptions_SetDisconnectedCB(opts, __on_disconnected, t);
-    natsOptions_SetReconnectedCB (opts, __on_reconnected,  t);
-    natsOptions_SetErrorHandler  (opts, __on_erroccurred,  t);
-    natsOptions_SetMaxReconnect  (opts, -1                   );
-    natsOptions_SetNoRandomize   (opts, true                 );
+    is1_exeret((s = natsConnection_Connect(&nc, e->conn.opts)) != NATS_OK, e->es =s, 0);
 
-    s = natsConnection_Connect(&nc, opts);
-    is0_exeret(s == NATS_OK, errfmt(G, "__enats_connectTo: natsConnection_Connect() faild: %s", nats_GetLastError(&s)); free(t);, 0);
+    e->conn.s  = s;
+    e->conn.nc = nc;
 
-
-    // -- init connector
-    t->conn.nc    = nc;
-    t->conn.s     = s;
-
-    // -- init subscribe
-    mutex_init(t->sub_mu);
-    t->sub_dic = ejso_new(_OBJ_);
-
-    // -- others
     __cnt_connInc();
-    return t;
+
+    return 1;
+}
+
+static inline void __enats_destroySubDic(enats e)
+{
+    ejson itr; __subs esub;
+
+    is0_ret(e, )
+
+    mutex_lock(e->sub_mu);
+
+    ejso_itr(e->sub_dic, itr)
+    {
+        esub = ejso_valR(itr);
+        natsSubscription_Unsubscribe(esub->sub);
+        natsSubscription_Destroy(esub->sub);
+    }
+    ejso_free(e->sub_dic); e->sub_dic = 0;
+
+    mutex_ulck(e->sub_mu);
+    mutex_free(e->sub_mu);
+}
+
+static inline void __enats_destroyNc(enats e)
+{
+    is0_ret(e, );
+
+    if(e->conn.nc)
+    {
+        natsCondition_Destroy(e->conn.nc);
+        e->conn.nc = 0;
+
+        __cnt_connDec();
+    }
+}
+
+static inline void __enats_destroyOpts(enats e)
+{
+    is0_ret(e, );
+
+    natsOptions_Destroy(e->conn.opts);
+    e->conn.opts = 0;
+}
+
+static inline void __enats_freeHandle(enats e)
+{
+    is0_ret(e, );
+
+    if(e->err)      estr_free(e->err);
+    if(e->stats)    estr_free(e->stats);
+    if(e->connurls) estr_free(e->connurls);
+    if(e->urls)     estr_free(e->urls);
+
+    free(e);
+}
+
+static inline void __enats_release(enats e)
+{
+    __enats_destroySubDic(e);
+    __enats_destroyNc(e);
+    __enats_destroyOpts(e);
+    __enats_freeHandle(e);
+}
+
+static inline void* __enats_waitThread(void* d)
+{
+    enats e = (enats)d;
+
+    e->wait_num++;
+
+    mutex_lock(e->wait_mutex);
+    mutex_ulck(e->wait_mutex);
+
+    e->wait_num--;
+
+    return 0;
+}
+
+static inline void __enats_exeWaitThread(enats e)
+{
+    is0_ret(e, ); is1_ret(e->quit, ); is1_ret(e->self_node, );
+
+    if(!e->wait_thread)
+    {
+        mutex_init(e->wait_mutex);
+        mutex_lock(e->wait_mutex);
+        is1_exeret(thread_init(e->wait_thread, __enats_waitThread, e), errfmt(e, "__enats_exeWaitThread faild: %s", strerror(errno)),);
+        e->wait_num++;
+        thread_join(e->wait_thread);
+        e->wait_num--;
+    }
+    else
+    {
+        e->wait_num++;
+        mutex_lock(e->wait_mutex);
+        mutex_ulck(e->wait_mutex);
+        e->wait_num--;
+    }
+}
+
+static inline void __enats_quitWaitThread(enats e)
+{
+    is0_ret(e, );
+    mutex_ulck(e->wait_mutex);
+
+    while(e->wait_num) usleep(10000);
+}
+
+static inline constr __enats_getConnUrls(enats e)
+{
+    natsConnection* nc = e->conn.nc;
+
+    if(!nc)
+        e->connurls = estr_wrb(e->connurls, "", 0);
+
+    natsConn_Lock(nc);
+    if ((nc->status == CONNECTED) && (nc->url->fullUrl != NULL))
+        e->connurls = estr_wrs(e->connurls, nc->url->fullUrl);
+    else
+        e->connurls = estr_wrb(e->connurls, "", 0);
+
+    natsConn_Unlock(nc);
+
+    return e->connurls;
+}
+
+static inline constr __enats_getUrls(enats e)
+{
+
 }
 
 /// ---------------------------- enats  ---------------------
 enats enats_new(constr urls)
 {
-    is1_exeret(!urls || !*urls, errset(G, "enats_new: urls is null or empty");, NULL);
+    enats e = NULL;
 
-    natsOptions*    opts = NULL;
-    natsStatus      s    = NATS_OK;
-    enats          _out = NULL;
+    is1_exeret(!urls || !*urls, errset(G, "enats_new faild: urls is null or empty");, NULL);
 
+    is0_exeret(e = __enats_newHandle(urls, 0), errfmt(G, "enats_new faild: %s", last_err), 0);
 
-    if (natsOptions_Create(&opts) != NATS_OK)
-        s = NATS_NO_MEMORY;
-
-    if(s == NATS_OK)
-        s = __processUrlString(opts, urls);
-
-    if(s == NATS_OK)
+    if(!__enats_tryConnect(e))
     {
-        _out = __enats_connectTo(opts);
-        natsOptions_Destroy(opts);
+        errfmt(G, "enats_new faild: %s", nats_GetLastError(&e->es));
+        __enats_release(e);
+        e = NULL;
     }
 
-    return _out;
+    return e;
 }
 
 enats enats_new2(constr user, constr pass, constr url)
 {
-    constr urls = __enats_makeUrls(user, pass, url, 0);
-    enats _out  = enats_new(urls);
-    free((char*)urls);
+    estr urls; enats e = 0;
 
-    return _out;
+    is1_exe(urls = __enats_makeUrls(user, pass, url, 0), e = enats_new(urls); estr_free(urls););
+
+    return e;
 }
 
 enats enats_new3(constr user, constr pass, constr server, int port)
 {
-    is1_exeret(!server || !*server, last_err = "server is null or empty", NULL);
+    char url[1024]; estr urls; enats e = 0;
 
-    char url[64];
-    sprintf(url, "%s:%d", server, port);
+    is1_exeret(!server || !*server, errset(G, "enats_new3 faild: server is null or empty");, NULL);
 
-    constr urls = __enats_makeUrls(user, pass, url, 0);
-    enats _out = enats_new(urls);
-    free((char*)urls);
+    is1_exeret(snprintf(url, 1024, "%s:%d", server, port) >= 1024, errset(G, "enats_new3 faild: url buf of 1024 overflow");, NULL);
 
-    return _out;
+    is1_exe(urls = __enats_makeUrls(user, pass, url, 0), e = enats_new(urls); estr_free(urls););
+
+    return e;
 }
 
-enats enats_new4(enats_opts _opts)
+enats enats_new4(enats_opts opts)
 {
-    is0_exeret(_opts, last_err = "NULL transport_opts", NULL);
+    enats e;
 
-    char*    user        = _opts->username;
-    char*    pass        = _opts->password;
-    char*    url         = _opts->conn_string;
-//  char*    compression = _opts->compression;
-//  char*    encryption  = _opts->encryption;
-    uint64_t timeout     = _opts->timeout ? _opts->timeout : 2000;  // NATS_OPTS_DEFAULT_TIMEOUT = 2000
+    is0_exeret(_opts, errset(G, "enats_new4 faild: opts is null or empty"), NULL);
 
-    // -- get urls
-    constr   urls        = __enats_MakeUrls(user, pass, url, 0);
-    if(!urls)
+    is0_exeret(e = __enats_newHandle(0, opts), errfmt(G, "enats_new4 faild: %s", last_err), 0);
+
+    if(!__enats_tryConnect(e))
     {
-        snprintf(last_err_buf, 1024, "can not make urls: opts err(%s): "
-                                     "url:%s "
-                                     "compression:%s "
-                                     "encryption:%s "
-                                     "username:%s "
-                                     "password:%s "
-                                     "timeout:%"PRIu64"",
-                 last_err,
-                 _opts->conn_string,
-                 _opts->compression,
-                 _opts->encryption,
-                 _opts->username,
-                 _opts->password,
-                 _opts->timeout);
-        last_err = last_err_buf;
-        return NULL;
+        errfmt(G, "enats_new faild: %s", nats_GetLastError(&e->es));
+        __enats_release(e);
+        e = NULL;
     }
 
-    // --
-    natsOptions*    opts = NULL;
-    natsStatus      s    = NATS_OK;
-    enats          _out = NULL;
-
-    if (natsOptions_Create(&opts) != NATS_OK)
-        s = NATS_NO_MEMORY;
-
-    if(s == NATS_OK)
-        s = __processUrlString(opts, urls);
-
-    if(s == NATS_OK)
-    {
-        natsOptions_SetTimeout(opts, timeout);
-
-        _out = __enats_ConnectTo(opts);
-        natsOptions_Destroy(opts);
-    }
-
-    free((char*)urls);
-    return _out;
+    return e;
 }
 
-static void* __enats_waitThread(void* trans_)
+
+void enats_join(enats e)
 {
-    enats t = (enats)trans_;
-
-    __mutex_lock(pub->mutex);
-    return 0;
+    __enats_exeWaitThread(e);
 }
 
-void enats_join(enats trans)
+void enats_destroy(enats e)
 {
-    if(!trans || trans->pub.joined == true)
-        return;
+    is0_ret(e, )
 
-    if(!trans->quit && !trans->pub.thread)
-    {
-        __mutex_lock(trans->pub.mutex);
-        is1_exeret(__thread_create(trans->pub.thread, __enats_waitThread, trans),
-                   errfmt(G, "create wait thread for nTPool faild: %s", strerror(errno)),
-        );
+    e->quit  = 1;
 
-        trans->pub.joined = true;
-
-        __thread_join(trans->pub.thread);
-        trans->pub.thread = 0;
-    }
+    __enats_quitWaitThread(t);
+    __enats_destroySubDic(t);
+    __enats_destroyNc(e);           // this call will raise __on_closed, we do __enats_freeHandle() in it
 }
 
-void enats_destroy(enats_p _trans)
+
+
+inline constr enats_connurls(enats e)
 {
-    if(!_trans || !(*_trans))  return;
-    enats t = *_trans;
-    t->quit  = 1;
+    is0_ret(e, "enats_getConnUrls: nullptr");
 
-    // -- release publisher
-    _enats_quitPubThread(t);
-    __mutex_free(t->pub.mutex);
-
-    // -- release subscriber
-    mutex_lock(t->sub_mu);
-    ejson itr; ntSubscriber ntSub;
-    ejso_itr(t->sub_dic, itr)
-    {
-        ntSub = ejso_valR(itr);
-        natsSubscription_Unsubscribe(ntSub->sub);
-        natsSubscription_Destroy(ntSub->sub);
-    }
-    ejso_free(t->sub_dic); t->sub_dic = 0;
-    mutex_ulck(t->sub_mu);
-    mutex_free(t->sub_mu);
-
-    // -- stop and release connector
-    natsConnection_Destroy(t->conn.nc);
-
-    // -- release self
-    // free(*_trans);       // free in CloseCB
-    *_trans = NULL;
-
-    __cnt_connDec();
+    return __enats_getConnUrls(e);
 }
 
-inline constr enats_getConnUrls(enats trans)
+inline constr enats_urls(enats e)
+{
+    is0_ret(e, "enats_getUrls: nullptr");
+
+    return __enats_getUrls(e);
+}
+
+inline constr enats_name(enats e)
 {
     is0_ret(trans, NULL);
 
-    trans->conn.s = natsConnection_GetConnectedUrl(trans->conn.nc, trans->conn.conn_urls, 512);
-
-    is1_exeret(trans->conn.s == NATS_OK, trans->conn.urls = 0, trans->conn.conn_urls);
-    return NULL;
+    return e->self_node ? e->self_node->name : NULL;
 }
 
-inline constr enats_getUrls(enats trans)
+inline enatp enats_pool(enats e)
 {
-    is0_ret(trans, NULL);
+    is0_ret(e, NULL);
 
-    if(trans->conn.nc)
-    {
-        strncpy(trans->conn.conn_urls, trans->conn.nc->opts->url, 512);
-        trans->conn.urls = trans->conn.conn_urls;
-    }
-
-    return trans->conn.urls;
+    return e->self_node ? e->self_node->p : NULL;
 }
 
-inline constr enats_getName(enats trans)
-{
-    is0_ret(trans, NULL);
-
-    return trans->self_node ? trans->self_node->name : NULL;
-}
-
-inline enatp enats_getPool(enats trans)
-{
-    is0_ret(trans, NULL);
-
-    return trans->self_node ? trans->self_node->p : NULL;
-}
-
-inline void enats_setClosedCB(enats trans, enats_closedCB cb, void* closure)
+inline void enats_setClosedCB(enats trans, enats_evtHandler cb, void* closure)
 {
     is0_ret(trans, );
 
     trans->conn.closed_cb       = cb;
     trans->conn.closed_closure  = closure;
 }
-inline void enats_setDisconnectedCB(enats trans, enats_disconnectedCB cb, void* closure)
+inline void enats_setDisconnectedCB(enats trans, enats_evtHandler cb, void* closure)
 {
     is0_ret(trans, );
 
     trans->conn.disconnected_cb       = cb;
     trans->conn.disconnected_closure  = closure;
 }
-inline void enats_setReconnectedCB(enats trans, enats_reconnectedCB cb, void* closure)
+inline void enats_setReconnectedCB(enats trans, enats_evtHandler cb, void* closure)
 {
     is0_ret(trans, );
 
@@ -517,14 +671,14 @@ inline void enats_setErrHandler(enats trans, enats_errHandler cb, void* closure)
     trans->conn.err_closure = closure;
 }
 
-natsStatus enats_pub(enats trans, constr subj, conptr data, int data_len)
+inline natsStatus enats_pub(enats trans, constr subj, conptr data, int data_len)
 {
     is0_exeret(trans, last_err = "invalid enats (nullptr)", NATS_ERR);
     trans->conn.s = natsConnection_Publish(trans->conn.nc, subj, data, data_len);
     return trans->conn.s;
 }
 
-natsStatus  enats_pubReq(enats trans, constr subj, conptr data, int dataLen, constr reply)
+inline natsStatus  enats_pubReq(enats trans, constr subj, conptr data, int dataLen, constr reply)
 {
     is0_exeret(trans, last_err = "invalid enats (nullptr)", NATS_ERR);
 
@@ -715,69 +869,9 @@ static inline void __on_msg(natsConnection* nc __unused, natsSubscription* sub, 
     s->msg_handler(s->t, sub, (eMsg)msg, s->msg_closure);
 }
 
-#define USERPASS_ERR    0
-#define USERPASS_OK     1
-#define USER_ERR        2
-#define PASS_ERR        3
-static inline int __enats_CheckUserPass(constr user, constr pass)
-{
-    int _out = USERPASS_ERR;
-    if(user && *user)
-    {
-        _out = PASS_ERR;
-        last_err = "password is empty or NULL";
-    }
-    if(pass && *pass)
-    {
-        if(_out == PASS_ERR)
-            _out = USERPASS_OK;
-        else
-        {
-            _out = USER_ERR;
-            last_err = "username is empty or NULL";
-        }
-    }
 
-    return _out;
-}
 
-static inline constr __enats_MakeUrls(constr user, constr pass, constr url, int* c)
-{
-    int    s;
-    char    out_buf[1024];
-    char  * url_next, * url_dump;
-    int     len = 0, count = 0;
 
-    is1_exeret(!url || !*url, errset(G, "url is null or empty"), NULL);
-    is1_ret((s = __enats_CheckUserPass(user, pass)) == USER_ERR, NULL);
-
-    while(*url == ',') url++;
-
-    url_dump = strdup(url);
-    url = url_dump;
-    url_next = strchr(url, ',');
-
-    do{
-        url_next ? (*url_next = '\0') : (0);
-
-        if(0 == strncmp(url, "nats://", 7))
-            url += 7;
-
-        if     (s == USERPASS_OK )  len += snprintf(out_buf + len, 1024 - len, "nats://%s:%s@%s,", user, pass, url);
-        else if(s == PASS_ERR    )  len += snprintf(out_buf + len, 1024 - len, "nats://%s@%s,", user, url);
-        else if(s == USERPASS_ERR)  len += snprintf(out_buf + len, 1024 - len, "nats://%s,", url);
-        count ++;
-
-        url = url_next ? url_next + 1 : 0;
-        url_next = url_next ? strchr(url, ',') : 0;
-    }while(url);
-
-    out_buf[len ? len - 1 : 0] = '\0';
-    free(url_dump);
-
-    c ? *c = count : 0;
-    return count ? strdup(out_buf) : 0;
-}
 
 static inline natsStatus __processUrlString(natsOptions *opts, constr urls)
 {
