@@ -751,6 +751,8 @@ static inline constr __enats_MakeUrls(constr user, constr pass, constr url, int*
     is1_exeret(!url || !*url, errset(G, "url is null or empty"), NULL);
     is1_ret((s = __enats_CheckUserPass(user, pass)) == USER_ERR, NULL);
 
+    while(*url == ',') url++;
+
     url_dump = strdup(url);
     url = url_dump;
     url_next = strchr(url, ',');

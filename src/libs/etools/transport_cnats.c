@@ -27,7 +27,7 @@ typedef uv_thread_t thread_t;
 #include "ejson.h"
 
 #undef  VERSION
-#define VERSION     1.1.5       // fix bug of errfmt in nTrans
+#define VERSION     1.1.6       // add auth and tls verify
 
 #define __DEBUG_ 0
 
@@ -66,14 +66,16 @@ __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
 #define __mutex_free(mu)   pthread_mutex_destroy(&mu)
 #endif
 
-#define exe_ret(expr, ret) {expr;}     return ret
-#define is0_ret(cond, ret) if(!(cond)) return ret
-#define is1_ret(cond, ret) if( (cond)) return ret
+#define exe_ret(expr, ret ) { expr;      return ret;}
+#define is0_ret(cond, ret ) if(!(cond)){ return ret;}
+#define is1_ret(cond, ret ) if( (cond)){ return ret;}
+#define is0_exe(cond, expr) if(!(cond)){ expr;}
+#define is1_exe(cond, expr) if( (cond)){ expr;}
 
-#define is0_exeret(cond, expr, ret) if(!(cond)){ expr; return ret;}
-#define is1_exeret(cond, expr, ret) if( (cond)){ expr; return ret;}
-#define is0_elsret(cond, expr, ret) if(!(cond)){expr;} else return ret
-#define is1_elsret(cond, expr, ret) if( (cond)){expr;} else return ret
+#define is0_exeret(cond, expr, ret) if(!(cond)){ expr;        return ret;}
+#define is1_exeret(cond, expr, ret) if( (cond)){ expr;        return ret;}
+#define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
+#define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
 /// --------------------- static count record -----------------------------
 static int          __cnt_init;
@@ -360,6 +362,7 @@ nTrans nTrans_NewTo3(nTrans_opts _opts)
 {
     is0_exeret(_opts, last_err = "NULL transport_opts", NULL);
 
+    char*    auth        = _opts->auth;
     char*    user        = _opts->username;
     char*    pass        = _opts->password;
     char*    url         = _opts->conn_string;
@@ -367,8 +370,19 @@ nTrans nTrans_NewTo3(nTrans_opts _opts)
 //  char*    encryption  = _opts->encryption;
     uint64_t timeout     = _opts->timeout ? _opts->timeout : 2000;  // NATS_OPTS_DEFAULT_TIMEOUT = 2000
 
+    // -- check tls
+    if(_opts->tls.enanle)
+    {
+       // is1_exeret(access(_opts->tls.ca  , F_OK), errfmt("ca file: %s not exist", _opts->tls.ca), NULL);
+        is1_exeret(access(_opts->tls.key , F_OK), errfmt(G, "key file: %s not exist",  _opts->tls.key), NULL);
+        is1_exeret(access(_opts->tls.cert, F_OK), errfmt(G, "cert file: %s not exist", _opts->tls.cert), NULL);
+    }
+
     // -- get urls
-    constr   urls        = __nTrans_MakeUrls(user, pass, url, 0);
+    constr   urls = ((user && *user) || (pass && *pass))
+                        ? __nTrans_MakeUrls(user, pass, url, 0)
+                        : __nTrans_MakeUrls(auth, 0   , url, 0);
+
     if(!urls)
     {
         snprintf(last_err_buf, 1024, "can not make urls: opts err(%s): "
@@ -400,13 +414,23 @@ nTrans nTrans_NewTo3(nTrans_opts _opts)
     if(s == NATS_OK)
         s = __processUrlString(opts, urls);
 
+    if(s == NATS_OK && _opts->tls.enanle)
+    {
+        natsOptions_SetSecure(opts, true);
+
+        if(_opts->tls.ca)
+            natsOptions_LoadCATrustedCertificates(opts, _opts->tls.ca);
+        natsOptions_LoadCertificatesChain(opts, _opts->tls.cert, _opts->tls.key);
+    }
+
     if(s == NATS_OK)
     {
         natsOptions_SetTimeout(opts, timeout);
 
         _out = __nTrans_ConnectTo(opts);
-        natsOptions_Destroy(opts);
     }
+
+    natsOptions_Destroy(opts);
 
     free((char*)urls);
     return _out;
@@ -970,6 +994,8 @@ static inline constr __nTrans_MakeUrls(constr user, constr pass, constr url, int
     is1_exeret(!url || !*url, errset(G, "url is null or empty"), NULL);
     is1_ret((s = __nTrans_CheckUserPass(user, pass)) == USER_ERR, NULL);
 
+    while(*url == ',') url++;
+
     url_dump = strdup(url);
     url = url_dump;
     url_next = strchr(url, ',');
@@ -1175,7 +1201,14 @@ void   nTPool_Join(nTPool p)
         free(p);
 }
 
-nTrans nTPool_Add(nTPool p, constr name, constr urls)
+typedef struct __tls_s{
+    int   enanle;
+    char* ca;
+    char* key;
+    char* cert;
+}__tls_t, * __tls;
+
+static nTrans __nTPool_AddHelper(nTPool p, constr name, constr urls, __tls tls)
 {
     natsOptions*   opts = NULL;
     natsStatus     s    = NATS_OK;
@@ -1210,6 +1243,20 @@ nTrans nTPool_Add(nTPool p, constr name, constr urls)
     {
         url_add[i] = calloc(1, sizeof(urls_ht_node_t));
         is0_exeret(url_add[i], errfmt(p, "mem faild for calloc url_add[%d]", i); goto err_return;, 0);
+    }
+
+    if(tls && tls->enanle)
+    {
+        is1_exeret(access(tls->key , F_OK), errfmt(G, "key file: %s not exist", tls->key);goto err_return;, NULL);
+        is1_exeret(access(tls->cert, F_OK), errfmt(G, "cert file: %s not exist", tls->cert);goto err_return;, NULL);
+
+        is1_exeret((s = natsOptions_SetSecure(opts, true)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NULL);
+
+        if(tls->ca)
+        {
+            is1_exeret((s = natsOptions_LoadCATrustedCertificates(opts, tls->ca)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NULL);
+        }
+        is1_exeret((s = natsOptions_LoadCertificatesChain(opts, tls->cert, tls->key)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NULL);
     }
 
     // -- new nTrans_ht_node
@@ -1252,6 +1299,11 @@ ok_return:
     free(url_add);
 
     return out;
+}
+
+nTrans nTPool_Add(nTPool p, constr name, constr urls)
+{
+    return __nTPool_AddHelper(p, name, urls, 0);
 }
 
 static void _nTPool_lazy_thread_reSub(nTrans trans){
@@ -1391,7 +1443,7 @@ static void _nTPool_ExeLazyThread(nTPool p)
     }
 }
 
-natsStatus nTPool_AddLazy(nTPool p, constr name, constr urls)
+static natsStatus __nTPool_AddLazyHelper(nTPool p, constr name, constr urls, __tls tls)
 {
     natsOptions*   opts = NULL, * opts_;
     natsStatus     s    = NATS_OK;
@@ -1413,6 +1465,20 @@ natsStatus nTPool_AddLazy(nTPool p, constr name, constr urls)
     // -- check urls in pool, if pool have one of the urls, return
     is1_exeret((s = natsOptions_Create(&opts)    )  != NATS_OK, errset(p, nats_GetLastError(&s)), NATS_ERR);
     is1_exeret((s = __processUrlString(opts, urls)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NATS_ERR);
+
+    if(tls && tls->enanle)
+    {
+        is1_exeret(access(tls->key , F_OK), errfmt(G, "key file: %s not exist", tls->key);goto err_return;, NATS_ERR);
+        is1_exeret(access(tls->cert, F_OK), errfmt(G, "cert file: %s not exist", tls->cert);goto err_return;, NATS_ERR);
+
+        is1_exeret((s = natsOptions_SetSecure(opts, true)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NATS_ERR);
+
+        if(tls->ca)
+        {
+            is1_exeret((s = natsOptions_LoadCATrustedCertificates(opts, tls->ca)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NATS_ERR);
+        }
+        is1_exeret((s = natsOptions_LoadCertificatesChain(opts, tls->cert, tls->key)) != NATS_OK, errset(p, nats_GetLastError(&s)); goto err_return;, NATS_ERR);
+    }
 
     c = opts->url ? 1 : opts->serversCount;
     for(i = 0; i < c; i++)
@@ -1472,6 +1538,11 @@ err_return:
     return p->s = NATS_ERR;
 }
 
+natsStatus nTPool_AddLazy(nTPool p, constr name, constr urls)
+{
+    return __nTPool_AddLazyHelper(p, name, urls, 0);
+}
+
 natsStatus nTPool_AddOpts(nTPool p, nTrans_opts opts)
 {
     cstr  urls, url, next_url;
@@ -1484,7 +1555,9 @@ natsStatus nTPool_AddOpts(nTPool p, nTrans_opts opts)
     is0_exeret(p, errset(p, "invalid nTPool (nullptr)"), NATS_ERR);
     is0_exeret(opts, errset(p, "invalid transport opts (nullptr)"), NATS_ERR)
 
-    urls = (cstr)__nTrans_MakeUrls(opts->username, opts->password, opts->conn_string, &count);
+    urls = ((opts->username && *opts->username) || (opts->password && *opts->password))
+                ? (cstr)__nTrans_MakeUrls(opts->username, opts->password, opts->conn_string, &count)
+                : (cstr)__nTrans_MakeUrls(opts->auth    , 0,              opts->conn_string, &count);
     is0_exeret(count, errset(p, last_err), NATS_ERR);
     is1_exeret(count > 100, free(urls); errset(p, "to many connect urls");, NATS_ERR);
 
@@ -1517,7 +1590,7 @@ natsStatus nTPool_AddOpts(nTPool p, nTrans_opts opts)
 
     for(i = 0; i < count; i++)
     {
-        if(nTPool_Add(p, transs_names[i], transs_urls[i]))
+        if(__nTPool_AddHelper(p, transs_names[i], transs_urls[i], (__tls)&opts->tls))
             continue;
         else
         {
@@ -1545,7 +1618,9 @@ natsStatus  nTPool_AddOptsLazy(nTPool p, nTrans_opts opts)
     is0_exeret(p, errset(p, "invalid nTPool (nullptr)"), NATS_ERR);
     is0_exeret(opts, errset(p, "invalid transport opts (nullptr)"), NATS_ERR);
 
-    urls = (cstr)__nTrans_MakeUrls(opts->username, opts->password, opts->conn_string, &count);
+    urls = ((opts->username && *opts->username) || (opts->password && *opts->password))
+                ? (cstr)__nTrans_MakeUrls(opts->username, opts->password, opts->conn_string, &count)
+                : (cstr)__nTrans_MakeUrls(opts->auth    , 0,              opts->conn_string, &count);
     is0_exeret(count, errset(p, last_err), NATS_ERR);
     is1_exeret(count > 100, free(urls); errset(p, "to many connect urls");, NATS_ERR);
 
@@ -1571,7 +1646,7 @@ natsStatus  nTPool_AddOptsLazy(nTPool p, nTrans_opts opts)
     ejson itr;
     ejso_itr(urls_dic, itr)
     {
-        nTPool_AddLazy(p, ejso_keyS(itr), ejso_valS(itr));
+        __nTPool_AddLazyHelper(p, ejso_keyS(itr), ejso_valS(itr), (__tls)&opts->tls);
     }
 
     ejso_free(urls_dic);

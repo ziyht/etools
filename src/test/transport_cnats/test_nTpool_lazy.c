@@ -9,11 +9,21 @@ void nTpool_lazy_test()
     int64_t         start2  = 0;
 
     extern char* g_url;
-    cstr url = g_url ? g_url :
+    cstr urls = g_url ? g_url :
                             "nats://172.18.4.205:4242"
                             ",nats://172.18.1.181:4242"
                             ",nats://0.0.0.0:4242";
-    nTrans_opts_t opts[] = {{url, 0, 0, "", "", 0, 0}};
+
+    nTrans_opts_t opts[] = {{urls,
+                             "",    // auth
+                             "",    // user
+                             "",    // pass
+                             {          // tls
+                                 0,     // enable
+                                 "",    // ca
+                                 "",    // key
+                                 ""     // cert
+                             }, 0, 0, 0, 0, 0}};
 
     start = nats_Now();
     char buf[100];

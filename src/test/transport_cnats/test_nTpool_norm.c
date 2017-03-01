@@ -14,14 +14,27 @@ static void onMsg3(nTrans t __unused, natsSubscription *sub __unused, natsMsg *m
 
 void nTpool_nrom_test()
 {
+    natsStatus s;
+
     int64_t         last   = 0;
     int64_t         start __unused  = 0;
 
-    nTrans_opts_t opts[] = {{""
-                             "nats://172.18.4.205:4242,"
-                             "nats://0.0.0.0:4242"
-                             ",nats://0.0.0.0:4243"
-                             "", "", "", "", 0, 0, 0}};
+    extern char* g_url;
+    cstr urls = g_url ? g_url :
+                            "nats://172.18.4.205:4242"
+                            ",nats://172.18.1.181:4242"
+                            ",nats://0.0.0.0:4242";
+
+    nTrans_opts_t opts[] = {{urls,
+                             "",    // auth
+                             "",    // user
+                             "",    // pass
+                             {          // tls
+                                 0,     // enable
+                                 "",    // ca
+                                 "",    // key
+                                 ""     // cert
+                             }, 0, 0, 0, 0, 0}};
 
     start = nats_Now();
     char buf[100];
@@ -35,15 +48,12 @@ void nTpool_nrom_test()
         return;
     }
 
-    nTPool_AddOpts(p, opts);
-    t = nTPool_Add(p, "trans1", "nats://172.18.1.181:4242");
+    s = nTPool_AddOpts(p, opts);
 
-    if(!t)
-        fprintf(stderr, "nTrans add err: %s\n", nTPool_LastErr(p));
+    if(s != NATS_OK)
+        fprintf(stderr, "nTPool_AddOpts add err: %s\n", nTPool_LastErr(p));
 
     fprintf(stderr, "nTPool connected to %s\n", nTPool_GetConnUrls(p));
-
-
 
     nTPool_Sub(p, "nTrans2", "natsTrans_pool_test", onMsg3, 0/*"recive from [2]"*/);
 

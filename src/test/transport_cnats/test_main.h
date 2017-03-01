@@ -25,8 +25,8 @@ void nTpool_lazy_test();
 
 void server_max_collect_test();
 
-
-
+void nTrans_verify_test();
+void nTPool_verify_test();
 
 
 

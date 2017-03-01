@@ -40,12 +40,22 @@ typedef struct nTPool_s* nTPool, ** nTPool_p;
 
 typedef struct nTrans_opts_s {
     char*    conn_string;
-    char*    compression;
-    char*    encryption;
+    char*    auth;
     char*    username;
     char*    password;
+    struct {
+        int   enanle;
+        char* ca;
+        char* key;
+        char* cert;
+    }tls;
+
+    char*    compression;
+    char*    encryption;
+
+    int      decode;
     uint64_t timeout;
-    int      polling;                       // polling the transport or not when pub msg
+    int      polling;                       // polling the transport or not when pub msg, only used for nTPool
 }nTrans_opts_t, * nTrans_opts;
 
 /// -- callbacks type

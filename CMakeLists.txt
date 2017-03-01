@@ -9,7 +9,7 @@ set(CMAKE_C_FLAGS "-g -O0 -Wall -Wextra -pedantic -Wcast-align -Wno-unused-varia
 #    cnats is built-in and tls is on in default
 set(CNATS_DIR      ${PROJECT_SOURCE_DIR}/src/libs/etools/libs/cnats)
 set(CNATS_BUILT_IN		ON )
-set(NATS_BUILD_WITH_TLS OFF)		                          # TLS needs openssl libs
+set(NATS_BUILD_WITH_TLS ON)		                          # TLS needs openssl libs
 include(${CNATS_DIR}/CMakeLists.txt)
 
 # -- add libuv to project
@@ -41,7 +41,7 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr  TEST_ESTR_FS)
 add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
 add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_etp   main.c ${ETP_FS})
-add_executable(test_enats main.c ${ENATS_FS})
+#add_executable(test_enats main.c ${ENATS_FS})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})
