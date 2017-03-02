@@ -1,4 +1,4 @@
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -655,17 +655,6 @@ cptr edes_decb  (constr key, conptr in, size inlen)
 
 }
 
-inline void   edes_show(constr s)
-{
-    estr_shows((estr)s);
-}
-
-inline size   edes_slen(constr s)
-{
-    return estr_len((estr)s);
-}
-
-inline void   edes_free(constr s)
-{
-    estr_free((estr)s);
-}
+inline void   edes_show(conptr d) {        estr_shows((estr)d); }
+inline size   edes_dlen(conptr d) { return estr_len  ((estr)d); }
+inline void   edes_free(conptr d) {        estr_free ((estr)d); }

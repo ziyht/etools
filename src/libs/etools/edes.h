@@ -16,32 +16,55 @@
 
 /*---------------------
 
-  b -- binary data
-  f -- file
+  API statement:
+
+  edes_encb2f(...)
+         * *
+
+    b -- binary data
+    f -- file
 
 -----------------------*/
 
 cstr edes_newkey(cstr key);         // 8 bit len
 
-cptr edes_encb  (constr key, conptr in, size inlen);
-cptr edes_encb2b(constr key, conptr in, size inlen, conptr out , size* outlen);
-cptr edes_encb2f(constr key, conptr in, size inlen, constr outf);
+/// -- encoder
+///
+/// @note:
+///     the returned cptr must be freed by edes_free() after using it
+///
 
-cptr edes_encf();
-cptr edes_encf2b();
-cptr edes_encf2f();
+cptr edes_encb  (constr key, conptr in, size inlen);
+int  edes_encb2b();
+int  edes_encb2f();
+
+cptr edes_encf  ();
+int  edes_encf2b();
+int  edes_encf2f();
+
+/// -- decoder
+///
+/// @note:
+///     the returned cptr must be freed by edes_free() after using it
+///
 
 cptr edes_decb  (constr key, conptr in, size inlen);
-cptr edes_decb2b();
-cptr edes_decb2f();
+int  edes_decb2b();
+int  edes_decb2f();
 
-cptr edes_decf();
-cptr edes_decf2b();
-cptr edes_decf2f();
+cptr edes_decf  ();
+int  edes_decf2b();
+int  edes_decf2f();
 
-void edes_show(constr s);
-size edes_slen(constr s);
-void edes_free(constr s);
+/// -- utils
+///
+/// @note:
+///     the @param d must be a cptr returned by edes API
+///
+
+void edes_show(conptr d);       // show the data to stdout
+size edes_dlen(conptr d);       // return the length of data
+void edes_free(conptr d);       // release data
 
 #ifdef __cplusplus
 extern "C" {
