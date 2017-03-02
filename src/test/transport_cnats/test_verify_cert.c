@@ -1,8 +1,5 @@
 #include "test_main.h"
 
-
-
-
 void nTrans_verify_test()
 {
     nTrans t;
