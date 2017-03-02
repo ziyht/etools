@@ -14,67 +14,60 @@
 #define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
 #define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
-cstr eb64_encode(conptr ptr, size len)
+/// ---------------------- encoder -------------------------
+
+cstr eb64_encb  (conptr in, size inlen)
 {
-    estr e; size outlen;
+    estr out; size outlen;
 
-    is0_ret(ptr, 0); is0_ret(len, 0);
+    is0_ret(in, 0); is0_ret(inlen, 0);
 
-    is0_ret(e = estr_newLen(0, (len + 2) / 3 * 4), 0);
+    is0_ret(out = estr_newLen(0, (inlen + 2) / 3 * 4), 0);
 
-    base64_encode(ptr, len, e, &outlen, 0);
+    base64_encode(in, inlen, out, &outlen, 0);
 
-    estr_incrLen(e, outlen);
+    estr_incrLen(out, outlen);
 
-    return e;
+    return out;
 }
 
-cptr eb64_decode(constr src, size len)
+int  eb64_encb2b(conptr in, size inlen, cstr   out  , size* outlen)
 {
-    estr e; size outlen;
+    is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
 
-    is0_ret(src, 0); is0_ret(len, 0);
-
-    is0_ret(e = estr_newLen(0, (len) / 4 * 3), 0);
-
-    base64_decode(src, len, e, &outlen, 0);
-
-    estr_incrLen(e, outlen);
-
-    return e;
-}
-
-int  eb64_encode2(conptr ptr, size len, cstr buf, size* outlen)
-{
-    is0_ret(ptr, 0); is0_ret(len, 0); is0_ret(buf, 0); is0_ret(outlen, 0);
-
-    base64_encode(ptr, len, buf, outlen, 0);
+    base64_encode(in, inlen, out, outlen, 0);
 
     return 1;
 }
 
-int  eb64_decode2(constr src, size len, cstr buf, size* outlen)
-{
-    is0_ret(src, 0); is0_ret(len, 0); is0_ret(buf, 0); is0_ret(outlen, 0);
+/// ---------------------- decoder -------------------------
 
-    base64_decode(src, len, buf, outlen, 0);
+cptr eb64_decb  (constr in, size inlen)
+{
+    estr out; size outlen;
+
+    is0_ret(in, 0); is0_ret(inlen, 0);
+
+    is0_ret(out = estr_newLen(0, (inlen) / 4 * 3), 0);
+
+    base64_decode(in, inlen, out, &outlen, 0);
+
+    estr_incrLen(out, outlen);
+
+    return out;
+}
+
+int  eb64_decb2b(constr in, size inlen, cptr   out  , size* outlen)
+{
+    is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
+
+    base64_decode(in, inlen, out, outlen, 0);
 
     return 1;
 }
 
-inline void   eb64_show(constr s)
-{
-    estr_shows((estr)s);
-}
-
-inline size   eb64_slen(constr s)
-{
-    return estr_len((estr)s);
-}
-
-inline void   eb64_free(constr s)
-{
-    estr_free((estr)s);
-}
+inline void   eb64_show(conptr s) { estr_shows((estr)s);}
+inline size   eb64_dlen(conptr s) { return estr_len((estr)s);}
+inline void   eb64_free(conptr s) { estr_free((estr)s);}
 
 

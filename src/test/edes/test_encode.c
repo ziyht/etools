@@ -7,7 +7,7 @@
 
 void edes_encode_test()
 {
-    constr src; cstr out;
+    cstr src; cstr out;
 
     printf("---- edes_encode_test ----\n");
 

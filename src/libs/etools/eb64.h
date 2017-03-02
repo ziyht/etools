@@ -9,7 +9,7 @@
 #ifndef __EB64_H__
 #define __EB64_H__
 
-#define EB64_VERSION "1.0.0"      // new tool
+#define EB64_VERSION "1.1.0"      // new API
 
 #include "etype.h"
 
@@ -17,15 +17,55 @@
 extern "C" {
 #endif
 
-cstr eb64_encode(conptr ptr, size len);
-cptr eb64_decode(constr src, size len);
+/*---------------------
 
-int  eb64_encode2(conptr ptr, size len, cstr buf, size* outlen);
-int  eb64_decode2(constr src, size len, cstr buf, size* outlen);
+  API statement:
 
-void eb64_show(constr s);
-size eb64_slen(constr s);
-void eb64_free(constr s);
+  e64_encb2f(...)
+         * *
+
+    b -- binary data
+    f -- file
+
+-----------------------*/
+
+/// -- encoder
+///
+/// @note:
+///     the returned cstr must be freed by eb64_free() after using it
+///
+
+cstr eb64_encb  (conptr in, size inlen);
+int  eb64_encb2b(conptr in, size inlen, cstr   out  , size* outlen);
+int  eb64_encb2f();
+
+cstr eb64_encf  ();
+int  eb64_encf2b();
+int  eb64_encf2f();
+
+/// -- decoder
+///
+/// @note:
+///     the returned cptr must be freed by eb64_free() after using it
+///
+
+cptr eb64_decb  (constr in, size inlen);
+int  eb64_decb2b(constr in, size inlen, cptr   out  , size* outlen);
+int  eb64_decb2f();
+
+cptr eb64_decf  ();
+int  eb64_decf2b();
+int  eb64_decf2f();
+
+/// -- utils
+///
+/// @note:
+///     the @param d must be a cstr or cptr returned by eb64 API
+///
+
+void eb64_show(conptr d);       // show the data to stdout
+size eb64_dlen(conptr d);       // return the length of data
+void eb64_free(conptr d);       // release data
 
 
 #ifdef __cplusplus
