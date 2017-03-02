@@ -66,8 +66,8 @@ int  eb64_decb2b(constr in, size inlen, cptr   out  , size* outlen)
     return 1;
 }
 
-inline void   eb64_show(conptr s) { estr_shows((estr)s);}
-inline size   eb64_dlen(conptr s) { return estr_len((estr)s);}
-inline void   eb64_free(conptr s) { estr_free((estr)s);}
+inline void   eb64_show(conptr d) {        estr_shows((estr)d);}
+inline size   eb64_dlen(conptr d) { return estr_len  ((estr)d);}
+inline void   eb64_free(conptr d) {        estr_free ((estr)d);}
 
 

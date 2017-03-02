@@ -21,7 +21,7 @@ extern "C" {
 
   API statement:
 
-  e64_encb2f(...)
+  eb64_encb2f(...)
          * *
 
     b -- binary data
