@@ -31,6 +31,7 @@ set(ESTR_FS    src/libs/etools/estr.h  src/libs/etools/estr.c)
 set(ETP_FS     src/libs/etools/etp.h   src/libs/etools/etp.c   src/libs/etools/compat.h ${EJSON_FS})
 set(ENATS_FS   src/libs/etools/enats.h src/libs/etools/enats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
 set(EB64_FS    src/libs/etools/eb64.h  src/libs/etools/eb64.c  ${ESTR_FS} ${BASE64_SRCS})
+set(EDES_FS    src/libs/etools/edes.h  src/libs/etools/edes.c  ${ESTR_FS})
 
 set(EJSON_LIB  m)
 set(ETHP_LIB   ${EJSON_LIB} pthread )
@@ -41,6 +42,7 @@ include_directories(src/libs/etools)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ejson TEST_EJSON_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr  TEST_ESTR_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/eb64  TEST_EB64_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/edes  TEST_EDES_FS)
 
 # -- bin --
 add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
@@ -48,6 +50,7 @@ add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_etp   main.c ${ETP_FS})
 #add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
+add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})
