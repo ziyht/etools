@@ -16,50 +16,62 @@
 
 /*---------------------
 
-  API statement:
+    API statement:
 
-  edes_encb2f(...)
-         * *
-
-    b -- binary data
-    f -- file
+            |---- b: binary data
+    edes_encb2f(...)
+              |-- f: file
 
 -----------------------*/
 
-cstr edes_newkey(cstr key);         // 8 bit len
-
-/// -- encoder
+/// ---------------------- key -------------------------
 ///
 /// @note:
-///     the returned cptr must be freed by edes_free() after using it
+///     1. @param key requires at least 8 bytes
+///
+
+cstr edes_newkey(cstr key);
+
+/// ---------------------- encoder -------------------------
+///
+/// @note:
+///     1. @param key requires at least 8 bytes, and only
+///        the first 8 byte is usable
+///     2. @param out must have 8 byte more than @param in
+///     3. the returned cptr must be freed by edes_free()
+///        after using it
+///
 ///
 
 cptr edes_encb  (constr key, conptr in, size inlen);
-int  edes_encb2b();
+int  edes_encb2b(constr key, conptr in, size inlen, cptr out, size* outlen);
 int  edes_encb2f();
 
 cptr edes_encf  ();
 int  edes_encf2b();
 int  edes_encf2f();
 
-/// -- decoder
+/// ---------------------- decoder -------------------------
 ///
 /// @note:
-///     the returned cptr must be freed by edes_free() after using it
+///     1. @param key requires at least 8 bytes, and only
+///        the first 8 byte is usable
+///     2. the returned cptr must be freed by edes_free()
+///        after using it
 ///
 
 cptr edes_decb  (constr key, conptr in, size inlen);
-int  edes_decb2b();
+int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen);
 int  edes_decb2f();
 
 cptr edes_decf  ();
 int  edes_decf2b();
 int  edes_decf2f();
 
-/// -- utils
+/// ----------------------- utils --------------------------
 ///
 /// @note:
-///     the @param d must be a cptr returned by edes API
+///     1. @param d must be a cptr returned by edes API
 ///
 
 void edes_show(conptr d);       // show the data to stdout

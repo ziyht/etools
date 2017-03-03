@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -155,7 +154,7 @@ void print_key_set(key_set_t key_set){
     printf("\n");
 }
 
-void generate_sub_keys(unsigned char* main_key, key_set_t* key_sets) {
+void generate_sub_keys(const unsigned char* main_key, key_set_t* key_sets) {
     int i, j;
     int shift_size;
     unsigned char shift_byte, first_shift_bits, second_shift_bits, third_shift_bits, fourth_shift_bits;
@@ -447,10 +446,9 @@ void process_message(unsigned char* message_piece, unsigned char* processed_piec
 
 #include "estr.h"
 
-
-static int __processb2b(cstr key, constr in, size inlen, cstr out, int mode)
+static int __processb2b(constr key, constr in, size inlen, cstr out, size* outlen, int mode)
 {
-    u32 block_idx, block_all; u8 padding, * rd_p; struct { u8 in[8], out[8]; } d; key_set_t key_sets[17] = {0};
+    u32 block_idx, block_all; u8 padding, * rd_p, * wr_p; u8 pin[8], pout[8]; key_set_t key_sets[17] = {{{0},{0},{0}},};
 
     // -- Generate DES key set
     generate_sub_keys((u8*)key, key_sets);
@@ -459,98 +457,63 @@ static int __processb2b(cstr key, constr in, size inlen, cstr out, int mode)
     block_all = inlen/8 + ((inlen%8)?1:0);
     block_idx = 0;
     rd_p      = (u8*)in;
+    wr_p      = (u8*)out;
 
-    // -- ready? lets do it
+    // -- ready? let's do it
     while(1)
     {
         block_idx++;
 
-#if 1
         if(block_idx < block_all)
         {
-            memcpy(d.in, rd_p, 8); rd_p += 8;
-            process_message(d.in, d.out, key_sets, mode);
-            sstr_catb(out, d.out, 8);
+            memcpy(pin , rd_p, 8); rd_p += 8;
+            process_message(pin, pout, key_sets, mode);
+            memcpy(wr_p, pout, 8); wr_p += 8;
+
             continue;
         }
 
+        // -- is the last block? do some special operation
         if (mode == ENCRYPTION_MODE)
         {
             padding = 8 - inlen%8;
 
-            if (padding < 8)                    // Fill empty data block bytes with padding
-            {
-                memcpy(d.in, rd_p, 8 - padding);
-                memset(d.in + 8 - padding, padding, padding);
-            }
+            memcpy(pin, rd_p, 8 - padding % 8);
 
-            process_message(d.in, d.out, key_sets, mode);
-            sstr_catb(out, d.out, 8);
+            if (padding < 8)                    // Fill empty data block bytes with padding
+                memset(pin + 8 - padding, padding, padding);
+
+
+            process_message(pin, pout, key_sets, mode);
+            memcpy(wr_p, pout, 8); wr_p += 8;
 
             if(padding == 8)                    // Write an extra block for padding, (padding = 8)
             {
-                memset(d.in, padding, 8);
-                process_message(d.in, d.out, key_sets, mode);
-                sstr_catb(out, d.out, 8);
+                memset(pin, padding, 8);
+                process_message(pin, pout, key_sets, mode);
+                memcpy(wr_p, pout, 8); wr_p += 8;
             }
         }
         else
         {
-            memcpy(d.in, rd_p, 8);
-            process_message(d.in, d.out, key_sets, mode);
-            padding = d.out[7];
+            memcpy(pin, rd_p, 8);
+            process_message(pin, pout, key_sets, mode);
+            padding = pout[7];
 
             if (padding < 8)
-                sstr_catb(out, d.out, 8 - padding);
+            {
+                memcpy(wr_p, pout, 8 - padding); wr_p += 8 - padding;
+            }
         }
 
         break;
-
-     #else
-
-        if (block_idx == block_all)
-        {
-            if (mode == ENCRYPTION_MODE)
-            {
-                padding = 8 - inlen%8;
-
-                if (padding < 8)        // Fill empty data block bytes with padding
-                {
-                    memcpy(d.in, rd_p, 8 - padding);
-                    memset(d.in + 8 - padding, padding, padding);
-                }
-                else                    // Write an extra block for padding, (padding = 8)
-                    memset(d.in, padding, 8);
-
-                process_message(d.in, d.out, key_sets, mode);
-                sstr_catb(out, d.out, 8);
-            }
-            else
-            {
-                memcpy(d.in, rd_p, 8);
-                process_message(d.in, d.out, key_sets, mode);
-                padding = d.out[7];
-
-                if (padding < 8)
-                    sstr_catb(out, d.out, 8 - padding);
-            }
-
-            break;
-        }
-        else
-        {
-            memcpy(d.in, rd_p, 8); rd_p += 8;
-            process_message(d.in, d.out, key_sets, mode);
-            sstr_catb(out, d.out, 8);
-        }
-        *((u64*)d.in) = 0;
-        //memset(d.in, 0, 8);
-
-#endif
     }
+
+    *outlen = wr_p - (u8*)out;
 
     return 1;
 }
+
 
 /*
 static void __processb2f(constr key, constr in, size inlen, constr out, int type)
@@ -629,151 +592,60 @@ cstr edes_newkey(cstr key)
     return key;
 }
 
+/// ---------------------- encoder -------------------------
+
 cptr edes_encb  (constr key, conptr in, size inlen)
 {
-    estr out;
+    estr out; size outlen;
 
     is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0);
 
     is0_ret(out = estr_newLen(0, inlen + 8), 0);
 
-#if 0
-    __processb2b(key, in, inlen, out, ENCRYPTION_MODE);
-#else
+    __processb2b(key, in, inlen, out, &outlen, ENCRYPTION_MODE);
 
-    short int process_mode = ENCRYPTION_MODE;
-    unsigned long block_count = 0, number_of_blocks;
-
-
-    key_set_t key_sets[17] = {0};
-    unsigned char data_block[8] = {0}, processed_block[8] = {0};
-
-
-    generate_sub_keys(key, key_sets);
-
-    number_of_blocks = inlen/8 + ((inlen%8)?1:0);
-
-    unsigned short int padding;
-
-    while(1) {
-
-        block_count++;
-        if (block_count == number_of_blocks) {
-            if (process_mode == ENCRYPTION_MODE) {
-                padding = 8 - inlen%8;
-                memcpy(data_block, in + 8* block_count-8, inlen%8);
-                if (padding < 8) { // Fill empty data block bytes with padding
-                    memset((data_block + 8 - padding), (unsigned char)padding, padding);
-                }
-
-                process_message(data_block, processed_block, key_sets, process_mode);
-                //bytes_written = fwrite(processed_block, 1, 8, output_file);
-                out = estr_catb(out, processed_block, 8);
-
-
-                if (padding == 8) { // Write an extra block for padding
-                    memset(data_block, (unsigned char)padding, 8);
-                    process_message(data_block, processed_block, key_sets, process_mode);
-                    // bytes_written = fwrite(processed_block, 1, 8, output_file);
-                    out = estr_catb(out, processed_block, 8);
-                }
-            } else {
-                process_message(data_block, processed_block, key_sets, process_mode);
-                padding = processed_block[7];
-
-                if (padding < 8) {
-                    //bytes_written = fwrite(processed_block, 1, 8 - padding, output_file);
-                    out = estr_catb(out, processed_block, 8 - padding);
-                }
-            }
-
-            break;
-        }
-        else
-        {
-            memcpy(data_block, in + 8* block_count-8, 8);
-            process_message(data_block, processed_block, key_sets, process_mode);
-            // bytes_written = fwrite(processed_block, 1, 8, output_file);
-            out = estr_catb(out, processed_block, 8);
-        }
-        memset(data_block, 0, 8);
-    }
-#endif
+    estr_incrLen(out, outlen);
 
     return out;
 }
 
+int  edes_encb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
+{
+    is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
+
+    __processb2b(key, in, inlen, out, outlen, ENCRYPTION_MODE);
+
+    return 1;
+}
+
+/// ---------------------- decoder -------------------------
+
 cptr edes_decb  (constr key, conptr in, size inlen)
 {
-    estr out;
+    estr out; size outlen;
 
     is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0);
 
     is0_ret(out = estr_newLen(0, inlen), 0);
 
+    __processb2b(key, in, inlen, out, &outlen, DECRYPTION_MODE);
 
-#if 0
-    __processb2b(key, in, inlen, out, DECRYPTION_MODE);
-#else
-
-    short int process_mode = DECRYPTION_MODE;
-    unsigned long block_count = 0, number_of_blocks;
-
-    unsigned char data_block[8], processed_block[8];
-    key_set_t key_sets[17] = {0};
-
-    generate_sub_keys(key, key_sets);
-
-    number_of_blocks = inlen/8 + ((inlen%8)?1:0);
-
-    unsigned short int padding;
-
-    while(1) {
-        memcpy(data_block, in + 8* block_count, 8);
-        block_count++;
-        if (block_count == number_of_blocks) {
-            if (process_mode == ENCRYPTION_MODE) {
-                padding = 8 - inlen%8;
-                if (padding < 8) { // Fill empty data block bytes with padding
-                    memset((data_block + 8 - padding), (unsigned char)padding, padding);
-                }
-
-                process_message(data_block, processed_block, key_sets, process_mode);
-                //bytes_written = fwrite(processed_block, 1, 8, output_file);
-                out = estr_catb(out, processed_block, 8);
-
-
-                if (padding == 8) { // Write an extra block for padding
-                    memset(data_block, (unsigned char)padding, 8);
-                    process_message(data_block, processed_block, key_sets, process_mode);
-                    // bytes_written = fwrite(processed_block, 1, 8, output_file);
-                    out = estr_catb(out, processed_block, 8);
-                }
-            } else {
-                process_message(data_block, processed_block, key_sets, process_mode);
-                padding = processed_block[7];
-
-                if (padding < 8) {
-                    //bytes_written = fwrite(processed_block, 1, 8 - padding, output_file);
-                    out = estr_catb(out, processed_block, 8 - padding);
-                }
-            }
-
-            break;
-        }
-        else
-        {
-            process_message(data_block, processed_block, key_sets, process_mode);
-            // bytes_written = fwrite(processed_block, 1, 8, output_file);
-            out = estr_catb(out, processed_block, 8);
-        }
-        memset(data_block, 0, 8);
-    }
-#endif
+    estr_incrLen(out, outlen);
 
     return out;
 
 }
+
+int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
+{
+    is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
+
+    __processb2b(key, in, inlen, out, outlen, DECRYPTION_MODE);
+
+    return 1;
+}
+
+/// ----------------------- utils --------------------------
 
 inline void   edes_show(conptr d) {        estr_shows((estr)d); }
 inline size   edes_dlen(conptr d) { return estr_len  ((estr)d); }
