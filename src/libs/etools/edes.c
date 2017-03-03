@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "edes.h"
 
@@ -582,38 +583,79 @@ static void __processb2f(constr key, constr in, size inlen, constr out, int type
 }
 */
 
-cstr edes_newkey(cstr key)
+cstr edes_newkey(cstr key, int human)
 {
+    static char key_set[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";   // % 62
+    static int  seed;
     int i;
-    for (i=0; i<8; i++) {
-        key[i] = rand()%255;
-    }
+
+    srand((unsigned) time(0) + seed);
+
+    seed += time(0);
+
+    if(human) for(i=0; i<8; i++) key[i] = key_set[rand()%(sizeof(key_set) - 1)];
+    else      for(i=0; i<8; i++) key[i] = rand()%255;
 
     return key;
 }
+
+static  u64 __EDES_INNER_MAGIC_NUM = 0xFDFEFFEEEEFFFEFDLL;
+#define EDES_INNER_MAGIC_KEY (char*)&__EDES_INNER_MAGIC_NUM
+
+static inline void __rand_key(cstr key) { edes_newkey(key, 0); key[7] = 0; }
 
 /// ---------------------- encoder -------------------------
 
 cptr edes_encb  (constr key, conptr in, size inlen)
 {
-    estr out; size outlen;
+    estr out; size outlen; char real_key[8];
 
     is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0);
 
-    is0_ret(out = estr_newLen(0, inlen + 8), 0);
+    is0_ret(out = estr_newLen(0, 8 + inlen + 8), 0);
 
-    __processb2b(key, in, inlen, out, &outlen, ENCRYPTION_MODE);
+#if EDES_SAFE_CODEC
 
-    estr_incrLen(out, outlen);
+    do{
+        __rand_key(real_key);
+        __processb2b(key, real_key, 7, out, &outlen, ENCRYPTION_MODE);
+    }while(0 == memcmp(out, EDES_INNER_MAGIC_KEY, 8));
+
+#else
+
+    memcpy(out, EDES_INNER_MAGIC_KEY, 8);
+    memcpy(real_key, key, 8);
+
+#endif
+
+    __processb2b(real_key, in, inlen, out + 8, &outlen, ENCRYPTION_MODE);
+    estr_incrLen(out, 8 + outlen);
 
     return out;
 }
 
 int  edes_encb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
 {
+    char real_key[8];
+
     is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
 
-    __processb2b(key, in, inlen, out, outlen, ENCRYPTION_MODE);
+#if EDES_SAFE_CODEC
+
+    do{
+        __rand_key(real_key);
+        __processb2b(key, real_key, 7, out, outlen, ENCRYPTION_MODE);
+    }while(0 == memcmp(out, EDES_INNER_MAGIC_KEY, 8));
+
+#else
+
+    memcpy(out, EDES_INNER_MAGIC_KEY, 8);
+    memcpy(real_key, key, 8);
+
+#endif
+
+    __processb2b(real_key, in, inlen, (cstr)out + 8, outlen, ENCRYPTION_MODE);
+    *outlen += 8;
 
     return 1;
 }
@@ -626,11 +668,22 @@ cptr edes_decb  (constr key, conptr in, size inlen)
 
     is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0);
 
-    is0_ret(out = estr_newLen(0, inlen), 0);
+    is0_ret(out = estr_newLen(0, inlen - 8), 0);
 
-    __processb2b(key, in, inlen, out, &outlen, DECRYPTION_MODE);
+    if(0 != memcmp(in, EDES_INNER_MAGIC_KEY, 8))    // using safe mode
+    {
+        char real_key[8];
 
-    estr_incrLen(out, outlen);
+        __processb2b(key, in, 8, real_key, &outlen, DECRYPTION_MODE);
+
+        __processb2b(real_key, (char*)in + 8, inlen - 8, out, &outlen, DECRYPTION_MODE);
+        estr_incrLen(out, outlen);
+    }
+    else
+    {
+        __processb2b(key, (char*)in + 8, inlen - 8, out, &outlen, DECRYPTION_MODE);
+        estr_incrLen(out, outlen);
+    }
 
     return out;
 
@@ -640,7 +693,19 @@ int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
 {
     is0_ret(key, 0); is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
 
-    __processb2b(key, in, inlen, out, outlen, DECRYPTION_MODE);
+    if(0 != memcmp(in, EDES_INNER_MAGIC_KEY, 8))    // using safe mode
+    {
+        char real_key[8];
+
+        __processb2b(key, in, 8, real_key, outlen, DECRYPTION_MODE);
+
+        __processb2b(real_key, (cstr)in + 8, inlen - 8, out, outlen, DECRYPTION_MODE);
+    }
+    else
+    {
+        __processb2b(key, (cstr)in + 8, inlen - 8, out, outlen, DECRYPTION_MODE);
+
+    }
 
     return 1;
 }

@@ -50,7 +50,7 @@ add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_etp   main.c ${ETP_FS})
 #add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
-add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS})
+add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS} ${EB64_FS})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})

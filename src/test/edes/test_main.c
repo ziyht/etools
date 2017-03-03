@@ -4,6 +4,8 @@
 
 int main()
 {
-    //edes_encode_test();
-    edes_decode_test();
+    // edes_encode_test();
+
+     edes_decb_test();
+    // edes_decb2b_test();
 }

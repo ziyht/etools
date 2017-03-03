@@ -9,7 +9,7 @@
 #ifndef __EDES_H__
 #define __EDES_H__
 
-#define EB64_VERSION "1.0.0"      // new tool
+#define EDES_VERSION "1.0.1"      // add EDES_SAFE_CODEC option to encode data
 
 #include "etype.h"
 
@@ -24,23 +24,37 @@
 
 -----------------------*/
 
+/// ---------------------- setting ---------------------
+///
+/// EDES_SAFE_CODEC:
+///         In this case, the API will generate a random
+///     key to encode the data, and this random key will
+///     be encode to the first 8 byte of output data with
+///     your input key, so it will take more 8 byte space
+///     to handle the whole data;
+///         Otherwise, the first 8 byte space of out data
+///     will be filled with our inner magic key.
+///
+
+#define EDES_SAFE_CODEC 1           // encode in safe mode
+
 /// ---------------------- key -------------------------
 ///
 /// @note:
 ///     1. @param key requires at least 8 bytes
+///     2. set @param human can generate a human-readable key
 ///
 
-cstr edes_newkey(cstr key);
+cstr edes_newkey(cstr key, int human);
 
 /// ---------------------- encoder -------------------------
 ///
 /// @note:
 ///     1. @param key requires at least 8 bytes, and only
 ///        the first 8 byte is usable
-///     2. @param out must have 8 byte more than @param in
+///     2. @param out must have 16 byte more than @param in
 ///     3. the returned cptr must be freed by edes_free()
 ///        after using it
-///
 ///
 
 cptr edes_encb  (constr key, conptr in, size inlen);
