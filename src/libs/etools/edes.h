@@ -12,6 +12,10 @@
 #include "etype.h"
 #include "estr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*--------------------------------
 
     API statement:
@@ -102,7 +106,7 @@ void edes_free(estr s);         // release data
 sstr edes_version();            // return the version of edes
 
 #ifdef __cplusplus
-extern "C" {
+}
 #endif
 
 #endif

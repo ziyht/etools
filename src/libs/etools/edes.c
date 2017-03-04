@@ -5,7 +5,7 @@
 
 #include "edes.h"
 
-#define VERSION "edes 1.0.2"      // little adjustment
+#define VERSION "edes 1.0.3"      // fix statement in c++
 
 static int initial_key_permutaion[] = { 57, 49,  41, 33,  25,  17,  9,
                                          1, 58,  50, 42,  34,  26, 18,
