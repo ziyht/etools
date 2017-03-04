@@ -5,6 +5,8 @@
 
 #include "edes.h"
 
+#define VERSION "edes 1.0.2"      // little adjustment
+
 static int initial_key_permutaion[] = { 57, 49,  41, 33,  25,  17,  9,
                                          1, 58,  50, 42,  34,  26, 18,
                                         10,  2,  59, 51,  43,  35, 27,
@@ -445,8 +447,6 @@ void process_message(unsigned char* message_piece, unsigned char* processed_piec
 #define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
 #define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
-#include "estr.h"
-
 static int __processb2b(constr key, constr in, size inlen, cstr out, size* outlen, int mode)
 {
     u32 block_idx, block_all; u8 padding, * rd_p, * wr_p; u8 pin[8], pout[8]; key_set_t key_sets[17] = {{{0},{0},{0}},};
@@ -583,9 +583,9 @@ static void __processb2f(constr key, constr in, size inlen, constr out, int type
 }
 */
 
-cstr edes_newkey(cstr key, int human)
+cstr edes_genkey(char key[8], int human)
 {
-    static char key_set[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";   // % 62
+    static char key_set[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     static int  seed;
     int i;
 
@@ -602,11 +602,11 @@ cstr edes_newkey(cstr key, int human)
 static  u64 __EDES_INNER_MAGIC_NUM = 0xFDFEFFEEEEFFFEFDLL;
 #define EDES_INNER_MAGIC_KEY (char*)&__EDES_INNER_MAGIC_NUM
 
-static inline void __rand_key(cstr key) { edes_newkey(key, 0); key[7] = 0; }
+static inline void __rand_key(cstr key) { edes_genkey(key, 0); key[7] = 0; }
 
 /// ---------------------- encoder -------------------------
 
-cptr edes_encb  (constr key, conptr in, size inlen)
+estr edes_encb  (constr key, conptr in, size inlen)
 {
     estr out; size outlen; char real_key[8];
 
@@ -662,7 +662,7 @@ int  edes_encb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
 
 /// ---------------------- decoder -------------------------
 
-cptr edes_decb  (constr key, conptr in, size inlen)
+estr edes_decb  (constr key, conptr in, size inlen)
 {
     estr out; size outlen;
 
@@ -712,6 +712,20 @@ int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
 
 /// ----------------------- utils --------------------------
 
-inline void   edes_show(conptr d) {        estr_shows((estr)d); }
-inline size   edes_dlen(conptr d) { return estr_len  ((estr)d); }
-inline void   edes_free(conptr d) {        estr_free ((estr)d); }
+inline void   edes_show(estr s) {        estr_shows(s); }
+inline size   edes_dlen(estr s) { return estr_len  (s); }
+inline void   edes_free(estr s) {        estr_free (s); }
+
+estr edes_version()
+{
+    static char buf[16];
+    static sstr ver;
+
+    if(!ver)
+    {
+        ver = sstr_init(buf, sizeof(buf) -1);
+        sstr_wrs(ver, VERSION);
+    }
+
+    return ver;
+}

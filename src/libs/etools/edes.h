@@ -9,12 +9,10 @@
 #ifndef __EDES_H__
 #define __EDES_H__
 
-#define EDES_VERSION "1.0.1"      // add EDES_SAFE_CODEC option to encode data
-
 #include "etype.h"
+#include "estr.h"
 
-
-/*---------------------
+/*--------------------------------
 
     API statement:
 
@@ -22,7 +20,7 @@
     edes_encb2f(...)
               |-- f: file
 
------------------------*/
+---------------------------------*/
 
 /// ---------------------- setting ---------------------
 ///
@@ -40,14 +38,20 @@
 
 /// ---------------------- key -------------------------
 ///
+///     to generate a random key so that you can use it
+/// to encode data.
+///
 /// @note:
 ///     1. @param key requires at least 8 bytes
 ///     2. set @param human can generate a human-readable key
 ///
 
-cstr edes_newkey(cstr key, int human);
+cstr edes_genkey(char key[8], int human);
 
 /// ---------------------- encoder -------------------------
+///
+///     using a key to encode a binary data to a encrypted
+/// data by our DES algorithm.
 ///
 /// @note:
 ///     1. @param key requires at least 8 bytes, and only
@@ -57,15 +61,18 @@ cstr edes_newkey(cstr key, int human);
 ///        after using it
 ///
 
-cptr edes_encb  (constr key, conptr in, size inlen);
+estr edes_encb  (constr key, conptr in, size inlen);
 int  edes_encb2b(constr key, conptr in, size inlen, cptr out, size* outlen);
 int  edes_encb2f();
 
-cptr edes_encf  ();
+estr edes_encf  ();
 int  edes_encf2b();
 int  edes_encf2f();
 
 /// ---------------------- decoder -------------------------
+///
+///     using our DES algorithm to decode a encrypted data
+/// to the origin data by the key you passed in.
 ///
 /// @note:
 ///     1. @param key requires at least 8 bytes, and only
@@ -74,23 +81,25 @@ int  edes_encf2f();
 ///        after using it
 ///
 
-cptr edes_decb  (constr key, conptr in, size inlen);
+estr edes_decb  (constr key, conptr in, size inlen);
 int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen);
 int  edes_decb2f();
 
-cptr edes_decf  ();
+estr edes_decf  ();
 int  edes_decf2b();
 int  edes_decf2f();
 
 /// ----------------------- utils --------------------------
 ///
 /// @note:
-///     1. @param d must be a cptr returned by edes API
+///     1. @param s should be a estr returned by edes API
 ///
 
-void edes_show(conptr d);       // show the data to stdout
-size edes_dlen(conptr d);       // return the length of data
-void edes_free(conptr d);       // release data
+void edes_show(estr s);         // show the data to stdout
+size edes_dlen(estr s);         // return the length of data
+void edes_free(estr s);         // release data
+
+sstr edes_version();            // return the version of edes
 
 #ifdef __cplusplus
 extern "C" {
