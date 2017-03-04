@@ -26,23 +26,28 @@ include(${LIBUV_DIR}/CMakeLists.txt)                        # include me
 set(BASE64_DIR   ${PROJECT_SOURCE_DIR}/src/libs/etools/libs/base64)
 include(${BASE64_DIR}/CMakeLists.txt)
 
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/libs/etools/libs/crypt_blowfish CRYPT_SRCS)
+
 set(EJSON_FS   src/libs/etools/ejson.h src/libs/etools/ejson.c src/libs/etools/ejson.h src/libs/etools/etype.h)
 set(ESTR_FS    src/libs/etools/estr.h  src/libs/etools/estr.c)
 set(ETP_FS     src/libs/etools/etp.h   src/libs/etools/etp.c   src/libs/etools/compat.h ${EJSON_FS})
 set(ENATS_FS   src/libs/etools/enats.h src/libs/etools/enats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
 set(EB64_FS    src/libs/etools/eb64.h  src/libs/etools/eb64.c  ${ESTR_FS} ${BASE64_SRCS})
 set(EDES_FS    src/libs/etools/edes.h  src/libs/etools/edes.c  ${ESTR_FS})
+set(ECRYPT_FS  src/libs/etools/ecrypt.h  src/libs/etools/ecrypt.c ${ESTR_FS} ${CRYPT_SRCS})
 
 set(EJSON_LIB  m)
 set(ETHP_LIB   ${EJSON_LIB} pthread )
 set(ENATS_LIB  ${EJSON_LIB} ${CNATS_LIBS} ${LIBUV_LIBS})
 
 include_directories(src/libs/etools)
+include_directories(src/libs/etools/libs)
 
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ejson TEST_EJSON_FS)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr  TEST_ESTR_FS)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/eb64  TEST_EB64_FS)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/edes  TEST_EDES_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ejson  TEST_EJSON_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr   TEST_ESTR_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/eb64   TEST_EB64_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/edes   TEST_EDES_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ecrypt TEST_ECRYPT_FS)
 
 # -- bin --
 add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
@@ -51,6 +56,7 @@ add_executable(test_etp   main.c ${ETP_FS})
 #add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
 add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS} ${EB64_FS})
+add_executable(test_ecrypt ${TEST_ECRYPT_FS} ${ECRYPT_FS})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})
