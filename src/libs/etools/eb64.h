@@ -64,11 +64,11 @@ int  eb64_decf2f();
 ///     1. @param s should be a estr returned by eb64 API
 ///
 
-void eb64_show(estr d);       // show the data to stdout
-size eb64_dlen(estr d);       // return the length of data
-void eb64_free(estr d);       // release data
+void eb64_show(estr s);         // show the data to stdout
+size eb64_dlen(estr s);         // return the length of data
+void eb64_free(estr s);         // release data
 
-estr eb64_version();
+estr eb64_version();            // return the version of eb64
 
 #ifdef __cplusplus
 }
