@@ -90,7 +90,7 @@ int  ecrypt_gensalt(uint   factor, char   salt[ECRYPT_SIZE])
  * bcrypt_checkpw when verifying a password.
  *
  */
-estr ecrypt_hashs  (constr passwd, cschar salt[ECRYPT_SIZE])
+estr ecrypt_hashs  (constr passwd, conchr salt[ECRYPT_SIZE])
 {
     estr hash;
 
@@ -102,7 +102,7 @@ estr ecrypt_hashs  (constr passwd, cschar salt[ECRYPT_SIZE])
     return hash;
 }
 
-int  ecrypt_hashs2s(constr passwd, cschar salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE])
+int  ecrypt_hashs2s(constr passwd, conchr salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE])
 {
     return crypt_rn(passwd, salt, hash, ECRYPT_SIZE) ? 1 : 0;
 }
@@ -130,7 +130,7 @@ int  ecrypt_encs2s(constr passwd, char hash[ECRYPT_SIZE])
     return crypt_rn(passwd, salt, hash, ECRYPT_SIZE) ? 1 : 0;
 }
 
-int  ecrypt_check (constr passwd, cschar hash[ECRYPT_SIZE])
+int  ecrypt_check (constr passwd, conchr hash[ECRYPT_SIZE])
 {
     char outhash[ECRYPT_SIZE];
 
@@ -138,6 +138,10 @@ int  ecrypt_check (constr passwd, cschar hash[ECRYPT_SIZE])
 
     return !timing_safe_strcmp(hash, outhash);
 }
+
+inline void   ecrypt_show(estr s) {        estr_shows(s);}
+inline size   ecrypt_dlen(estr s) { return estr_len  (s);}
+inline void   ecrypt_free(estr s) {        estr_free (s);}
 
 estr ecrypt_version()
 {
@@ -152,7 +156,3 @@ estr ecrypt_version()
 
     return ver;
 }
-
-inline void   ecrypt_show(estr s) {        estr_shows(s);}
-inline size   ecrypt_dlen(estr s) { return estr_len  (s);}
-inline void   ecrypt_free(estr s) {        estr_free (s);}

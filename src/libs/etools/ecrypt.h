@@ -36,15 +36,15 @@ extern "C" {
 ///
 
 int  ecrypt_gensalt(uint   factor, char   salt[ECRYPT_SIZE]);
-estr ecrypt_hashs  (constr passwd, cschar salt[ECRYPT_SIZE]);
-int  ecrypt_hashs2s(constr passwd, cschar salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE]);
+estr ecrypt_hashs  (constr passwd, conchr salt[ECRYPT_SIZE]);
+int  ecrypt_hashs2s(constr passwd, conchr salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE]);
 
 /// ----------------------- hash 2 -------------------------
 ///
-///     a more easier a way to hash a passwd, in this way,
-/// we will generate a salt autolly before hashing it, so
-/// you only need to pass your passwd in, and then you can
-/// get the hashcode of this passwd.
+///     a more easier way to hash a passwd, in this way, we
+/// will generate a salt autolly before hashing it, so you
+/// only need to pass your passwd in, and then you can get
+/// the hashcode of this passwd.
 ///
 /// @return [int ]  1: operate ok
 ///         [int ]  0: operate faild
@@ -57,12 +57,14 @@ int  ecrypt_encs2s(constr passwd, char   hash[ECRYPT_SIZE]);
 
 /// ----------------------- check --------------------------
 ///
+///     to check a hashcode is whether generated based on the
+/// passwd.
 ///
 /// @return [int ] 1: check ok
 ///                0: check faild
 ///
 
-int  ecrypt_check (constr passwd, cschar hash[ECRYPT_SIZE]);
+int  ecrypt_check (constr passwd, conchr hash[ECRYPT_SIZE]);
 
 /// ----------------------- utils --------------------------
 ///
