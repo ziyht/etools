@@ -1,7 +1,9 @@
 #include "eb64.h"
 #include "libbase64.h"
 
-#include "estr.h"
+#define VERSION "eb64 1.1.1"      // change param type
+
+/// ----------------- micros helper -----------------------
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
@@ -16,7 +18,7 @@
 
 /// ---------------------- encoder -------------------------
 
-cstr eb64_encb  (conptr in, size inlen)
+estr eb64_encb  (conptr in, size inlen)
 {
     estr out; size outlen;
 
@@ -31,7 +33,7 @@ cstr eb64_encb  (conptr in, size inlen)
     return out;
 }
 
-int  eb64_encb2b(conptr in, size inlen, cstr   out  , size* outlen)
+int  eb64_encb2b(conptr in, size inlen, cptr   out  , size* outlen)
 {
     is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
 
@@ -42,7 +44,7 @@ int  eb64_encb2b(conptr in, size inlen, cstr   out  , size* outlen)
 
 /// ---------------------- decoder -------------------------
 
-cptr eb64_decb  (constr in, size inlen)
+estr eb64_decb  (conptr in, size inlen)
 {
     estr out; size outlen;
 
@@ -57,7 +59,7 @@ cptr eb64_decb  (constr in, size inlen)
     return out;
 }
 
-int  eb64_decb2b(constr in, size inlen, cptr   out  , size* outlen)
+int  eb64_decb2b(conptr in, size inlen, cptr   out  , size* outlen)
 {
     is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
 
@@ -66,8 +68,20 @@ int  eb64_decb2b(constr in, size inlen, cptr   out  , size* outlen)
     return 1;
 }
 
-inline void   eb64_show(conptr d) {        estr_shows((estr)d);}
-inline size   eb64_dlen(conptr d) { return estr_len  ((estr)d);}
-inline void   eb64_free(conptr d) {        estr_free ((estr)d);}
+inline void   eb64_show(estr s) {        estr_shows(s);}
+inline size   eb64_dlen(estr s) { return estr_len  (s);}
+inline void   eb64_free(estr s) {        estr_free (s);}
 
+estr eb64_version()
+{
+    static char buf[16];
+    static sstr ver;
 
+    if(!ver)
+    {
+        ver = sstr_init(buf, sizeof(buf) -1);
+        sstr_wrs(ver, VERSION);
+    }
+
+    return ver;
+}

@@ -9,64 +9,66 @@
 #ifndef __EB64_H__
 #define __EB64_H__
 
-#define EB64_VERSION "1.1.0"      // new API
-
 #include "etype.h"
+#include "estr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*---------------------
+/*--------------------------------
 
-  API statement:
+    API statement:
 
-  eb64_encb2f(...)
-         * *
+            |---- b: binary data
+    eb64_encb2f(...)
+              |-- f: file
 
-    b -- binary data
-    f -- file
+---------------------------------*/
 
------------------------*/
-
-/// -- encoder
+/// ---------------------- encoder -------------------------
+///
+///     to encode a binary data to a base64 data;
 ///
 /// @note:
 ///     the returned cstr must be freed by eb64_free() after using it
 ///
 
-cstr eb64_encb  (conptr in, size inlen);
-int  eb64_encb2b(conptr in, size inlen, cstr   out  , size* outlen);
+estr eb64_encb  (conptr in, size inlen);
+int  eb64_encb2b(conptr in, size inlen, cptr   out  , size* outlen);
 int  eb64_encb2f();
 
-cstr eb64_encf  ();
+estr eb64_encf  ();
 int  eb64_encf2b();
 int  eb64_encf2f();
 
-/// -- decoder
+/// ---------------------- decoder -------------------------
+///
+///     to decode a base64 data to origin data
 ///
 /// @note:
 ///     the returned cptr must be freed by eb64_free() after using it
 ///
 
-cptr eb64_decb  (constr in, size inlen);
-int  eb64_decb2b(constr in, size inlen, cptr   out  , size* outlen);
+estr eb64_decb  (conptr in, size inlen);
+int  eb64_decb2b(conptr in, size inlen, cptr   out  , size* outlen);
 int  eb64_decb2f();
 
-cptr eb64_decf  ();
+estr eb64_decf  ();
 int  eb64_decf2b();
 int  eb64_decf2f();
 
-/// -- utils
+/// ----------------------- utils --------------------------
 ///
 /// @note:
-///     the @param d must be a cstr or cptr returned by eb64 API
+///     1. @param s should be a estr returned by eb64 API
 ///
 
-void eb64_show(conptr d);       // show the data to stdout
-size eb64_dlen(conptr d);       // return the length of data
-void eb64_free(conptr d);       // release data
+void eb64_show(estr d);       // show the data to stdout
+size eb64_dlen(estr d);       // return the length of data
+void eb64_free(estr d);       // release data
 
+estr eb64_version();
 
 #ifdef __cplusplus
 }
