@@ -1,6 +1,7 @@
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -13,6 +14,8 @@
 #include <inttypes.h>
 #include <fcntl.h>
 #include "ejson.h"
+
+#define EJSON_VERSION "0.8.1"      // add compat of estr in etools(not using it now, but can open it with a macro switch)
 
 static constr g_err;
 static constr g_errp;
@@ -87,9 +90,15 @@ static cstr  obj__str(uint _len);
 //#define val_strLen(v)       ((OBJ)val_to_obj(v))->_len
 
 // --------------------- str for ejson ----------------------------
+
+#define COMPAT_ESTR 0
+
 typedef struct __attribute__ ((__packed__)) _s_s{
     uint cap;
     uint len;
+#if COMPAT_ESTR
+    u8   type;
+#endif
     char s[];
 }_s_t, * _s;
 
@@ -99,12 +108,18 @@ static cstr _snew2(conptr ptr, uint len);
 
 // -- micros --
 #define _s2hdr(s)    ((_s)(s) - 1)
+#define _hdr2s(h)    ((cstr)((_s)(h) + 1))
 #define _snewc(l)    calloc(sizeof(_s_t) + l + 1, 1)
 #define _snewm(l)    malloc(sizeof(_s_t) + l + 1)
 #define _snewr(h, l) realloc(h, sizeof(_s_t) + l + 1)
 #define _sfree(s)    free(_s2hdr(s))
+#if COMPAT_ESTR
+#define _slen(s)     ((uint*)((cstr)s-1))[-1]
+#define _scap(s)     ((uint*)((cstr)s-1))[-2]
+#else
 #define _slen(s)     ((uint*)(s))[-1]
 #define _scap(s)     ((uint*)(s))[-2]
+#endif
 
 static inline cstr _snew1(constr src)       // create a _s from cstr
 {
@@ -169,8 +184,8 @@ static inline cstr _sens(cstr s, uint len)
     return s;
 }
 
-///
 /// \brief __cstr_replace - replace str @param from in s to str @param to
+///
 /// \param s       : a _s type str, we assume it is valid
 /// \param end     : a cstr pointer, point to a pointer who point to the end '\0' of @param s now
 /// \param last    : a cstr pointer, point to a pointer who point to the end '\0' of @param s when finish replacing, this ptr is predicted before call this func
@@ -215,8 +230,8 @@ static inline void __cstr_replace(cstr s, cstr* end, cstr* last, constr from, si
     return ;
 }
 
-///
 /// \brief _ssub - replace str @param from in s to str @param to
+///
 /// \param s    : a _s type str, we assume it is valid
 /// \param from : the cstr you want to be replaced, we assume it is valid
 /// \param to   : the cstr you want to replace to, we assume it is valid
@@ -1792,12 +1807,21 @@ ejsw   ejsw_new(uint len)
     if(len < 8)    len = DF_WBUF_LEN;
     if(len > 1024) len = 1024;
 
+#if COMPAT_ESTR
+
+    is0_ret(w = calloc(1, sizeof(ejsw_t)), 0);
+    is0_exeret(w->s = _snewm(len), free(w), 0);
+
+    w->cap = len;
+    w->s   = _hdr2s(w->s);
+
+#else
     is0_ret(w = calloc(1, sizeof(ejsw_t)), 0);
     is0_exeret(w->s = (char*)malloc(OBJ_size + len), free(w), 0);
 
     w->cap = len;
     w->s  += OBJ_size;
-
+#endif
     return w;
 }
 
@@ -1805,12 +1829,21 @@ cstr ejso_toFStr(ejson obj)
 {
     cstr s;   ejsw_t w;
 
+#if COMPAT_ESTR
+    is0_ret(obj, _NIL_);
+    is0_ret(w.s = _snewm(DF_WBUF_LEN), 0);
+
+    w.cap = DF_WBUF_LEN;
+    w.len = 0;
+    w.s   = _hdr2s(w.s);
+#else
     is0_ret(obj, _NIL_);
     is0_ret(w.s = (char*)malloc(OBJ_size + DF_WBUF_LEN), 0);
 
     w.cap = DF_WBUF_LEN;
     w.len = 0;
     w.s  += OBJ_size;
+#endif
 
     if((s = wrap_obj(obj, 0, 1, &w))) {_capS(s) = w.cap; _lenS(s) = w.len;}
 
@@ -1821,6 +1854,17 @@ cstr ejso_toUStr(ejson obj)
 {
     cstr s;   ejsw_t w;
 
+#if COMPAT_ESTR
+
+    is0_ret(obj, _NIL_);
+    is0_ret(w.s = _snewm(DF_WBUF_LEN), 0);
+
+    w.cap = DF_WBUF_LEN;
+    w.len = 0;
+    w.s   = _hdr2s(w.s);
+
+#else
+
     is0_ret(obj, _NIL_);
     is0_ret(w.s = (char*)malloc(OBJ_size + DF_WBUF_LEN), 0);
 
@@ -1830,6 +1874,7 @@ cstr ejso_toUStr(ejson obj)
     w.len  = 0;
     w.s   += OBJ_size;
 
+#endif
     if((s = wrap_obj(obj, 0, 0, &w))) {_capS(s) = w.cap; _lenS(s) = w.len;}
 
     return s;
@@ -2889,12 +2934,20 @@ static inline char* ensure(ejsw w, uint needed)
     is1_ret(needed <= w->cap, w->s + w->len);
 
     ncap   = pow2gt(needed);
-
+#if COMPAT_ESTR
+    ns = _snewr(_s2hdr(w->s), ncap);
+    is0_ret(ns, 0);
+    w->cap = ncap;
+    if(ns != (cstr)_s2hdr(w->s))
+        w->s = _hdr2s(ns);
+#else
     ns = realloc(val_to_obj(w->s), OBJ_size + ncap);
     is0_ret(ns, 0);
     w->cap = ncap;
     if(ns != val_to_obj(w->s))
         w->s = ns + OBJ_size;
+#endif
+
 
     return w->s + w->len;
 }

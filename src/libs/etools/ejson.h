@@ -9,8 +9,6 @@
 #ifndef __EJSON_H__
 #define __EJSON_H__
 
-#define EJSON_VERSION "0.8.0"      // using a new str to handle keyS, valS, valR
-
 #include "etype.h"
 
 /// -- pre def ---
