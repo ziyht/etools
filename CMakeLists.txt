@@ -48,6 +48,7 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr   TEST_ESTR_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/eb64   TEST_EB64_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/edes   TEST_EDES_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ecrypt TEST_ECRYPT_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/libuv  TEST_LIBUV_FS)
 
 # -- bin --
 add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
@@ -58,10 +59,12 @@ add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
 add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS} ${EB64_FS})
 add_executable(test_ecrypt ${TEST_ECRYPT_FS} ${ECRYPT_FS})
 
+add_executable(test_libuv ${TEST_LIBUV_FS} ${LIBUV_SOURCES})
+
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})
 #TARGET_LINK_LIBRARIES(test_enats ${ENATS_LIB})
-
+TARGET_LINK_LIBRARIES(test_libuv  ${ETHP_LIB} ${BASE64_LIBS} dl)
 
 # -- prev version --
 set(TRANSPORT_CNAT_FS  src/libs/etools/transport_cnats.h src/libs/etools/transport_cnats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
