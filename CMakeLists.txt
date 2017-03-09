@@ -30,6 +30,8 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/libs/etools/libs/crypt_blowfish C
 
 set(EJSON_FS   src/libs/etools/ejson.h src/libs/etools/ejson.c src/libs/etools/ejson.h src/libs/etools/etype.h)
 set(ESTR_FS    src/libs/etools/estr.h  src/libs/etools/estr.c)
+set(ESL_FS     src/libs/etools/esl.h   src/libs/etools/esl.c)
+
 set(ETP_FS     src/libs/etools/etp.h   src/libs/etools/etp.c   src/libs/etools/compat.h ${EJSON_FS})
 set(ENATS_FS   src/libs/etools/enats.h src/libs/etools/enats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
 set(EB64_FS    src/libs/etools/eb64.h  src/libs/etools/eb64.c  ${ESTR_FS} ${BASE64_SRCS})
@@ -45,6 +47,8 @@ include_directories(src/libs/etools/libs)
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ejson  TEST_EJSON_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr   TEST_ESTR_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/esl    TEST_ESL_FS)
+
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/eb64   TEST_EB64_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/edes   TEST_EDES_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ecrypt TEST_ECRYPT_FS)
@@ -53,6 +57,8 @@ aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/libuv  TEST_LIBUV_FS)
 # -- bin --
 add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
 add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
+add_executable(test_esl   ${TEST_ESL_FS}   ${ESL_FS})
+
 add_executable(test_etp   main.c ${ETP_FS})
 #add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
