@@ -32,7 +32,7 @@ set(EJSON_FS   src/libs/etools/ejson.h src/libs/etools/ejson.c src/libs/etools/e
 set(ESTR_FS    src/libs/etools/estr.h  src/libs/etools/estr.c)
 set(ESL_FS     src/libs/etools/esl.h   src/libs/etools/esl.c)
 
-set(ETP_FS     src/libs/etools/etp.h   src/libs/etools/etp.c   src/libs/etools/compat.h ${EJSON_FS})
+set(ERT_FS     src/libs/etools/ert.h   src/libs/etools/ert.c   src/libs/etools/compat.h ${EJSON_FS})
 set(ENATS_FS   src/libs/etools/enats.h src/libs/etools/enats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
 set(EB64_FS    src/libs/etools/eb64.h  src/libs/etools/eb64.c  ${ESTR_FS} ${BASE64_SRCS})
 set(EDES_FS    src/libs/etools/edes.h  src/libs/etools/edes.c  ${ESTR_FS})
@@ -59,7 +59,7 @@ add_executable(test_ejson ${TEST_EJSON_FS} ${EJSON_FS})
 add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_esl   ${TEST_ESL_FS}   ${ESL_FS})
 
-add_executable(test_etp   main.c ${ETP_FS})
+add_executable(test_ert   main.c ${ERT_FS})
 #add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
 add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS} ${EB64_FS})
@@ -68,7 +68,7 @@ add_executable(test_ecrypt ${TEST_ECRYPT_FS} ${ECRYPT_FS})
 add_executable(test_libuv ${TEST_LIBUV_FS} ${LIBUV_SOURCES})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
-TARGET_LINK_LIBRARIES(test_etp   ${ETHP_LIB})
+TARGET_LINK_LIBRARIES(test_ert   ${ETHP_LIB})
 #TARGET_LINK_LIBRARIES(test_enats ${ENATS_LIB})
 TARGET_LINK_LIBRARIES(test_libuv  ${ETHP_LIB} ${BASE64_LIBS} dl)
 
