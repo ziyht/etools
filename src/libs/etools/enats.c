@@ -1,4 +1,19 @@
-#include "enats.h"
+/// =====================================================================================
+///
+///       Filename:  enats.c
+///
+///    Description:  a easier way to handle cnats
+///
+///        Version:  1.0
+///        Created:  02/28/2017 08:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///         Needed:  cnats, ejson, estr
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
 
 // -- local
 #include <string.h>
@@ -11,8 +26,11 @@
 #include "opts.h"
 
 // -- etools
+#include "enats.h"
 #include "estr.h"
 #include "ejson.h"
+
+#define ENATS_VERSION     1.0.0
 
 // -- uv
 #if 0
@@ -28,7 +46,7 @@ typedef uv_thread_t thread_t;
 #define thread_init(t, cb, d)  uv_thread_create(&t, cb, d)
 #define thread_join(t)         uv_thread_join(&t)
 #else
-#define COMPAT_THREAD
+#define   COMPAT_THREAD
 #include "compat.h"
 #endif
 
@@ -433,7 +451,7 @@ static inline void __enats_destroyNc(enats e)
 
     if(e->conn.nc)
     {
-        natsCondition_Destroy(e->conn.nc);
+        natsConnection_Destroy(e->conn.nc);
         e->conn.nc = 0;
 
         __cnt_connDec();
@@ -532,7 +550,21 @@ static inline constr __enats_getConnUrls(enats e)
 
 static inline constr __enats_getUrls(enats e)
 {
+    int cnt, i; natsConnection* nc = e->conn.nc;
 
+    if(!nc)
+        e->urls = estr_wrb(e->urls, "", 0);
+
+    natsConn_Lock(nc);
+    cnt = nc->opts->url ? 1 : nc->opts->serversCount;
+    for(i = 0; i < cnt; i++)
+    {
+        e->urls = estr_catf(e->urls, "%s,", cnt == 1 ? nc->opts->url : nc->opts->servers[i]);
+    }
+    estr_range(e->urls, 0, -2);
+    natsConn_Unlock(nc);
+
+    return e->urls;
 }
 
 /// ---------------------------- enats  ---------------------
@@ -580,7 +612,7 @@ enats enats_new4(enats_opts opts)
 {
     enats e;
 
-    is0_exeret(_opts, errset(G, "enats_new4 faild: opts is null or empty"), NULL);
+    is0_exeret(opts, errset(G, "enats_new4 faild: opts is null or empty"), NULL);
 
     is0_exeret(e = __enats_newHandle(0, opts), errfmt(G, "enats_new4 faild: %s", last_err), 0);
 
@@ -606,8 +638,8 @@ void enats_destroy(enats e)
 
     e->quit  = 1;
 
-    __enats_quitWaitThread(t);
-    __enats_destroySubDic(t);
+    __enats_quitWaitThread(e);
+    __enats_destroySubDic(e);
     __enats_destroyNc(e);           // this call will raise __on_closed, we do __enats_freeHandle() in it
 }
 
@@ -629,7 +661,7 @@ inline constr enats_urls(enats e)
 
 inline constr enats_name(enats e)
 {
-    is0_ret(trans, NULL);
+    is0_ret(e, NULL);
 
     return e->self_node ? e->self_node->name : NULL;
 }

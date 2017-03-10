@@ -60,7 +60,7 @@ add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_esl   ${TEST_ESL_FS}   ${ESL_FS})
 
 add_executable(test_ert   main.c ${ERT_FS})
-#add_executable(test_enats main.c ${ENATS_FS})
+add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
 add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS} ${EB64_FS})
 add_executable(test_ecrypt ${TEST_ECRYPT_FS} ${ECRYPT_FS})

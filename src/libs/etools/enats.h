@@ -1,17 +1,29 @@
-/*
-   transport_cnats - a easier way to handle cnats
+/// =====================================================================================
+///
+///       Filename:  enats.h
+///
+///    Description:  a easier way to handle cnats
+///
+///        Version:  1.0
+///        Created:  02/28/2017 08:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///         Needed:  cnats, ejson, estr
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
 
-   Author: ziyht
-
-*/
-
-#ifndef _TRANSPORT_CNATS_
-#define _TRANSPORT_CNATS_
-
-#define ENATS_VERSION     2.0.0       // using ejson to handle enats totally
+#ifndef __ENATS__
+#define __ENATS__
 
 #include "nats.h"
 #include "etype.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct ntStatistics_s{
     // -- for conn
@@ -52,10 +64,8 @@ typedef struct enats_opts_s {
 
 typedef struct eMsg_s
 {
-    struct __natsGCItem{
-        void* reserved1;
-        void* reserved2;
-    }gc;
+    void* reserved1;
+    void* reserved2;
 
     const char          *subject;
     const char          *reply;
@@ -63,7 +73,7 @@ typedef struct eMsg_s
     int                 dataLen;
 }eMsg_t, * eMsg;
 
-static inline void eMsg_free(eMsg msg){ if(msg->gc.reserved2) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
+static inline void eMsg_free(eMsg msg){ if(msg->reserved2) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
 
 typedef struct enats_s* enats, ** enats_p;
 typedef struct enatp_s* enatp, ** enatp_p;
@@ -268,5 +278,9 @@ constr       enatp_GetStatsStr(enatp p, int mode, constr subj);
 
 int          enatp_IsErr(enatp p);
 constr       enatp_LastErr(enatp p);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
