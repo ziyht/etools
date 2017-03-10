@@ -1,3 +1,23 @@
+/// =====================================================================================
+///
+///       Filename:  estr.h
+///
+///    Description:  a easier way to handle string in C, rebuild based on sds from redis,
+///                  including three tools:
+///                     estr - for heap using
+///                     sstr - for stack using
+///                     ebuf - using estr with a fixed handle
+///
+///        Version:  1.0
+///        Created:  02/25/2017 08:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
