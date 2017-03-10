@@ -1,6 +1,6 @@
 /// =====================================================================================
 ///
-///       Filename:  estr.h
+///       Filename:  estr.c
 ///
 ///    Description:  a easier way to handle string in C, rebuild based on sds from redis,
 ///                  including three tools:
@@ -1777,7 +1777,7 @@ ebuf ebuf_newLen(conptr ptr, size len)
 }
 
 /// -- ebuf ptr --
-inline cptr ebuf_ptr(ebuf b) { return b ? b->s : 0; }
+inline cptr ebuf_base(ebuf b) { return b ? b->s : 0; }
 
 /// -- ebuf clear or free --
 inline void ebuf_clear(ebuf b) { if(b) { estr_clear(b->s);            } }

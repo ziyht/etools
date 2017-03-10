@@ -32,9 +32,23 @@
 extern "C" {
 #endif
 
-/// -------------------------------
-/// estr - estr for heap using
-/// -------------------------------
+/// ---------------------- estr -------------------------
+///
+///     estr - for heap using
+///
+///     when using a estr, you can deal with it as a cstr,
+/// but it will be more convenient and High-Performance with
+/// our APIs.
+///
+/// @note:
+///     1. as the API will auto expand(realloc) the estr, so
+///        you must inherit it when you using the APIs who
+///        returned estr, lg:
+///           estr s = estr_new("12");
+///           s = estr_wrs(s, "1234");
+///     2. you must free it by using estr_free()
+///
+
 typedef char* estr;
 
 /// -- estr new --
@@ -59,7 +73,7 @@ size estr_cap (estr es);
 void estr_shows(estr s);
 void estr_showr(estr s);
 
-/// -- estr write --
+/// -- estr writer --
 estr estr_wrs(estr s, constr src);             // write a str         to estr s
 estr estr_wre(estr s, estr   s2 );             // write a estr        to estr s
 estr estr_wrb(estr s, conptr ptr, size    len);// write a binary date to estr s
@@ -100,16 +114,26 @@ estr estr_ensure (estr s, size_t addlen);
 void estr_incrLen(estr s, size_t incr);
 estr estr_shrink (estr s);
 
-/// ----------------------------------------------
-/// sstr - estr for stack using
+/// ---------------------- sstr -------------------------
+///
+///     sstr - for stack using
+///
+///     the using of sstr is almost the same as estr,
+/// we using the passed buf to init it, so we will not
+/// expand it autolly when there is no enough space to
+/// do the operation, in this case, we'll do nothing and
+/// always return 0;
 ///
 /// @note:
-///     1. all estr can using those following API,
-///        but you may not get the correct result
-///        when you using it as first @param s
-///     2. do not using the above APIs to operate
+///     1. all estr can using those following API, but
+///        you may not get the correct result when you
+///        using it as first @param s, and you can also
+///        consider those APIs is a safety version for
+///        estr.
+///     2. do not using the above estr APIs to operate
 ///        sstrs inited by sstr_init()
-/// ----------------------------------------------
+///
+
 typedef char* sstr;
 
 /// -- sstr new --
@@ -127,7 +151,7 @@ size sstr_cap (sstr s);
 void sstr_shows(sstr s);
 void sstr_showr(sstr s);
 
-/// -- sstr write --
+/// -- sstr writer --
 sstr sstr_wrs(sstr s, constr src);             // write a str         to sstr s
 sstr sstr_wre(sstr s, sstr   s2 );             // write a estr        to sstr s
 sstr sstr_wrb(sstr s, conptr ptr, size    len);// write a binary date to sstr s
@@ -163,9 +187,14 @@ sstr sstr_subs (sstr s, constr from, constr to);
 int  sstr_cmps(sstr s, constr src );
 int  sstr_cmpe(sstr s, sstr   s2);
 
-/// -------------------------------
-/// ebuf
-/// -------------------------------
+/// ---------------------- sstr -------------------------
+///
+///     ebuf - a warpper of estr
+///
+///     we create a handler to handle estr, so you do not
+/// need to inherit estr when using ebuf;
+///
+///
 
 typedef struct ebuf_s* ebuf;
 
@@ -174,7 +203,7 @@ ebuf ebuf_new(constr src);
 ebuf ebuf_newLen(conptr ptr, size len);
 
 /// -- ebuf ptr --
-cptr ebuf_ptr(ebuf b);
+cptr ebuf_base(ebuf b);
 
 /// -- ebuf clear or free --
 void ebuf_clear(ebuf b);
@@ -189,7 +218,7 @@ size ebuf_cap (ebuf b);
 void ebuf_shows(ebuf b);
 void ebuf_showr(ebuf b);
 
-/// -- ebuf write --
+/// -- ebuf writer --
 size ebuf_wrs(ebuf b, constr src);             // write a str         to estr es
 size ebuf_wre(ebuf b, ebuf   b2 );             // write a estr        to estr e1
 size ebuf_wrb(ebuf b, conptr ptr, size    len);// write a binary date to estr es
