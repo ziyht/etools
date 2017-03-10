@@ -28,6 +28,8 @@
 
 #include "estr.h"
 
+#define ESTR_VERSION "1.0.2"        // fix bug of ebuf_newLen
+
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
 #define is1_ret(cond, ret ) if( (cond)){ return ret;}
@@ -1746,7 +1748,7 @@ ebuf ebuf_newLen(conptr ptr, size len)
 
     if(!ptr)
     {
-        if(len < 8)                initlen = 8;
+        if(len < 8)                  len = 8;
         is0_exeret(eb->s = _estr_new(len), s_free(eb);, 0);
 
         return eb;

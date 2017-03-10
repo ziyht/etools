@@ -22,8 +22,6 @@
 #ifndef __ESTR_H__
 #define __ESTR_H__
 
-#define ESTR_VERSION "1.0.1"        // if s = 0, create a new estr autolly in wr and cat oprerations, only support estr
-
 #include <stdarg.h>
 
 #include "etype.h"
