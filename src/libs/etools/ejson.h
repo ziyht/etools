@@ -1,3 +1,19 @@
+/// =====================================================================================
+///
+///       Filename:  ejson.h
+///
+///    Description:  a easier way to handle json, you can also using it as a simple dic
+///
+///        Version:  0.8
+///        Created:  12/18/2016 08:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 /*
    ejson(easy json) - a easier way to handle json
 

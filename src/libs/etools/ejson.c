@@ -1,3 +1,19 @@
+/// =====================================================================================
+///
+///       Filename:  ejson.c
+///
+///    Description:  a easier way to handle json, you can also using it as a simple dic
+///
+///        Version:  0.8
+///        Created:  12/18/2016 08:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 #ifndef _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_WARNINGS
 #endif
