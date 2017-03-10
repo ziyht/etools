@@ -15,7 +15,7 @@
 #include <fcntl.h>
 #include "ejson.h"
 
-#define EJSON_VERSION "0.8.1"      // add compat of estr in etools(not using it now, but can open it with a macro switch)
+#define EJSON_VERSION "0.8.2"      // fix bugs of _ssub, using freed s
 
 static constr g_err;
 static constr g_errp;
@@ -332,7 +332,7 @@ static inline cstr _ssub(cstr s, constr from, constr to)
                 memcpy(new_p, cp_s, end_p - cp_s);
 
                 _sfree(s);
-                _slen(s) = offNow;
+                _slen(new_s) = offNow;
 
                 return new_s;
             }
