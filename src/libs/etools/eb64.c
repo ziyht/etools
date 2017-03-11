@@ -68,9 +68,9 @@ int  eb64_decb2b(conptr in, size inlen, cptr   out  , size* outlen)
     return 1;
 }
 
-inline void   eb64_show(estr s) {        estr_shows(s);}
-inline size   eb64_dlen(estr s) { return estr_len  (s);}
-inline void   eb64_free(estr s) {        estr_free (s);}
+inline void   eb64_show(estr s) {        estr_show(s);}
+inline size   eb64_dlen(estr s) { return estr_len (s);}
+inline void   eb64_free(estr s) {        estr_free(s);}
 
 estr eb64_version()
 {
@@ -80,7 +80,7 @@ estr eb64_version()
     if(!ver)
     {
         ver = sstr_init(buf, sizeof(buf) -1);
-        sstr_wrs(ver, VERSION);
+        sstr_wrtS(ver, VERSION);
     }
 
     return ver;

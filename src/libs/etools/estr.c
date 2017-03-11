@@ -25,10 +25,11 @@
 #include <assert.h>
 #include <limits.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 #include "estr.h"
 
-#define ESTR_VERSION "1.0.2"        // fix bug of ebuf_newLen
+#define ESTR_VERSION "1.0.3"        // adjust APIs
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
@@ -373,7 +374,11 @@ static int _ull2str(char *s, unsigned long long v) {
     return l;
 }
 
-/// -- estr adapter ------------
+/// =====================================================================================
+/// estr
+/// =====================================================================================
+
+/// -- estr adapter -------------------------------------
 
 #define _estr_new(l)       _sdsNewRoom(l)
 #define _estr_reqT(s)      _sdsReqType(s)
@@ -390,8 +395,10 @@ static int _ull2str(char *s, unsigned long long v) {
 #define _estr_setStack(s)  SDS_TYPE(s) |= SDS_STACK_MASK
 #define _estr_isStack(s)   ((SDS_TYPE(s) & SDS_STACK_MASK) && (SDS_TYPE_5 != (SDS_TYPE(s)&SDS_TYPE_MASK)))
 
-static void _shows(constr tag, estr s)
+static inline void _show(constr tag, estr s)
 {
+    size_t len; u8 flags;
+
     if(!s)
     {
         printf("(%s: nullptr)", tag);fflush(stdout);
@@ -401,8 +408,8 @@ static void _shows(constr tag, estr s)
     tag = tag[1] == 'b' ? _estr_isStack(s) ? "ebuf: sstr" : "ebuf: estr"
                         : _estr_isStack(s) ? "sstr" : "estr" ;
 
-    size_t len  = _estr_len(s);
-    unsigned char flags = SDS_TYPE(s);
+    len   = _estr_len(s);
+    flags = SDS_TYPE(s);
     switch(flags&SDS_TYPE_MASK) {
         case SDS_TYPE_5 : printf("(%s: e05 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
         case SDS_TYPE_8 : printf("(%s: e08 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
@@ -410,41 +417,15 @@ static void _shows(constr tag, estr s)
         case SDS_TYPE_32: printf("(%s: e32 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
         case SDS_TYPE_64: printf("(%s: e64 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
     }
+    fflush(stdout);
 
-    if(s) printf("%s", s);
+    write(STDOUT_FILENO, s, len);
 
     printf("]\n");
     fflush(stdout);
 }
 
-static void _showr(constr tag, estr s)
-{
-    if(!s)
-    {
-        printf("(%s: nullptr)", tag);fflush(stdout);
-        return;
-    }
-
-    tag = tag[1] == 'b' ? _estr_isStack(s) ? "ebuf: sstr" : "ebuf: estr"
-                        : _estr_isStack(s) ? "sstr" : "estr" ;
-
-    size_t len = _estr_len(s); constr p = s;
-    unsigned char flags = SDS_TYPE(s);
-    switch(flags&SDS_TYPE_MASK) {
-        case SDS_TYPE_5 : printf("(%s: e05 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
-        case SDS_TYPE_8 : printf("(%s: e08 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
-        case SDS_TYPE_16: printf("(%s: e16 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
-        case SDS_TYPE_32: printf("(%s: e32 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
-        case SDS_TYPE_64: printf("(%s: e64 %"PRIi64"/%"PRIi64"):[", tag, len, _estr_cap(s)); break;
-    }
-
-    while(len--) { printf("%c", *p++);}
-
-    printf("]\n");
-    fflush(stdout);
-}
-
-/// -- estr --------------------
+/// -- estr creator and destroyer -----------------------
 
 inline estr estr_new(constr src)
 {
@@ -497,25 +478,14 @@ estr estr_fromU64(u64 val)
 
 inline estr estr_dup(estr s) { return estr_newLen(s, _estr_len(s)); }
 
-/// -- estr clear or free --
-inline void estr_clear(estr s) { if(s){ s[0] = '\0';                _estr_setLen(s, 0);} }
-inline void estr_wipe (estr s) { if(s){ memset(s, 0, _estr_len(s)); _estr_setLen(s, 0);} }
-inline void estr_free (estr s) { if(s){ if(!_estr_isStack(s))
-            s_free(s - _estr_lenH(SDS_TYPE(s)));} }
+inline void estr_free(estr s) { if(s){ if(!_estr_isStack(s))s_free(s - _estr_lenH(SDS_TYPE(s)));} }
 
-/// -- estr len --
-inline size estr_len (estr s) { return s ? _estr_len(s) : 0; }
-inline size estr_cap (estr s) { return s ? _estr_cap(s) : 0; }
+/// -- estr writer --------------------------------------
 
-/// -- estr show --
-inline void estr_shows(estr s) { _shows("estr", s); }
-inline void estr_showr(estr s) { _showr("estr", s); }
+inline estr estr_wrt (estr s, estr   s2 ) { return s2  ? estr_wrtB(s, s2 , _estr_len(s2)) : s; }
+inline estr estr_wrtS(estr s, constr src) { return src ? estr_wrtB(s, src, strlen(src)  ) : s; }
 
-/// -- estr write --
-inline estr estr_wrs(estr s, constr src) { return src ? estr_wrb(s, src, strlen(src)  ) : s; }
-inline estr estr_wre(estr s, estr   s2 ) { return s2  ? estr_wrb(s, s2 , _estr_len(s2)) : s; }
-
-estr estr_wrb(estr s, conptr ptr, size len)
+estr estr_wrtB(estr s, conptr ptr, size len)
 {
     is0_exe(s, is0_ret(s = _estr_new(len), 0));
 
@@ -529,7 +499,7 @@ estr estr_wrb(estr s, conptr ptr, size len)
     return s;
 }
 
-estr estr_wrv(estr s, constr fmt, va_list ap)
+estr estr_wrtV(estr s, constr fmt, va_list ap)
 {
     va_list cpy; size_t wr_len;
     char staticbuf[1024], *buf = staticbuf, *t;
@@ -563,17 +533,17 @@ estr estr_wrv(estr s, constr fmt, va_list ap)
     }
 
     /* Finally concat the obtained string to the SDS string and return it. */
-    t = wr_len > 0 ? estr_wrb(s, buf, wr_len) : estr_wrs(s, buf);
+    t = wr_len > 0 ? estr_wrtB(s, buf, wr_len) : estr_wrtS(s, buf);
     if (buf != staticbuf) s_free(buf);
     return t;
 }
 
-estr estr_wrp(estr s, constr fmt, ...)
+estr estr_wrtP(estr s, constr fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    s = estr_wrv(s, fmt, ap);
+    s = estr_wrtV(s, fmt, ap);
     va_end(ap);
 
     return s;
@@ -595,7 +565,7 @@ estr estr_wrp(estr s, constr fmt, ...)
  * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
  */
-estr estr_wrf(estr s, constr fmt, ...)     // todo : using ptr, not using index i
+estr estr_wrtF(estr s, constr fmt, ...)     // todo : using ptr, not using index i
 {
     constr f; size_t i; va_list ap;
 
@@ -686,10 +656,11 @@ estr estr_wrf(estr s, constr fmt, ...)     // todo : using ptr, not using index 
     return s;
 }
 
-inline estr estr_cats(estr s, constr src) { return src ? estr_catb(s, src, strlen(src) ) : s; }
-inline estr estr_cate(estr s, estr   s2 ) { return s2  ? estr_catb(s, s2, _estr_len(s2)) : s; }
+inline estr estr_cat (estr s, estr   s2 ) { return s2  ? estr_catB(s, s2, _estr_len(s2)) : s; }
+inline estr estr_catS(estr s, constr src) { return src ? estr_catB(s, src, strlen(src) ) : s; }
 
-estr estr_catb(estr s, conptr ptr, size len)
+
+estr estr_catB(estr s, conptr ptr, size len)
 {
     is0_exe(s, is0_ret(s = _estr_new(len), 0));
 
@@ -703,7 +674,7 @@ estr estr_catb(estr s, conptr ptr, size len)
     return s;
 }
 
-estr estr_catv(estr s, constr fmt, va_list ap)
+estr estr_catV(estr s, constr fmt, va_list ap)
 {
     va_list cpy; size_t wr_len;
     char staticbuf[1024], *buf = staticbuf, *t;
@@ -737,17 +708,17 @@ estr estr_catv(estr s, constr fmt, va_list ap)
     }
 
     /* Finally concat the obtained string to the SDS string and return it. */
-    t = wr_len > 0 ? estr_catb(s, buf, wr_len) : estr_cats(s, buf);
+    t = wr_len > 0 ? estr_catB(s, buf, wr_len) : estr_catS(s, buf);
     if (buf != staticbuf) s_free(buf);
     return t;
 }
 
-estr estr_catp(estr s, constr fmt, ...)
+estr estr_catP(estr s, constr fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    s = estr_catv(s, fmt, ap);
+    s = estr_catV(s, fmt, ap);
     va_end(ap);
 
     return s;
@@ -769,7 +740,7 @@ estr estr_catp(estr s, constr fmt, ...)
  * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
  */
-estr estr_catf(estr s, constr fmt, ...)
+estr estr_catF(estr s, constr fmt, ...)
 {
     constr f; size_t i; va_list ap;
 
@@ -859,7 +830,46 @@ estr estr_catf(estr s, constr fmt, ...)
     return s;
 }
 
-/// -- estr adjusting --
+inline void estr_clear(estr s) { if(s){ s[0] = '\0';                _estr_setLen(s, 0);} }
+inline void estr_wipe (estr s) { if(s){ memset(s, 0, _estr_len(s)); _estr_setLen(s, 0);} }
+
+/// -- estr utils ---------------------------------------
+inline void estr_show(estr s) { _show("estr", s); }
+
+inline size estr_len (estr s) { return s ? _estr_len(s) : 0; }
+inline size estr_cap (estr s) { return s ? _estr_cap(s) : 0; }
+
+int  estr_cmp (estr s, estr   s2)
+{
+    size_t l1, l2, minlen;
+    int cmp;
+
+    is1_ret(s == s2, 0);
+
+    l1 = s  ? _estr_len(s ) : 0;
+    l2 = s2 ? _estr_len(s2) : 0;
+    minlen = (l1 < l2) ? l1 : l2;
+    cmp = memcmp(s, s2, minlen);
+    if (cmp == 0) return l1-l2;
+    return cmp;
+}
+
+int  estr_cmpS(estr s, constr src )
+{
+    size_t l1, l2, minlen;
+    int cmp;
+
+    is1_ret(s == src, 0);
+
+    l1 = s   ? _estr_len(s) : 0;
+    l2 = src ? strlen(src)  : 0;
+    minlen = (l1 < l2) ? l1 : l2;
+    cmp = memcmp(s, src, minlen);
+    if (cmp == 0) return l1-l2;
+    return cmp;
+}
+
+
 /* Remove the part of the string from left and from right composed just of
  * contiguous characters found in 'cset', that is a null terminted C string.
  *
@@ -874,7 +884,7 @@ estr estr_catf(estr s, constr fmt, ...)
  *
  * Output will be just "Hello World".
  */
-estr estr_trim(estr s, constr cset)
+inline estr estr_trim(estr s, constr cset)
 {
     char *start, *end, *sp, *ep; size_t len;
 
@@ -888,6 +898,36 @@ estr estr_trim(estr s, constr cset)
     if (s != sp) memmove(s, sp, len);
     s[len] = '\0';
     _estr_setLen(s,len);
+    return s;
+}
+
+inline estr estr_lower(estr s)
+{
+    size_t len, i;
+
+    is0_ret(s, 0);
+
+    len = _estr_len(s);
+    for (i = 0; i < len; i++)
+    {
+        if(s[i] >= 'A' && s[i] <= 'Z') s[i] += 0x20;
+    }
+
+    return s;
+}
+
+inline estr estr_upper(estr s)
+{
+    size_t len, i;
+
+    is0_ret(s, 0);
+
+    len = _estr_len(s);
+    for (i = 0; i < len; i++)
+    {
+        if(s[i] >= 'a' && s[i] <= 'z') s[i] -= 0x20;
+    }
+
     return s;
 }
 
@@ -907,7 +947,7 @@ estr estr_trim(estr s, constr cset)
  * s = estr_new("Hello World");
  * estr_range(s,1,-1); => "ello World"
  */
-estr estr_range(estr s, int start, int end)
+inline estr estr_range(estr s, int start, int end)
 {
     size_t newlen, len;
 
@@ -935,36 +975,6 @@ estr estr_range(estr s, int start, int end)
     return s;
 }
 
-estr estr_lower(estr s)
-{
-    size_t len, i;
-
-    is0_ret(s, 0);
-
-    len = _estr_len(s);
-    for (i = 0; i < len; i++)
-    {
-        if(s[i] >= 'A' && s[i] <= 'Z') s[i] += 0x20;
-    }
-
-    return s;
-}
-
-estr estr_upper(estr s)
-{
-    size_t len, i;
-
-    is0_ret(s, 0);
-
-    len = _estr_len(s);
-    for (i = 0; i < len; i++)
-    {
-        if(s[i] >= 'a' && s[i] <= 'z') s[i] -= 0x20;
-    }
-
-    return s;
-}
-
 /* Modify the string substituting all the occurrences of the set of
  * characters specified in the 'from' string to the corresponding character
  * in the 'to' array.
@@ -974,7 +984,7 @@ estr estr_upper(estr s)
  *
  * The function returns the sds string pointer, that is always the same
  * as the input pointer since no resize is needed. */
-estr estr_mapc (estr s, constr from, constr to)
+inline estr estr_mapc (estr s, constr from, constr to)
 {
     size_t j, i, l, len, len2;
 
@@ -998,7 +1008,7 @@ estr estr_mapc (estr s, constr from, constr to)
     return s;
 }
 
-estr estr_mapcl(estr s, constr from, constr to, size_t len)
+inline estr estr_mapcl(estr s, constr from, constr to, size_t len)
 {
     size_t j, i, l;
 
@@ -1099,7 +1109,7 @@ estr estr_subs (estr s, constr from, constr to)
 
         if((fd_s   = strstr(fd_s, from)))
         {
-            end_p = s + _estr_len(s);
+            end_p = s + offNow;
 
             // -- get len need to expand
             offNow += offLen; fd_s += subLen;
@@ -1108,8 +1118,8 @@ estr estr_subs (estr s, constr from, constr to)
                 offNow += offLen; fd_s += subLen;
             }
 
-            // -- have enough place, let's do it
-            if((size)offNow <= _estr_cap(s))
+            // -- have enough place, let's do it, we set the up limit of stack call is 1024
+            if((size)offNow <= _estr_cap(s) && ((offNow - (end_p - s)) / offLen) <= 1024)
             {
                 cstr last = s + offNow;
                 __str_replace(s, &end_p, &last, from, subLen, to, newLen);
@@ -1148,38 +1158,8 @@ estr estr_subs (estr s, constr from, constr to)
     return s;
 }
 
-/// -- estr cmp ---
-int  estr_cmps(estr s, constr src )
-{
-    size_t l1, l2, minlen;
-    int cmp;
 
-    is1_ret(s == src, 0);
-
-    l1 = s   ? _estr_len(s) : 0;
-    l2 = src ? strlen(src)  : 0;
-    minlen = (l1 < l2) ? l1 : l2;
-    cmp = memcmp(s, src, minlen);
-    if (cmp == 0) return l1-l2;
-    return cmp;
-}
-
-int  estr_cmpe(estr s, estr   s2)
-{
-    size_t l1, l2, minlen;
-    int cmp;
-
-    is1_ret(s == s2, 0);
-
-    l1 = s  ? _estr_len(s ) : 0;
-    l2 = s2 ? _estr_len(s2) : 0;
-    minlen = (l1 < l2) ? l1 : l2;
-    cmp = memcmp(s, s2, minlen);
-    if (cmp == 0) return l1-l2;
-    return cmp;
-}
-
-/// -- Low level functions exposed to the user API --
+/// -- Low level functions exposed to the user API ------
 estr estr_ensure (estr s, size_t addlen)
 {
     return s ? _estr_ensure(s, addlen) : 0;
@@ -1240,11 +1220,11 @@ estr estr_shrink (estr s)
     return s;
 }
 
-/// ----------------------------------------------
-/// sstr - estr for stack using
-/// ----------------------------------------------
+/// =====================================================================================
+/// sstr
+/// =====================================================================================
 
-/// -- sstr new --
+/// -- sstr initializer ---------------------------------
 sstr sstr_init(cptr buf, uint len)
 {
     cstr sh; sds  s; size_t cap; char type; unsigned char *fp; /* flags pointer. */
@@ -1273,23 +1253,11 @@ sstr sstr_init(cptr buf, uint len)
     return s;
 }
 
-/// -- sstr clear --
-inline void sstr_clear(sstr s) { estr_clear(s);}
-inline void sstr_wipe (sstr s) { estr_wipe(s);}
+/// -- sstr writer --------------------------------------
+inline sstr sstr_wrt (sstr s, sstr   s2 ) { return s2  ? sstr_wrtB(s, s2 , _estr_len(s2)) : s; }
+inline sstr sstr_wrtS(sstr s, constr src) { return src ? sstr_wrtB(s, src, strlen(src)  ) : s; }
 
-/// -- sstr len --
-inline size sstr_len (sstr s)  { return estr_len(s); }
-inline size sstr_cap (sstr s)  { return estr_cap(s); }
-
-/// -- sstr show --
-inline void sstr_shows(sstr s) { _shows("sstr", s); }
-inline void sstr_showr(sstr s) { _showr("sstr", s); }
-
-/// -- sstr write --
-inline sstr sstr_wrs(sstr s, constr src) { return src ? sstr_wrb(s, src, strlen(src)  ) : s; }
-inline sstr sstr_wre(sstr s, sstr   s2 ) { return s2  ? sstr_wrb(s, s2 , _estr_len(s2)) : s; }
-
-sstr sstr_wrb(sstr s, conptr ptr, size    len)
+sstr sstr_wrtB(sstr s, conptr ptr, size    len)
 {
     size_t cap;
 
@@ -1303,7 +1271,7 @@ sstr sstr_wrb(sstr s, conptr ptr, size    len)
     return s;
 }
 
-sstr sstr_wrv(sstr s, constr fmt, va_list ap )
+sstr sstr_wrtV(sstr s, constr fmt, va_list ap )
 {
     va_list cpy; size_t wr_len;
     char staticbuf[1024], *buf = staticbuf, *t;
@@ -1337,17 +1305,17 @@ sstr sstr_wrv(sstr s, constr fmt, va_list ap )
     }
 
     /* Finally concat the obtained string to the SDS string and return it. */
-    t = wr_len > 0 ? sstr_wrb(s, buf, wr_len) : sstr_wrs(s, buf);
+    t = wr_len > 0 ? sstr_wrtB(s, buf, wr_len) : sstr_wrtS(s, buf);
     if (buf != staticbuf) s_free(buf);
     return t;
 }
 
-sstr sstr_wrp(sstr s, constr fmt, ...)
+sstr sstr_wrtP(sstr s, constr fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    s = sstr_wrv(s, fmt, ap);
+    s = sstr_wrtV(s, fmt, ap);
     va_end(ap);
 
     return s;
@@ -1369,7 +1337,7 @@ sstr sstr_wrp(sstr s, constr fmt, ...)
  * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
  */
-sstr sstr_wrf(sstr s, constr fmt, ...)
+sstr sstr_wrtF(sstr s, constr fmt, ...)
 {
     constr f; size_t i; va_list ap;
 
@@ -1458,10 +1426,11 @@ sstr sstr_wrf(sstr s, constr fmt, ...)
     return s;
 }
 
-inline sstr sstr_cats(sstr s, constr src) { return src ? sstr_catb(s, src, strlen(src) ) : s;}
-inline sstr sstr_cate(sstr s, sstr   s2 ) { return s2  ? sstr_catb(s, s2, _estr_len(s2)) : s;}
+inline sstr sstr_cat (sstr s, sstr   s2 ) { return s2  ? sstr_catB(s, s2, _estr_len(s2)) : s;}
+inline sstr sstr_catS(sstr s, constr src) { return src ? sstr_catB(s, src, strlen(src) ) : s;}
 
-sstr sstr_catb(sstr s, conptr ptr, size   len)
+
+sstr sstr_catB(sstr s, conptr ptr, size   len)
 {
     size_t curlen, rest;
 
@@ -1477,7 +1446,7 @@ sstr sstr_catb(sstr s, conptr ptr, size   len)
     return s;
 }
 
-sstr sstr_catv(sstr s, constr fmt, va_list ap )
+sstr sstr_catV(sstr s, constr fmt, va_list ap )
 {
     va_list cpy; size_t wr_len;
     char staticbuf[1024], *buf = staticbuf, *t;
@@ -1511,17 +1480,17 @@ sstr sstr_catv(sstr s, constr fmt, va_list ap )
     }
 
     /* Finally concat the obtained string to the SDS string and return it. */
-    t = wr_len > 0 ? sstr_catb(s, buf, wr_len) : sstr_cats(s, buf);
+    t = wr_len > 0 ? sstr_catB(s, buf, wr_len) : sstr_catS(s, buf);
     if (buf != staticbuf) s_free(buf);
     return t;
 }
 
-sstr sstr_catp(sstr s, constr fmt, ...)
+sstr sstr_catP(sstr s, constr fmt, ...)
 {
     va_list ap;
 
     va_start(ap, fmt);
-    s = sstr_catv(s, fmt, ap);
+    s = sstr_catV(s, fmt, ap);
     va_end(ap);
 
     return s;
@@ -1543,7 +1512,7 @@ sstr sstr_catp(sstr s, constr fmt, ...)
  * %U - 64 bit unsigned integer (unsigned long long, uint64_t)
  * %% - Verbatim "%" character.
  */
-sstr sstr_catf(sstr s, constr fmt, ...)
+sstr sstr_catF(sstr s, constr fmt, ...)
 {
     constr f; size_t i; va_list ap;
 
@@ -1632,12 +1601,23 @@ sstr sstr_catf(sstr s, constr fmt, ...)
     return s;
 }
 
-/// -- estr adjusting --
-inline sstr sstr_trim (sstr s, constr cset)          { return estr_trim (s, cset); }
-inline sstr sstr_range(sstr s, int   start, int end) { return estr_range(s, start, end);}
+inline void sstr_clear(sstr s) { estr_clear(s);}
+inline void sstr_wipe (sstr s) { estr_wipe(s);}
+
+/// -- sstr utils ---------------------------------------
+inline void sstr_show(sstr s)  { _show("sstr", s); }
+
+inline size sstr_len (sstr s)  { return s ? _estr_len(s) : 0; }
+inline size sstr_cap (sstr s)  { return s ? _estr_cap(s) : 0; }
+
+int  sstr_cmp (sstr s, sstr   s2  ) { return estr_cmp (s, s2 ); }
+int  sstr_cmpS(sstr s, constr src ) { return estr_cmpS(s, src); }
 
 inline sstr sstr_lower(sstr s) { return estr_lower(s); }
 inline sstr sstr_upper(sstr s) { return estr_upper(s); }
+
+inline sstr sstr_range(sstr s, int   start, int end) { return estr_range(s, start, end);}
+inline sstr sstr_trim (sstr s, constr cset)          { return estr_trim (s, cset); }
 
 inline sstr sstr_mapc (sstr s, constr from, constr to)             { return estr_mapc(s, from, to); }
 inline sstr sstr_mapcl(sstr s, constr from, constr to, size_t len) { return estr_mapcl(s, from, to, len); }
@@ -1721,19 +1701,16 @@ sstr sstr_subs (sstr s, constr from, constr to)
     return s;
 }
 
-/// -- estr cmp ---
-int  sstr_cmps(sstr s, constr src ) { return estr_cmps(s, src); }
-int  sstr_cmpe(sstr s, sstr   s2  ) { return estr_cmpe(s, s2 ); }
 
-/// -------------------------------
+/// =====================================================================================
 /// ebuf
-/// -------------------------------
+/// =====================================================================================
 
 typedef struct ebuf_s{
     estr s;
 }ebuf_t;
 
-/// -- ebuf new --
+/// -- ebuf creator and destroyer -----------------------
 inline ebuf ebuf_new(constr src)
 {
     size_t initlen = (src == NULL) ? 0 : strlen(src);
@@ -1778,33 +1755,23 @@ ebuf ebuf_newLen(conptr ptr, size len)
     return eb;
 }
 
-/// -- ebuf ptr --
-inline cptr ebuf_base(ebuf b) { return b ? b->s : 0; }
-
-/// -- ebuf clear or free --
-inline void ebuf_clear(ebuf b) { if(b) { estr_clear(b->s);            } }
-inline void ebuf_wipe (ebuf b) { if(b) { estr_wipe (b->s);            } }
 inline void ebuf_free (ebuf b) { if(b) { estr_free (b->s); s_free(b); } }
 
-/// -- ebuf len --
-inline size ebuf_len (ebuf b) { return b ? estr_len(b->s) : 0; }
-inline size ebuf_cap (ebuf b) { return b ? estr_cap(b->s) : 0; }
+/// -- ebuf base ----------------------------------------
+inline cptr ebuf_base(ebuf b) { return b ? b->s : 0; }
 
-/// -- ebuf show --
-inline void ebuf_shows(ebuf b) { _shows("ebuf", b->s); }
-inline void ebuf_showr(ebuf b) { _showr("ebuf", b->s); }
-
-/// -- ebuf write --
-inline size ebuf_wrs(ebuf b, constr src) { if(b      ) { return estr_len((b->s = estr_wrs(b->s, src  )));} return 0; }
-inline size ebuf_wre(ebuf b, ebuf   b2 ) { if(b && b2) { return estr_len((b->s = estr_wre(b->s, b2->s)));} return 0; }
-inline size ebuf_wrb(ebuf b, conptr ptr, size    len)  { if(b) { return estr_len((b->s = estr_wrb(b->s, ptr, len)));} return 0; }
-inline size ebuf_wrv(ebuf b, constr fmt, va_list ap )  { if(b) { return estr_len((b->s = estr_wrv(b->s, fmt, ap )));} return 0; }
-inline size ebuf_wrp(ebuf b, constr fmt, ...)
+/// -- ebuf writer --------------------------------------
+inline size ebuf_wrt (ebuf b, ebuf   b2 ) { if(b && b2) { return estr_len((b->s = estr_wrt (b->s, b2->s)));} return 0; }
+inline size ebuf_wrtE(ebuf b, estr   s  ) { if(b      ) { return estr_len((b->s = estr_wrt (b->s, s    )));} return 0; }
+inline size ebuf_wrtS(ebuf b, constr src) { if(b      ) { return estr_len((b->s = estr_wrtS(b->s, src  )));} return 0; }
+inline size ebuf_wrtB(ebuf b, conptr ptr, size    len)  { if(b) { return estr_len((b->s = estr_wrtB(b->s, ptr, len)));} return 0; }
+inline size ebuf_wrtV(ebuf b, constr fmt, va_list ap )  { if(b) { return estr_len((b->s = estr_wrtV(b->s, fmt, ap )));} return 0; }
+inline size ebuf_wrtP(ebuf b, constr fmt, ...)
 {
     size len; va_list ap;
 
     va_start(ap, fmt);
-    len = ebuf_wrv(b, fmt, ap);
+    len = ebuf_wrtV(b, fmt, ap);
     va_end(ap);
 
     return len;
@@ -1902,25 +1869,12 @@ size ebuf_wrf(ebuf b, constr fmt, ...)
     return estr_len(s);
 }
 
-inline size ebuf_cats(ebuf b, constr src)
-{
-    if(b)
-    {
-        size_t hlen = estr_len(b->s);
-        b->s = estr_cats(b->s, src);
-
-        return b->s ? _estr_len(b->s) - hlen : 0;
-    }
-
-    return 0;
-}
-
-inline size ebuf_cate(ebuf b, ebuf   b2 )
+inline size ebuf_cat (ebuf b, ebuf   b2 )
 {
     if(b && b2)
     {
         size_t hlen = estr_len(b->s);
-        b->s = estr_cate(b->s, b2->s);
+        b->s = estr_cat(b->s, b2->s);
 
         return b->s ? _estr_len(b->s) - hlen : 0;
     }
@@ -1928,12 +1882,12 @@ inline size ebuf_cate(ebuf b, ebuf   b2 )
     return 0;
 }
 
-inline size ebuf_catb(ebuf b, conptr ptr, size len)
+inline size ebuf_catS(ebuf b, constr src)
 {
     if(b)
     {
         size_t hlen = estr_len(b->s);
-        b->s = estr_catb(b->s, ptr, len);
+        b->s = estr_catS(b->s, src);
 
         return b->s ? _estr_len(b->s) - hlen : 0;
     }
@@ -1941,12 +1895,12 @@ inline size ebuf_catb(ebuf b, conptr ptr, size len)
     return 0;
 }
 
-inline size ebuf_catv(ebuf b, constr fmt, va_list ap )
+inline size ebuf_catB(ebuf b, conptr ptr, size len)
 {
     if(b)
     {
         size_t hlen = estr_len(b->s);
-        b->s = estr_catv(b->s, fmt, ap);
+        b->s = estr_catB(b->s, ptr, len);
 
         return b->s ? _estr_len(b->s) - hlen : 0;
     }
@@ -1954,18 +1908,31 @@ inline size ebuf_catv(ebuf b, constr fmt, va_list ap )
     return 0;
 }
 
-size ebuf_catp(ebuf b, constr fmt, ...)
+inline size ebuf_catV(ebuf b, constr fmt, va_list ap )
+{
+    if(b)
+    {
+        size_t hlen = estr_len(b->s);
+        b->s = estr_catV(b->s, fmt, ap);
+
+        return b->s ? _estr_len(b->s) - hlen : 0;
+    }
+
+    return 0;
+}
+
+size ebuf_catP(ebuf b, constr fmt, ...)
 {
     size_t len; va_list ap;
 
     va_start(ap, fmt);
-    len = ebuf_catv(b, fmt, ap);
+    len = ebuf_catV(b, fmt, ap);
     va_end(ap);
 
     return len;
 }
 
-size ebuf_catf(ebuf b, constr fmt, ...)
+size ebuf_catF(ebuf b, constr fmt, ...)
 {
     constr f; size_t i, hlen; va_list ap; estr s;
 
@@ -2056,21 +2023,29 @@ size ebuf_catf(ebuf b, constr fmt, ...)
     return s ? _estr_len(s) - hlen : 0;
 }
 
-/// -- ebuf adjusting --
-inline ebuf ebuf_trim (ebuf b, constr cset)        { if(b) { estr_trim(b->s, cset);        } return b->s ? b : 0; }
-inline ebuf ebuf_range(ebuf b, int start, int end) { if(b) { estr_range(b->s, start, end); } return b->s ? b : 0; }
+inline void ebuf_clear(ebuf b) { if(b) { estr_clear(b->s);} }
+inline void ebuf_wipe (ebuf b) { if(b) { estr_wipe (b->s);} }
+
+/// -- ebuf utils ---------------------------------------
+inline void ebuf_show(ebuf b) { _show("ebuf", b->s); }
+
+inline size ebuf_len (ebuf b) { return b ? estr_len(b->s) : 0; }
+inline size ebuf_cap (ebuf b) { return b ? estr_cap(b->s) : 0; }
+
+inline int  ebuf_cmp (ebuf b, ebuf   b2 ) { if(b && b2) { return estr_cmp (b->s, b2->s); } else return -2; }
+inline int  ebuf_cmpE(ebuf b, estr   s  ) { if(b      ) { return estr_cmp (b->s, s    ); } else return -2; }
+inline int  ebuf_cmpS(ebuf b, constr src) { if(b      ) { return estr_cmpS(b->s, src  ); } else return -2; }
 
 inline ebuf ebuf_lower(ebuf b) { if(b) { estr_lower(b->s); } return b->s ? b : 0; }
 inline ebuf ebuf_upper(ebuf b) { if(b) { estr_upper(b->s); } return b->s ? b : 0; }
+
+inline ebuf ebuf_range(ebuf b, int start, int end) { if(b) { estr_range(b->s, start, end); } return b->s ? b : 0; }
+inline ebuf ebuf_trim (ebuf b, constr cset)        { if(b) { estr_trim(b->s, cset);        } return b->s ? b : 0; }
 
 inline ebuf ebuf_mapc (ebuf b, constr from, constr to)             { if(b) {estr_mapc (b->s, from, to     ); } return b->s ? b : 0; }
 inline ebuf ebuf_mapcl(ebuf b, constr from, constr to, size_t len) { if(b) {estr_mapcl(b->s, from, to, len); } return b->s ? b : 0; }
 
 inline ebuf ebuf_subs (ebuf b, constr from, constr to) { if(b) { b->s = estr_subs(b->s, from, to); } return b->s ? b : 0; }
-
-/// -- ebuf cmp ---
-int  ebuf_cmps(ebuf b, constr src) { if(b      ) { return estr_cmps(b->s, src  ); } else return -2; }
-int  ebuf_cmpe(ebuf b, ebuf   b2 ) { if(b && b2) { return estr_cmpe(b->s, b2->s); } else return -2; }
 
 /// -- Low level functions exposed to the user API --
 ebuf ebuf_ensure (ebuf b, size_t addlen) { if(b) { b->s = estr_ensure (b->s, addlen); } return b->s ? b : 0; }

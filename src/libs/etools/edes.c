@@ -712,9 +712,9 @@ int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
 
 /// ----------------------- utils --------------------------
 
-inline void   edes_show(estr s) {        estr_shows(s); }
-inline size   edes_dlen(estr s) { return estr_len  (s); }
-inline void   edes_free(estr s) {        estr_free (s); }
+inline void   edes_show(estr s) {        estr_show(s); }
+inline size   edes_dlen(estr s) { return estr_len (s); }
+inline void   edes_free(estr s) {        estr_free(s); }
 
 estr edes_version()
 {
@@ -724,7 +724,7 @@ estr edes_version()
     if(!ver)
     {
         ver = sstr_init(buf, sizeof(buf) -1);
-        sstr_wrs(ver, VERSION);
+        sstr_wrtS(ver, VERSION);
     }
 
     return ver;

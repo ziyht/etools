@@ -139,9 +139,9 @@ int  ecrypt_check (constr passwd, conchr hash[ECRYPT_SIZE])
     return !timing_safe_strcmp(hash, outhash);
 }
 
-inline void   ecrypt_show(estr s) {        estr_shows(s);}
-inline size   ecrypt_dlen(estr s) { return estr_len  (s);}
-inline void   ecrypt_free(estr s) {        estr_free (s);}
+inline void   ecrypt_show(estr s) {        estr_show(s);}
+inline size   ecrypt_dlen(estr s) { return estr_len (s);}
+inline void   ecrypt_free(estr s) {        estr_free(s);}
 
 estr ecrypt_version()
 {
@@ -151,7 +151,7 @@ estr ecrypt_version()
     if(!ver)
     {
         ver = sstr_init(buf, sizeof(buf) -1);
-        sstr_wrs(ver, VERSION);
+        sstr_wrtS(ver, VERSION);
     }
 
     return ver;

@@ -6,15 +6,15 @@
 int main(int argc, char *argv[])
 {
 
-    //estr_basic_test();
+    estr_basic_test();
     estr_subs_test();
     estr_auto_create_test();
 
-    //sstr_basic_test();
-    //sstr_subs_test();
+    sstr_basic_test();
+    sstr_subs_test();
 
-    //ebuf_basic_test();
-    //ebuf_subs_test();
+    ebuf_basic_test();
+    ebuf_subs_test();
 
     return 0;
 }

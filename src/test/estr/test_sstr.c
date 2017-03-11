@@ -7,22 +7,22 @@ void sstr_basic_test()
     printf("--------- sstr basic test ------------\n"); fflush(stdout);
     char buf[50];  char news[10] = "add"; sstr s;
 
-    s = sstr_init(buf, 10); sstr_showr(s);
-    sstr_cats(s, "Hello estr!"); sstr_showr(s);
-    sstr_catf(s, "%s", " an append str");sstr_showr(s);
-    sstr_catb(s, news, 10); sstr_shows(s);
+    s = sstr_init(buf, 10); estr_show(s);
+    sstr_catS(s, "Hello estr!"); estr_show(s);
+    sstr_catF(s, "%s", " an append str");estr_show(s);
+    sstr_catB(s, news, 10); estr_show(s);
     puts("");
 
-    s = sstr_init(buf, 12); sstr_showr(s);
-    sstr_cats(s, "Hello estr!"); sstr_showr(s);
-    sstr_catf(s, "%s", " an append str");sstr_showr(s);
-    sstr_catb(s, news, 10); sstr_shows(s);
+    s = sstr_init(buf, 12); sstr_show(s);
+    sstr_catS(s, "Hello estr!"); sstr_show(s);
+    sstr_catF(s, "%s", " an append str");sstr_show(s);
+    sstr_catB(s, news, 10); sstr_show(s);
     puts("");
 
-    s = sstr_init(buf, 50); sstr_showr(s);
-    sstr_cats(s, "Hello estr!"); sstr_showr(s);
-    sstr_catf(s, "%s", " an append str");sstr_showr(s);
-    sstr_catb(s, news, 10); sstr_shows(s);
+    s = sstr_init(buf, 50); sstr_show(s);
+    sstr_catS(s, "Hello estr!"); sstr_show(s);
+    sstr_catF(s, "%s", " an append str");sstr_show(s);
+    sstr_catB(s, news, 10); sstr_show(s);
 
     printf("\n\n"); fflush(stdout);
 }
@@ -40,49 +40,49 @@ void sstr_subs_test()
     e2 = sstr_init(buf2, 29);
     e3 = sstr_init(buf3, 80);
 
-    sstr_wrs(e0, "abcdasd");
-    sstr_wrs(e1, "abcd${PATH}asdasdf");
-    sstr_wrs(e2, "abcd${PATH}asdasdf${PATH}");
-    sstr_wrs(e3, "abcd${PATH}asdasdf${PATH}.../sdf///${PATH}fd%asd");
-    estr_shows(e0);
-    estr_shows(e1);
-    estr_shows(e2);
-    estr_shows(e3);
+    sstr_wrtS(e0, "abcdasd");
+    sstr_wrtS(e1, "abcd${PATH}asdasdf");
+    sstr_wrtS(e2, "abcd${PATH}asdasdf${PATH}");
+    sstr_wrtS(e3, "abcd${PATH}asdasdf${PATH}.../sdf///${PATH}fd%asd");
+    estr_show(e0);
+    estr_show(e1);
+    estr_show(e2);
+    estr_show(e3);
 
     from = "${PATH}"; to = "${}";
     printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
-    sstr_subs(e0, from, to); sstr_shows(e0);
-    sstr_subs(e1, from, to); sstr_shows(e1);
-    sstr_subs(e2, from, to); sstr_shows(e2);
-    sstr_subs(e3, from, to); sstr_shows(e3);
+    sstr_subs(e0, from, to); sstr_show(e0);
+    sstr_subs(e1, from, to); sstr_show(e1);
+    sstr_subs(e2, from, to); sstr_show(e2);
+    sstr_subs(e3, from, to); sstr_show(e3);
 
     from = "${}"; to = "${PATH}";
     printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
-    sstr_subs(e0, from, to); sstr_shows(e0);
-    sstr_subs(e1, from, to); sstr_shows(e1);
-    sstr_subs(e2, from, to); sstr_shows(e2);
-    sstr_subs(e3, from, to); sstr_shows(e3);
+    sstr_subs(e0, from, to); sstr_show(e0);
+    sstr_subs(e1, from, to); sstr_show(e1);
+    sstr_subs(e2, from, to); sstr_show(e2);
+    sstr_subs(e3, from, to); sstr_show(e3);
 
     from = "${PATH}"; to = "${abcd}";
     printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
-    sstr_subs(e0, from, to); sstr_shows(e0);
-    sstr_subs(e1, from, to); sstr_shows(e1);
-    sstr_subs(e2, from, to); sstr_shows(e2);
-    sstr_subs(e3, from, to); sstr_shows(e3);
+    sstr_subs(e0, from, to); sstr_show(e0);
+    sstr_subs(e1, from, to); sstr_show(e1);
+    sstr_subs(e2, from, to); sstr_show(e2);
+    sstr_subs(e3, from, to); sstr_show(e3);
 
     from = "${abcd}"; to = "${abcde}";
     printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
-    sstr_subs(e0, from, to); sstr_shows(e0);
-    sstr_subs(e1, from, to); sstr_shows(e1);
-    sstr_subs(e2, from, to); sstr_shows(e2);
-    sstr_subs(e3, from, to); sstr_shows(e3);
+    sstr_subs(e0, from, to); sstr_show(e0);
+    sstr_subs(e1, from, to); sstr_show(e1);
+    sstr_subs(e2, from, to); sstr_show(e2);
+    sstr_subs(e3, from, to); sstr_show(e3);
 
     from = "${abcde}"; to = "";
     printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
-    sstr_subs(e0, from, to); sstr_shows(e0);
-    sstr_subs(e1, from, to); sstr_shows(e1);
-    sstr_subs(e2, from, to); sstr_shows(e2);
-    sstr_subs(e3, from, to); sstr_shows(e3);
+    sstr_subs(e0, from, to); sstr_show(e0);
+    sstr_subs(e1, from, to); sstr_show(e1);
+    sstr_subs(e2, from, to); sstr_show(e2);
+    sstr_subs(e3, from, to); sstr_show(e3);
 
     printf("\n\n"); fflush(stdout);
 }
