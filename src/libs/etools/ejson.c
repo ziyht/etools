@@ -319,8 +319,8 @@ static inline cstr _ssub(cstr s, constr from, constr to)
                 offNow += offLen; fd_s += subLen;
             }
 
-            // -- have enough place, let's do it
-            if((size)offNow <= _scap(s))
+            // -- have enough place, let's do it, we set the up limit of stack call is 4096
+            if((size)offNow <= _scap(s) && (offNow - (end_p - s)) / offLen <= 4096 )
             {
                 cstr last = s + offNow;
                 __cstr_replace(s, &end_p, &last, from, subLen, to, newLen);

@@ -1118,8 +1118,8 @@ estr estr_subs (estr s, constr from, constr to)
                 offNow += offLen; fd_s += subLen;
             }
 
-            // -- have enough place, let's do it, we set the up limit of stack call is 1024
-            if((size)offNow <= _estr_cap(s) && ((offNow - (end_p - s)) / offLen) <= 1024)
+            // -- have enough place, let's do it, we set the up limit of stack call is 4096
+            if((size)offNow <= _estr_cap(s) && ((offNow - (end_p - s)) / offLen) <= 4096)
             {
                 cstr last = s + offNow;
                 __str_replace(s, &end_p, &last, from, subLen, to, newLen);
