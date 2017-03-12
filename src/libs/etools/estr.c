@@ -29,7 +29,7 @@
 
 #include "estr.h"
 
-#define ESTR_VERSION "estr 1.0.4"        // add split tools for estr
+#define ESTR_VERSION "estr 1.0.5"        // fulfil estr_setT()
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
@@ -827,6 +827,24 @@ estr estr_catF(estr s, constr fmt, ...)
 
     /* Add null-term */
     s[i] = '\0';
+    return s;
+}
+
+estr estr_setT(estr s, char    c)
+{
+    int pos;
+
+    is0_ret(s, NULL);
+
+    pos = _estr_len(s);
+    if(pos)
+    {
+        s[pos - 1] = c;
+
+        if(c == '\0')
+            _estr_decLen(s, 1);
+    }
+
     return s;
 }
 
