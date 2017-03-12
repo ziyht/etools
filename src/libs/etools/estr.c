@@ -29,7 +29,7 @@
 
 #include "estr.h"
 
-#define ESTR_VERSION "1.0.3"        // adjust APIs
+#define ESTR_VERSION "estr 1.0.4"        // add split tools for estr
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
@@ -388,9 +388,9 @@ static int _ull2str(char *s, unsigned long long v) {
 #define _estr_cap(s)       _sdsalloc(s)
 #define _estr_setLen(s,l)  _sdssetlen(s,l)
 #define _estr_setCap(s,l)  _sdssetalloc(s,l)
-#define _estr_incLen(s,l)  _sdsinclen(s,l)
+#define _estr_incLen(s,l)  _sdsinclen(s,l)      //  for inner using
 #define _estr_decLen(s,l)  _sdsdeclen(s,l)
-#define _estr_incrLen(s,l) _sdsincrlen(s,l)
+#define _estr_incrLen(s,l) _sdsincrlen(s,l)     // for Low level functions using
 #define _estr_ensure(s,l)  _sdsMakeRoomFor(s,l)
 #define _estr_setStack(s)  SDS_TYPE(s) |= SDS_STACK_MASK
 #define _estr_isStack(s)   ((SDS_TYPE(s) & SDS_STACK_MASK) && (SDS_TYPE_5 != (SDS_TYPE(s)&SDS_TYPE_MASK)))
@@ -1158,6 +1158,367 @@ estr estr_subs (estr s, constr from, constr to)
     return s;
 }
 
+estr estr_join (char** argv, int argc, constr sep)
+{
+    int i, seplen; estr join = 0;
+
+    seplen = sep ? strlen(sep) : 0;
+
+    for (i = 0; i < argc; i++)
+    {
+        join = estr_catS(join, argv[i]);
+
+        if (seplen && i != argc-1) join = estr_catB(join, sep, seplen);
+    }
+    return join;
+}
+
+typedef struct __split_s{
+    estr src;
+     int cnt;
+    estr list[];
+}__split_t;
+
+#define KEEP_SAME 1
+#define SKIP_SAME 0
+
+static estr* __estr_splitbin(conptr s, int len, conptr sep, int seplen, int* _cnt, int keep_same)
+{
+    estr s_dup; estr o_buf; int cnt, prev_pos, j, search_len;
+
+    is0_ret(s_dup = estr_newLen(s, len), NULL);
+    o_buf = estr_newLen(0, sizeof(__split_t) + 5 * sizeof(estr));
+    is0_exeret(o_buf, estr_free(s_dup), 0);
+
+    _estr_incLen(o_buf, sizeof(__split_t));
+
+    search_len = (len - (seplen - 1));
+    prev_pos   = 0;
+    cnt        = 0;
+
+    if(seplen == 1)
+    {
+        char c = *(cstr)sep;
+        for (j = 0; j < search_len; j++)
+        {
+            if (s_dup[j] == c) {
+                o_buf = _estr_ensure(o_buf, sizeof(estr) * 2);
+                is0_exeret(o_buf, estr_free(s_dup), 0);
+
+                if(!keep_same)
+                {
+                    if(j != prev_pos)
+                    {
+                        ((__split_t*)o_buf)->list[cnt++] = s_dup + prev_pos;
+                        _estr_incLen(o_buf, sizeof(estr));
+                    }
+                }
+                else
+                {
+                    ((__split_t*)o_buf)->list[cnt++] = s_dup + prev_pos;
+                    _estr_incLen(o_buf, sizeof(estr));
+                }
+
+                s_dup[j] = '\0';
+                prev_pos = j + 1;
+            }
+        }
+    }
+    else
+    {
+        for (j = 0; j < search_len; j++)
+        {
+            if (0 == memcmp(s_dup + j, sep, seplen)) {
+                o_buf = _estr_ensure(o_buf, sizeof(estr) * 2);
+                is0_exeret(o_buf, estr_free(s_dup), 0);
+
+                if(!keep_same)
+                {
+                    if(j != prev_pos)
+                    {
+                        ((__split_t*)o_buf)->list[cnt++] = s_dup + prev_pos;
+                        _estr_incLen(o_buf, sizeof(estr));
+                    }
+                }
+                else
+                {
+                    ((__split_t*)o_buf)->list[cnt++] = s_dup + prev_pos;
+                    _estr_incLen(o_buf, sizeof(estr));
+                }
+
+                s_dup[j] = '\0';
+                j        = j + seplen -1;
+                prev_pos = j + 1;
+
+            }
+        }
+    }
+
+    // -- Add the final element. We are sure there is room in the tokens array.
+    ((__split_t*)o_buf)->list[cnt] = s_dup + prev_pos;
+    ((__split_t*)o_buf)->src = s_dup;
+    ((__split_t*)o_buf)->cnt = *_cnt = cnt + 1;
+
+    return ((__split_t*)o_buf)->list;
+}
+
+estr*estr_split(estr s, constr sep, int* _cnt)
+{
+    int seplen, cnt; estr* split_list;
+
+    seplen = sep ? strlen(sep) : 0;
+
+    is1_ret(!s || seplen == 0, NULL);
+
+    split_list = __estr_splitbin(s, _estr_len(s), sep, seplen, &cnt, SKIP_SAME);
+
+    if(_cnt) *_cnt = cnt;
+
+    return split_list;
+}
+
+estr*estr_splitS(constr src, constr sep, int* _cnt)
+{
+    int len, seplen, cnt; estr* split_list;
+
+    len    = src ? strlen(src) : 0;
+    seplen = sep ? strlen(sep) : 0;
+
+    is1_ret(len == 0 || seplen == 0, NULL);
+
+    split_list = __estr_splitbin(src, len, sep, seplen, &cnt, SKIP_SAME);
+
+    if(_cnt) *_cnt = cnt;
+
+    return split_list;
+}
+
+estr*estr_splitLen(conptr s, int len, conptr sep, int seplen, int* _cnt)
+{
+    estr* split_list; int cnt;
+
+    is1_ret(seplen < 1 || len < 0, NULL);
+    is0_exeret(len, is1_exe(_cnt, *_cnt = 0), NULL);
+
+    split_list = __estr_splitbin(s, len, sep, seplen, &cnt, KEEP_SAME);
+
+    if(_cnt) *_cnt = cnt;
+
+    return split_list;
+}
+
+static inline int __is_hex_digit(char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'); }
+static inline int __hex_digit_to_int(char c) {
+    switch(c) {
+    case '0': return 0;
+    case '1': return 1;
+    case '2': return 2;
+    case '3': return 3;
+    case '4': return 4;
+    case '5': return 5;
+    case '6': return 6;
+    case '7': return 7;
+    case '8': return 8;
+    case '9': return 9;
+    case 'a': case 'A': return 10;
+    case 'b': case 'B': return 11;
+    case 'c': case 'C': return 12;
+    case 'd': case 'D': return 13;
+    case 'e': case 'E': return 14;
+    case 'f': case 'F': return 15;
+    default: return 0;
+    }
+}
+
+static estr* __estr_splitArgsLine(constr src, int len, int argc, int* _cnt, int dup_src)
+{
+    estr s_dup; estr o_buf; constr p; cstr c_arg, wr_p; int cnt; int inq, insq, done;
+
+    is0_ret(s_dup = dup_src ? estr_newLen(src, len) : (estr)src, NULL);
+    if(argc == 0) argc = 1;
+
+    o_buf = estr_newLen(0, sizeof(__split_t) + argc * sizeof(estr));
+    is0_exeret(o_buf, estr_free(s_dup), 0);
+
+    _estr_incLen(o_buf, sizeof(__split_t));
+
+    cnt = 0;
+    p   = s_dup;
+    while(1)
+    {
+        /* skip blanks */
+        while(*p && isspace(*p)) p++;
+        if (*p) {
+            c_arg = wr_p = (cstr)p;
+
+            if(*c_arg == '\"' || *c_arg == '\'') c_arg++;
+
+            /* get a token */
+            inq  = 0;  /* set to 1 if we are in "quotes" */
+            insq = 0;  /* set to 1 if we are in 'single quotes' */
+            done = 0;
+
+            while(!done)
+            {
+                if (inq) {
+                    if (*p == '\\' && *(p+1) == 'x' && __is_hex_digit(*(p+2)) &&
+                                                       __is_hex_digit(*(p+3)))
+                    {
+                        unsigned char byte;
+
+                        byte = (__hex_digit_to_int(*(p+2))*16)+
+                                __hex_digit_to_int(*(p+3));
+
+                        *wr_p = byte;
+                        p += 3;
+                    } else if (*p == '\\' && *(p+1)) {
+                        char c;
+
+                        p++;
+                        switch(*p) {
+                            case 'n': c = '\n'; break;
+                            case 'r': c = '\r'; break;
+                            case 't': c = '\t'; break;
+                            case 'b': c = '\b'; break;
+                            case 'a': c = '\a'; break;
+                            default : c = *p  ; break;
+                        }
+                        *wr_p = c;
+                        //current = sdscatlen(current,&c,1);
+                    } else if (*p == '"') {
+                        /* closing quote must be followed by a space or
+                         * nothing at all. */
+                        if (*(p+1) && !isspace(*(p+1))) goto err;
+                        done=1;
+                    } else if (!*p) {
+                        /* unterminated quotes */
+                        goto err;
+                    } else {
+                        if(wr_p != p) *wr_p = *p;
+                        //current = sdscatlen(current,p,1);
+                    }
+                } else if (insq) {
+                    if (*p == '\\' && *(p+1) == '\'') {
+                        p++;
+                        *wr_p = '\'';
+                        //current = sdscatlen(current,"'",1);
+                    } else if (*p == '\'') {
+                        /* closing quote must be followed by a space or
+                         * nothing at all. */
+                        if (*(p+1) && !isspace(*(p+1))) goto err;
+                        done=1;
+                    } else if (!*p) {
+                        /* unterminated quotes */
+                        goto err;
+                    } else {
+                        if(wr_p != p) *wr_p = *p;
+                        //current = sdscatlen(current,p,1);
+                    }
+                } else {
+                    switch(*p) {
+                        case ' ' :
+                        case '\n':
+                        case '\r':
+                        case '\t':
+                        case '\0': done = 1; break;
+                        case '"' : inq  = 1; break;
+                        case '\'': insq = 1; break;
+                        default  : break;
+                    }
+                }
+
+                if (*p)
+                {
+                    p++;
+                    if(done) *wr_p = '\0';
+                    else      wr_p++;
+                }
+            }
+
+            /* add the token to the vector */
+            o_buf = _estr_ensure(o_buf, sizeof(estr) * 1);
+            is0_exeret(o_buf, estr_free(s_dup), NULL);
+
+            ((__split_t*)o_buf)->list[cnt++] = c_arg;
+            _estr_incLen(o_buf, sizeof(estr));
+        }
+        else
+            break;
+    }
+
+    ((__split_t*)o_buf)->src = s_dup;
+    ((__split_t*)o_buf)->cnt = *_cnt = cnt;
+
+    return ((__split_t*)o_buf)->list;
+
+err:
+    estr_free(s_dup);
+    estr_free(o_buf);
+    return NULL;
+}
+
+estr*estr_splitArgv(char** argv, int argc, int* _cnt)
+{
+    estr line; int cnt; estr* split_list;
+
+    line = estr_join(argv, argc, " ");
+    is0_ret(line, NULL);
+
+    split_list = __estr_splitArgsLine(line, _estr_len(line), argc, &cnt, 0);
+
+    is1_exe(_cnt, *_cnt = cnt);
+
+    return split_list;
+}
+
+estr*estr_splitArgs(constr line, int*argc)
+{
+    int cnt, len; estr* split_list;
+
+    is0_ret(len = line ? strlen(line) : 0, NULL);
+
+    split_list = __estr_splitArgsLine(line, len, 0, &cnt, 1);
+
+    is1_exe(argc, *argc = cnt);
+
+    return split_list;
+}
+
+void estr_showSplit(estr* _s, int max)
+{
+    __split_t* _split; int i, cnt;
+
+    is0_exeret(_s, printf("(estr_split 0/0): nullptr\n"); fflush(stdout), );
+
+    _split = (__split_t*)_s - 1;
+
+    if(max == -1)   cnt = _split->cnt;
+    else            cnt = max < _split->cnt ? max : _split->cnt;
+
+    //_show("estr", _split);
+    printf("(estr_split %d/%d):\n", cnt, _split->cnt); fflush(stdout);
+    for(i = 0; i < cnt; i++)
+    {
+        printf("%2d: %s\n", i + 1, _split->list[i]); fflush(stdout);
+    }
+}
+
+void estr_freeSplit(estr* _s, int cnt)
+{
+    __split_t* _split;
+
+    is0_ret(_s, );
+
+    _split = (__split_t*)_s - 1;
+
+    if(cnt)
+    {
+        assert(_split->cnt == cnt);
+    }
+
+    estr_free(_split->src);
+    estr_free((estr)_split);
+}
 
 /// -- Low level functions exposed to the user API ------
 estr estr_ensure (estr s, size_t addlen)

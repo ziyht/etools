@@ -6,6 +6,7 @@
 void estr_basic_test();
 void estr_subs_test();
 void estr_auto_create_test();
+void estr_split_test();
 
 void sstr_basic_test();
 void sstr_subs_test();

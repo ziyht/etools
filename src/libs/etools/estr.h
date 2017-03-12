@@ -113,6 +113,18 @@ estr estr_mapc (estr s, constr from, constr to);
 estr estr_mapcl(estr s, constr from, constr to, size_t len);
 estr estr_subs (estr s, constr from, constr to);
 
+estr estr_join (char** argv, int argc, constr sep);
+
+estr*estr_split    (estr   s  ,          constr sep,             int* cnt);
+estr*estr_splitS   (constr src,          constr sep,             int* cnt);
+estr*estr_splitLen (conptr ptr, int len, conptr sep, int seplen, int* cnt);
+
+estr*estr_splitArgv(char** argv, int argc, int* cnt);
+estr*estr_splitArgs(constr line, int*argc);
+
+void estr_showSplit(estr* _s, int max);
+void estr_freeSplit(estr* _s, int cnt);
+
 /// -- Low level functions exposed to the user API ------
 estr estr_ensure (estr s, size_t addlen);
 void estr_incrLen(estr s, size_t incr);
