@@ -1,13 +1,23 @@
-/*
-   eb64(easy base64) - a easier way to handle base64
-
-   Author: ziyht
-
-
-*/
+/// =====================================================================================
+///
+///       Filename:  eb64.h
+///
+///    Description:  an easier b64 encoder/decoder
+///
+///        Version:  1.0
+///        Created:  03/02/2017 04:38:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
 
 #ifndef __EB64_H__
 #define __EB64_H__
+
+#define EB64_VERSION "eb64 1.1.1"      // change param type
 
 #include "etype.h"
 #include "estr.h"

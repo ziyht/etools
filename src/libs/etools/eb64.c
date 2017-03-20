@@ -1,7 +1,21 @@
+/// =====================================================================================
+///
+///       Filename:  eb64.c
+///
+///    Description:  an easier b64 encoder/decoder
+///
+///        Version:  1.0
+///        Created:  03/02/2017 04:38:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 #include "eb64.h"
 #include "libbase64.h"
-
-#define VERSION "eb64 1.1.1"      // change param type
 
 /// ----------------- micros helper -----------------------
 
@@ -80,7 +94,7 @@ estr eb64_version()
     if(!ver)
     {
         ver = sstr_init(buf, sizeof(buf) -1);
-        sstr_wrtS(ver, VERSION);
+        sstr_wrtS(ver, EB64_VERSION);
     }
 
     return ver;
