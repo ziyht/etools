@@ -1,6 +1,6 @@
 /// =====================================================================================
 ///
-///       Filename:  edes.h
+///       Filename:  edes.c
 ///
 ///    Description:  an easier des encoder/decoder
 ///
