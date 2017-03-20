@@ -14,16 +14,10 @@
 ///
 /// =====================================================================================
 
-/*
-   ejson(easy json) - a easier way to handle json
-
-   Author: ziyht
-
-
-*/
-
 #ifndef __EJSON_H__
 #define __EJSON_H__
+
+#define EJSON_VERSION "ejson 0.8.2"      // fix bugs of _ssub, using freed s
 
 #include "etype.h"
 

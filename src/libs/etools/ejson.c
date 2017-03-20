@@ -31,8 +31,6 @@
 #include <fcntl.h>
 #include "ejson.h"
 
-#define EJSON_VERSION "0.8.2"      // fix bugs of _ssub, using freed s
-
 static constr g_err;
 static constr g_errp;
 static char   g_err_buf[1024];
