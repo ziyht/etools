@@ -1,11 +1,25 @@
+/// =====================================================================================
+///
+///       Filename:  ecrypt.c
+///
+///    Description:  a wrapper of crypt_blowfish, using as a easier way
+///
+///        Version:  1.0
+///        Created:  03/04/2017 04:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "ecrypt.h"
 #include "crypt_blowfish/ow-crypt.h"
-
-#define VERSION "ecrypt 1.0.0"      // new tool ecrypt
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}

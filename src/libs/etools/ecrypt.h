@@ -1,13 +1,23 @@
-/*
-   ecrypt
-
-   Author: ziyht
-
-
-*/
+/// =====================================================================================
+///
+///       Filename:  ecrypt.h
+///
+///    Description:  a wrapper of crypt_blowfish, using as a easier way
+///
+///        Version:  1.0
+///        Created:  03/04/2017 04:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
 
 #ifndef __ECRYPT_H__
 #define __ECRYPT_H__
+
+#define VERSION "ecrypt 1.0.0"      // new tool ecrypt
 
 #include "etype.h"
 #include "estr.h"
