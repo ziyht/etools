@@ -1,11 +1,25 @@
+/// =====================================================================================
+///
+///       Filename:  edes.h
+///
+///    Description:  an easier des encoder/decoder
+///
+///        Version:  0.8
+///        Created:  03/03/2017 04:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "edes.h"
-
-#define VERSION "edes 1.0.3"      // fix statement in c++
 
 static int initial_key_permutaion[] = { 57, 49,  41, 33,  25,  17,  9,
                                          1, 58,  50, 42,  34,  26, 18,

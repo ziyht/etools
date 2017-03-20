@@ -1,13 +1,23 @@
-/*
-   edes(easy des) - a easier des encoder/decoder
-
-   Author: ziyht
-
-
-*/
+/// =====================================================================================
+///
+///       Filename:  edes.h
+///
+///    Description:  an easier des encoder/decoder
+///
+///        Version:  0.8
+///        Created:  03/03/2017 04:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
 
 #ifndef __EDES_H__
 #define __EDES_H__
+
+#define VERSION "edes 1.0.3"      // fix statement in c++
 
 #include "etype.h"
 #include "estr.h"
