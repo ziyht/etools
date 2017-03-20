@@ -738,7 +738,7 @@ estr edes_version()
     if(!ver)
     {
         ver = sstr_init(buf, sizeof(buf) -1);
-        sstr_wrtS(ver, VERSION);
+        sstr_wrtS(ver, EDES_VERSION);
     }
 
     return ver;

@@ -17,7 +17,7 @@
 #ifndef __ECRYPT_H__
 #define __ECRYPT_H__
 
-#define VERSION "ecrypt 1.0.0"      // new tool ecrypt
+#define ECRYPT_VERSION "ecrypt 1.0.0"      // new tool ecrypt
 
 #include "etype.h"
 #include "estr.h"

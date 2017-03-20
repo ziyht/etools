@@ -17,7 +17,7 @@
 #ifndef __EDES_H__
 #define __EDES_H__
 
-#define VERSION "edes 1.0.3"      // fix statement in c++
+#define EDES_VERSION "edes 1.0.3"      // fix statement in c++
 
 #include "etype.h"
 #include "estr.h"
