@@ -29,8 +29,6 @@
 #define  COMPAT_THREAD
 #include "compat.h"
 
-#define ETIMER_VERSION "etimer 1.0.0"       // new tool
-
 #define __DEBUG__ 0
 
 #if __DEBUG__

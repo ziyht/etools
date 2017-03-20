@@ -17,6 +17,8 @@
 #ifndef __ETIMER_H__
 #define __ETIMER_H__
 
+#define ETIMER_VERSION "etimer 1.0.0"       // new tool
+
 #include "etype.h"
 
 #ifdef __cplusplus
