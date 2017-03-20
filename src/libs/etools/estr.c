@@ -29,8 +29,6 @@
 
 #include "estr.h"
 
-#define ESTR_VERSION "estr 1.0.5"        // fulfil estr_setT()
-
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
 #define is1_ret(cond, ret ) if( (cond)){ return ret;}

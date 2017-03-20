@@ -23,13 +23,9 @@
 #include "ert.h"
 #include "ejson.h"
 
-/// -- debug info
+#define _DEBUG_ 0
 
-#define ERT_VERSION     "1.0.0"         // new tool
-
-#define _TP_DEBUG_ 0
-
-#if _TP_DEBUG_
+#if _DEBUG_
 static constr _llog_basename(constr path){static constr slash; if (slash) {return slash + 1;}else{slash = strrchr(path, '/');}if (slash) {return slash + 1;}return 0;}
 #define log(fmt, ...)   fprintf(stdout, "%s(%d):" fmt "%s", _llog_basename(__FILE__), __LINE__, __VA_ARGS__)
 #define llog(...)       log(__VA_ARGS__, "\n");fflush(stdout)

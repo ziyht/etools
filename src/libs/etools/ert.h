@@ -18,6 +18,8 @@
 #ifndef __ERT_H__
 #define __ERT_H__
 
+#define ERT_VERSION     "1.0.0"         // new tool
+
 #include "etype.h"
 
 typedef struct thread_pool_s* ert;
