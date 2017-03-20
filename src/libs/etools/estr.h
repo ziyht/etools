@@ -22,6 +22,8 @@
 #ifndef __ESTR_H__
 #define __ESTR_H__
 
+#define ESTR_VERSION "estr 1.0.5"        // fulfil estr_setT()
+
 #include <stdarg.h>
 
 #include "etype.h"
