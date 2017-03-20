@@ -17,6 +17,8 @@
 #ifndef __ESL_H__
 #define __ESL_H__
 
+#define ESL_VERSION "esl 1.0.1"     // expose score to public in esln
+
 #include "etype.h"
 
 #ifdef __cplusplus
@@ -29,7 +31,8 @@ extern "C" {
 typedef struct eskiplist_s* esl;
 
 typedef struct eskiplist_node_s{
-    cptr    obj;
+    s64   score;
+    cptr  obj;
 }* esln;
 
 esl  esl_new(int safe);

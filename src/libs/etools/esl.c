@@ -23,9 +23,9 @@
 
 typedef struct _eskiplist_node_s* _esln;
 typedef struct _eskiplist_node_s {
+    s64   score;
     cptr  obj;
 
-    s64   score;
     _esln backward;
     _esln forward[];
 } _esln_t;
@@ -72,6 +72,9 @@ esl  esl_new(int safe)
         mutex_init(sl->mu);
         sl->safe = 1;
     }
+    else
+        sl->safe = 0;
+
 
     return sl;
 }

@@ -33,6 +33,8 @@ set(ESTR_FS    src/libs/etools/estr.h  src/libs/etools/estr.c)
 set(ESL_FS     src/libs/etools/esl.h   src/libs/etools/esl.c)
 
 set(ERT_FS     src/libs/etools/ert.h   src/libs/etools/ert.c   src/libs/etools/compat.h ${EJSON_FS})
+
+set(ETM_FS     src/libs/etools/etimer.h src/libs/etools/etimer.c ${EJSON_FS} ${ESL_FS} ${ERT_FS})
 set(ENATS_FS   src/libs/etools/enats.h src/libs/etools/enats.c ${EJSON_FS} ${CNATS_SOURCES} ${LIBUV_SOURCES})
 set(EB64_FS    src/libs/etools/eb64.h  src/libs/etools/eb64.c  ${ESTR_FS} ${BASE64_SRCS})
 set(EDES_FS    src/libs/etools/edes.h  src/libs/etools/edes.c  ${ESTR_FS})
@@ -48,6 +50,7 @@ include_directories(src/libs/etools/libs)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ejson  TEST_EJSON_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/estr   TEST_ESTR_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/esl    TEST_ESL_FS)
+aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/etimer TEST_ETM_FS)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/ert    TEST_ERT_FS)
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/test/eb64   TEST_EB64_FS)
@@ -61,6 +64,9 @@ add_executable(test_estr  ${TEST_ESTR_FS}  ${ESTR_FS})
 add_executable(test_esl   ${TEST_ESL_FS}   ${ESL_FS})
 
 add_executable(test_ert   ${TEST_ERT_FS} ${ERT_FS})
+
+add_executable(test_etimer ${TEST_ETM_FS} ${ETM_FS})
+
 #add_executable(test_enats main.c ${ENATS_FS})
 add_executable(test_eb64  ${TEST_EB64_FS} ${EB64_FS})
 add_executable(test_edes  ${TEST_EDES_FS} ${EDES_FS} ${EB64_FS})
@@ -70,6 +76,7 @@ add_executable(test_libuv ${TEST_LIBUV_FS} ${LIBUV_SOURCES})
 
 TARGET_LINK_LIBRARIES(test_ejson ${EJSON_LIB})
 TARGET_LINK_LIBRARIES(test_ert   ${ETHP_LIB})
+TARGET_LINK_LIBRARIES(test_etimer pthread m)
 #TARGET_LINK_LIBRARIES(test_enats ${ENATS_LIB})
 TARGET_LINK_LIBRARIES(test_libuv  ${ETHP_LIB} ${BASE64_LIBS} dl)
 
