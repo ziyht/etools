@@ -22,7 +22,7 @@
 #ifndef __ESTR_H__
 #define __ESTR_H__
 
-#define ESTR_VERSION "estr 1.0.5"        // fulfil estr_setT()
+#define ESTR_VERSION "estr 1.0.6"        // splitlen can be 0 in estr_split()
 
 #include <stdarg.h>
 

@@ -18,6 +18,8 @@
 #ifndef __ENATS__
 #define __ENATS__
 
+#define ENATS_VERSION     "enats 1.0.0"
+
 #include "nats.h"
 #include "etype.h"
 
@@ -53,13 +55,6 @@ typedef struct enats_opts_s {
         char* key;
         char* cert;
     }tls;
-    uint64_t timeout;
-
-    char*    compression;
-    char*    encryption;
-
-    int      decode;
-    int      polling;
 }enats_opts_t, * enats_opts;
 
 typedef struct eMsg_s
@@ -75,210 +70,118 @@ typedef struct eMsg_s
 
 static inline void eMsg_free(eMsg msg){ if(msg->reserved2) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
 
-typedef struct enats_s* enats, ** enats_p;
-typedef struct enatp_s* enatp, ** enatp_p;
+typedef struct enats_s* enats;
+typedef struct enatp_s* enatp;
 
 /// -- callbacks type
 typedef void (*enats_evtHandler) (enats t, void* closure);
 typedef void (*enats_errHandler) (enats t, natsSubscription *subscription, natsStatus err, void* closure);
 typedef void (*enats_msgHandler) (enats t, natsSubscription *sub, eMsg msg, void *closure);
 
-/// -------------------- enats API -------------------------------
-/// -- make a natsTrans handle connect to the urls
-///           tag    user     pass         server       port
-///  lg urls: nats://paratera:paratera.com@172.18.4.205:4242[,nats://...]
-///           nats://paratera@172.18.4.205:4242[,nats://...]
-///           nats://172.18.4.205:4242[,nats://...]
-///  lg url : 172.18.4.205:4242
-///           server       port
-///  return NULL    if create faild or can not connect to the urls
-///         handle  if create ok, make sure that connected to one of the urls
-enats enats_new (constr urls);
-enats enats_new2(constr user, constr pass, constr url);
+
+/// ====================== enats ==================================
+///
+///     enats - an easier using wrapper for cnats
+///
+
+
+/// --------------------- enats new -------------------------------
+enats enats_new (constr urls);                                          // syntax: nats://[[user][:passwd]@]server:port[,nats://...]
+enats enats_new2(constr user, constr pass, constr url);                 // syntax: nats://server:port
 enats enats_new3(constr user, constr pass, constr server, int port);
 enats enats_new4(enats_opts opts);
 
-/// -- wait here, blocking, it will unlock when you destroy the enats
-void  enats_join(enats e);
-
-/// -- Destroy the handle and release resources
+void  enats_join(enats e);          // blocking until e is been destoried
 void  enats_destroy(enats e);
 
-/// -- return the urls that have been connected/reserved by natsTrans
-constr enats_urls(enats e);
-constr enats_connurl(enats e);
-constr enats_lasturl(enats e);
-
-/// -- return pool infomation if the enats in a enatp, else return NULL
-constr enats_name(enats e);
-enatp  enats_pool(enats e);
-
-///
-/// \brief -- set callbacks, those callback will be called when event happen
-///
-/// \param trans   : enats transport handle
-/// \param cb      : the CB you want to set
-/// \param closure : the pravite data of this cb
-///
-/// \note:
-///     when conn closed, disconnected / reconnected, natsTrans will stop / start publisher auto,
-///     and cnats will also try to reconnect the server when disconnected,
-///     so do not need to stop / start publisher or do reconnect oprts in the callbacks
-///
+/// -------------------- enats callbacks --------------------------
 void enats_setClosedCB      (enats e, enats_evtHandler cb, void* closure);
 void enats_setDisconnectedCB(enats e, enats_evtHandler cb, void* closure);
 void enats_setReconnectedCB (enats e, enats_evtHandler cb, void* closure);
 void enats_setErrHandler    (enats e, enats_errHandler cb, void* closure);
 
-///
-/// \brief -- publish msg through enats, thread safe
-///
-/// \param trans   : enats transport handle
-/// \param subj    : the subject you want to publish to
-/// \param data    : the data you want to publish
-/// \param dataLen : the lengh of the publish data
-/// \param reply   : the msg will set reply
-/// \return - NAT_OK   if queue ok
-///         - !=NAT_OK if queue err, use natsTrans_LastErr() to get err info
-///
+/// -------------------- enats msg transfer --------------------------
 natsStatus  enats_pub (enats e, constr subj, conptr data, int dataLen);
 natsStatus  enats_pubr(enats e, constr subj, conptr data, int dataLen, constr reply);
 
-/// -- create a new subscriber in natsTrans
-//
-//  Messages will be delivered to the associated natsTrans_MsgHandler
-//  And use natsMsg_Destroy(msg) in natsTrans_MsgHandler to release resources (needed)
-
-///
-/// \brief sub or unsub a subj
-///
-/// \param trans   : enats transport handle
-/// \param subj    : the subject you want to subscribe
-/// \param onMsg   : the cb to be called when a msg coming
-/// \param closure : the private data of this subj
-/// \return - NAT_OK   if operate faild
-///         - !=NAT_OK if operate success
-/// \note:
-///     1. The subject can have wildcards (partial:*, full:>).
-///     2. Messages will be delivered to the associated natsTrans_MsgHandler
-///        and using eMsg_free() to free the msg after using it
-///
 natsStatus  enats_sub  (enats e, constr subj, enats_msgHandler onMsg, void* closure);
 natsStatus  enats_unsub(enats e, constr subj);
 
-/// -- request msg, thread safe
-//  return
-//         !=NAT_OK if queue err, use natsTrans_LastErr() to get err info
-
-///
-/// \brief enats_req -- request a msg through the trans, it will autolly subscribe the reply before publish the data
-///                     and autolly unsubscribe it when recieve a msg
-///
-/// \param e        : enats transport handle
-/// \param subj     : the subject you want to publish to
-/// \param data     : the data you want to publish
-/// \param dataLen  : the lengh of the publish data
-/// \param reply    : the reply subject to auto subscribe and unsubscribe
-/// \param replyMsg : the msg recieved
-/// \param timeout  : timeout setting
-/// \return - NAT_OK   if requst ok
-///         - !=NAT_OK if requst faild
-///
-/// \note:
-///     if timeout = 0, this API will wait forever unless recieve a msg
-///
 natsStatus  enats_req(enats e, constr subj, conptr data, int dataLen, constr reply, eMsg* replyMsg, int64_t timeout);
 
-/// \brief -- get statistics of enats
+/// ---------------------- enats utils ----------------------------
+constr enats_allurls(enats e);              // return all urls linked by this enats
+constr enats_connurl(enats e);              // return the url  connnected by now
+constr enats_lasturl(enats e);              // return the url  conneected at last time
+
+constr enats_name(enats e);                 // return the name of  this enats
+enatp  enats_pool(enats e);                 // return the pool who handle this enats
+
+constr enats_statsS(enats e, constr subj);
+
+constr enats_err(enats e);
+
+
+
+/// ====================== enatp ==================================
 ///
-/// \param trans: enats transport handle
-/// \param subj : the specific subject you want to query
-/// \return
+///     enatp - an enats pool to handle enats more convenient
 ///
-enats_stats_t enats_stats (enats e, constr subj);
-constr        enats_statsS(enats e, constr subj);
 
-/// -- get the lats err info of natsTrans, trans can be NULL
-constr       enats_err(enats e);
+/// --- macro names ---
+#define CONN_TRANS (constr)1
+#define LAZY_TRANS (constr)2
+#define ALL_TRANS  (constr)3
 
+/// --------------------- enatp new -------------------------------
+enatp enatp_new();
 
-/// ---------------------------------------------------------
-/// ---------------- natsTrans Pool API ---------------------
+void  enatp_join(enatp p);
+void  enatp_destroy(enatp p);
 
-enatp enatp_New();
-void  enatp_Destroy(enatp_p _p);
+int   enatp_addUrls(enatp p, constr name, constr     urls, int lazy, int group);
+int   enatp_addOpts(enatp p, constr name, enats_opts opts, int lazy, int group);
 
-void  enatp_Join(enatp p);   // blocking until p is been destoried
+/// -------------------- enatp callbacks --------------------------
 
-/// -- add a connection in enatp
-//           tag    user     pass         server       port
-//  lg urls: nats://paratera:paratera.com@172.18.4.205:4242[,nats://...]
-//
-//  note:
-//    in normal mode, return NATS_OK only all urls have been connected
-//    in lazy   mode, the unconnected urls are added to a lazy_loop which try to connect to server autolly every second, always return NATS_OK except for the last condition
-//    in both   mode, if one url in urls is in enatp already, return NATS_ERR
-//
-enats       enatp_Add(enatp p, constr name, constr urls);
-natsStatus  enatp_AddLazy(enatp p, constr name, constr urls);
-natsStatus  enatp_AddOpts(enatp p, enats_opts opts);
-natsStatus  enatp_AddOptsLazy(enatp p, enats_opts opts);
+void  enatp_setConnectedCB   (enatp p, constr name, enats_evtHandler cb, void* closure);
+void  enatp_setClosedCB      (enatp p, constr name, enats_evtHandler cb, void* closure);
+void  enatp_setDisconnectedCB(enatp p, constr name, enats_evtHandler cb, void* closure);
+void  enatp_setReconnectedCB (enatp p, constr name, enats_evtHandler cb, void* closure);
+void  enatp_setErrHandler    (enatp p, constr name, enats_errHandler cb, void* closure);
 
-int         enatp_IsInLazyQueue(enatp p, constr name);
-enats       enatp_Get(enatp p, constr name);
-enats       enatp_Del(enatp p, constr name);
-void        enatp_Release(enatp p, constr name);
+/// -------------------- enats msg transfer -----------------------
 
-int         enatp_CntTrans(enatp p);
-int         enatp_CntPollTrans(enatp p);
-int         enatp_CntLazyTrans(enatp p);
-
-constr      enatp_GetConnUrls(enatp p);
-constr      enatp_GetLazyUrls(enatp p);
-constr*     enatp_GetNConnUrls(enatp p, int* cnt);
-constr*     enatp_GetNLazyUrls(enatp p, int* cnt);
-
-#define CONN_TRANS 0
-#define LAZY_TRANS 1
-#define ALL_TRANS  2
-void        enatp_SetConnectedCB   (enatp p, int type, enats_evtHandler cb, void* closure);            // only effect on unconnected lazy trans
-void        enatp_SetClosedCB      (enatp p, int type, enats_evtHandler cb, void* closure);
-void        enatp_SetDisconnectedCB(enatp p, int type, enats_evtHandler cb, void* closure);
-void        enatp_SetReconnectedCB (enatp p, int type, enats_evtHandler cb, void* closure);
-void        enatp_SetErrHandler    (enatp p, int type, enats_errHandler cb, void* closure);
-
-void        enatp_SetConnectedCBByName   (enatp p, constr name, enats_evtHandler cb, void* closure);   // only effect on unconnected lazy trans
-void        enatp_SetClosedCBByName      (enatp p, constr name, enats_evtHandler cb, void* closure);
-void        enatp_SetDisconnectedCBByName(enatp p, constr name, enats_evtHandler cb, void* closure);
-void        enatp_SetReconnectedCBByName (enatp p, constr name, enats_evtHandler cb, void* closure);
-void        enatp_SetErrHandlerByName    (enatp p, constr name, enats_errHandler cb, void* closure);
-
-/// -- publish msgs
-// note:
-//   in normal mode, the msg will be publishing via the first connected url
-//   in poll   mode, the msg will be publishing via polling all the connected urls, a msg only publish once
-//
-natsStatus  enatp_Pub    (enatp p, constr subj, conptr data, int dataLen);
-natsStatus  enatp_PollPub(enatp p, constr subj, conptr data, int dataLen);
-
-natsStatus  enatp_PubReq    (enatp p, constr subj, conptr data, int dataLen, constr reply);
-natsStatus  enatp_PollPubReq(enatp p, constr subj, conptr data, int dataLen, constr reply);
-
-/// -- request msg
-natsStatus  enatp_Req    (enatp p, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
-natsStatus  enatp_PollReq(enatp p, constr subj, conptr data, int dataLen, constr reply, natsMsg**replyMsg, int64_t timeout);
-
-/// -- subscrib msg in specific enats
+/// -- normal mode --
+///     the msg will be publishing via the first connected enats
 ///
-#define _ALL_enats_ (constr)-1         // use it as a name
-natsStatus  enatp_Sub(enatp p, constr name, constr subj, enats_MsgHandler onMsg, void* closure);
-natsStatus  enatp_Unsub(enatp p, constr name, constr subj);
+natsStatus  enatp_pub (enatp p, constr subj, conptr data, int dataLen);
+natsStatus  enatp_pubr(enatp p, constr subj, conptr data, int dataLen, constr reply);
 
-enats_stats_t enatp_GetStats(enatp p, constr subj);
-constr        enatp_GetStatsStr(enatp p, int mode, constr subj);
+natsStatus  enatp_sub  (enatp p, constr name, constr subj, enats_msgHandler onMsg, void* closure);
+natsStatus  enatp_unsub(enatp p, constr name, constr subj);
 
-int          enatp_IsErr(enatp p);
-constr       enatp_LastErr(enatp p);
+natsStatus  enatp_req(enatp p, constr subj, conptr data, int dataLen, constr reply, eMsg* replyMsg, int64_t timeout);
+
+/// -- poll mode --
+///     the msg will be publishing via polling all the connected enats, a msg only publish once
+///
+natsStatus  enatp_pubPoll (enatp p, constr subj, conptr data, int dataLen);
+natsStatus  enatp_pubrPoll(enatp p, constr subj, conptr data, int dataLen, constr reply);
+
+natsStatus  enatp_reqPoll(enatp p, constr subj, conptr data, int dataLen, constr reply, eMsg* replyMsg, int64_t timeout);
+
+
+/// ---------------------- enatp utils ----------------------------
+
+int    enatp_cntTrans(enatp p, constr name);
+
+constr enatp_connurls(enatp p);
+constr enatp_lazyurls(enatp p);
+
+constr enatp_statsS(enatp p, constr subj, int detail);
+
+constr enatp_err(enatp p);
 
 #ifdef __cplusplus
 }

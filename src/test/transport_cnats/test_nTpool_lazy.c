@@ -70,7 +70,7 @@ void nTpool_lazy_test()
     nTPool_SetReconnectedCB(p, ALL_TRANS, ReconnectedCB, 0);
 #endif
 
-    for(i = 0; i < 100000; i++)
+    for(i = 0; i < 10000000; i++)
     {
         sprintf(buf, "%d", i+1);
         //usleep(100000);

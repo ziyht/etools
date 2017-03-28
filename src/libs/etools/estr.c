@@ -432,7 +432,7 @@ inline estr estr_new(constr src)
 }
 
 estr estr_newLen(conptr ptr, size initlen) {
-    cstr sh; sds  s; size_t datalen; char type; unsigned char *fp; /* flags pointer. */
+    cstr sh; sds  s; size_t datalen; char type; int hdrlen; unsigned char *fp; /* flags pointer. */
 
     datalen = ptr ? initlen : 0;
     type    = _estr_reqT(initlen);
@@ -440,8 +440,8 @@ estr estr_newLen(conptr ptr, size initlen) {
     /* Empty strings are usually created in order to append. Use type 8
      * since type 5 is not good at this. */
     if (type == SDS_TYPE_5 && datalen == 0 ) type = SDS_TYPE_8;
-    int hdrlen = _estr_lenH(type);
-    sh = s_malloc(hdrlen+initlen+1);
+    hdrlen = _estr_lenH(type);
+    sh = s_malloc(hdrlen + initlen + 1);
     is0_ret(sh, 0);
 
     s  = sh + hdrlen;
@@ -1195,9 +1195,13 @@ typedef struct __split_s{
     estr list[];
 }__split_t;
 
-#define KEEP_SAME 1
-#define SKIP_SAME 0
+#define KEEP_ADJOINING 1
+#define SKIP_ADJOINING 0
 
+///
+/// @note:
+///     need len > 0
+///
 static estr* __estr_splitbin(conptr s, int len, conptr sep, int seplen, int* _cnt, int keep_same)
 {
     estr s_dup; estr o_buf; int cnt, prev_pos, j, search_len;
@@ -1240,7 +1244,7 @@ static estr* __estr_splitbin(conptr s, int len, conptr sep, int seplen, int* _cn
             }
         }
     }
-    else
+    else if(seplen > 1)
     {
         for (j = 0; j < search_len; j++)
         {
@@ -1278,17 +1282,19 @@ static estr* __estr_splitbin(conptr s, int len, conptr sep, int seplen, int* _cn
     return ((__split_t*)o_buf)->list;
 }
 
+// todo:  macro SKIP_SAME is not good
 estr*estr_split(estr s, constr sep, int* _cnt)
 {
-    int seplen, cnt; estr* split_list;
+    int len, seplen, cnt; estr* split_list;
 
+    len    = s   ? _estr_len(s): 0;
     seplen = sep ? strlen(sep) : 0;
 
-    is1_ret(!s || seplen == 0, NULL);
+    is0_exeret(len, is1_exe(_cnt, *_cnt = 0), NULL);
 
-    split_list = __estr_splitbin(s, _estr_len(s), sep, seplen, &cnt, SKIP_SAME);
+    split_list = __estr_splitbin(s, len, sep, seplen, &cnt, SKIP_ADJOINING);
 
-    if(_cnt) *_cnt = cnt;
+    is1_exe(_cnt, *_cnt = cnt);
 
     return split_list;
 }
@@ -1300,11 +1306,11 @@ estr*estr_splitS(constr src, constr sep, int* _cnt)
     len    = src ? strlen(src) : 0;
     seplen = sep ? strlen(sep) : 0;
 
-    is1_ret(len == 0 || seplen == 0, NULL);
+    is0_exeret(len, is1_exe(_cnt, *_cnt = 0), NULL);
 
-    split_list = __estr_splitbin(src, len, sep, seplen, &cnt, SKIP_SAME);
+    split_list = __estr_splitbin(src, len, sep, seplen, &cnt, SKIP_ADJOINING);
 
-    if(_cnt) *_cnt = cnt;
+    is1_exe(_cnt, *_cnt = cnt);
 
     return split_list;
 }
@@ -1313,12 +1319,11 @@ estr*estr_splitLen(conptr s, int len, conptr sep, int seplen, int* _cnt)
 {
     estr* split_list; int cnt;
 
-    is1_ret(seplen < 1 || len < 0, NULL);
-    is0_exeret(len, is1_exe(_cnt, *_cnt = 0), NULL);
+    is1_exeret(len <= 0 || seplen < 0, is1_exe(_cnt, *_cnt = 0), NULL);
 
-    split_list = __estr_splitbin(s, len, sep, seplen, &cnt, KEEP_SAME);
+    split_list = __estr_splitbin(s, len, sep, seplen, &cnt, KEEP_ADJOINING);
 
-    if(_cnt) *_cnt = cnt;
+    is1_exe(_cnt, *_cnt = cnt);
 
     return split_list;
 }

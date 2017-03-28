@@ -11,16 +11,16 @@ char* g_url;
 
 void nTrans_test()
 {
-    // nTrans_pub_test();
+    //nTrans_pub_test();
     // nTrans_multi_conn_test();
 
     // nTpool_nrom_test();
-    // nTpool_lazy_test();
+     nTpool_lazy_test();
 
     // server_max_collect_test();
 
     // nTrans_verify_test();
-    nTPool_verify_test();
+    //nTPool_verify_test();
 }
 
 int main(int argc, char* argv[])

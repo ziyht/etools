@@ -17,7 +17,7 @@
 #ifndef __EJSON_H__
 #define __EJSON_H__
 
-#define EJSON_VERSION "ejson 0.8.2"      // fix bugs of _ssub, using freed s
+#define EJSON_VERSION "ejson 0.8.3"      // add macro ejso_itrl
 
 #include "etype.h"
 
@@ -87,8 +87,12 @@ int    ejss_checkOpts(constr src, constr* err_pos, opts opt);
 ejson  ejsf_eval(constr file);        // parse a file to ejson obj, support comment like: //, /**/, # in default
 ejson  ejsf_evalOpts(constr file, constr* err_pos, opts opt);
 
+// todo : ejse_set API name is not good
+
 void   ejse_set(opts opt);            // set comment support of eval APIs, effect on ejss_eval(), ejss_check(), ejs*_add*eval()
 void   ejsf_set(opts opt);            // set comment support of eval APIs, effect on ejsf_eval()
+
+// todo : ejse_str API name is not good
 
 /// -- ejson error --
 constr ejse_str();                   // get the err_str      last recured, is not thread safe
@@ -256,6 +260,10 @@ ejson  ejsr_last (ejson obj, constr rawk);      // return the last  child of the
 #define ejso_itr(obj, itr)       for(ejson _INNER_ = ejso_first(obj)      ; (itr = _INNER_, _INNER_ = ejso_next(_INNER_), itr); )
 #define ejsk_itr(obj, keys, itr) for(ejson _INNER_ = ejsk_first(obj, keys); (itr = _INNER_, _INNER_ = ejso_next(_INNER_), itr); )
 #define ejsr_itr(obj, rawk, itr) for(ejson _INNER_ = ejsr_first(obj, rawk); (itr = _INNER_, _INNER_ = ejso_next(_INNER_), itr); )
+
+#define ejso_itrl(obj, layer)       for(ejson _INNER_ = ejso_first(obj)      , itr##layer = 0; (itr##layer = _INNER_, _INNER_ = ejso_next(_INNER_), itr##layer); )
+#define ejsk_itrl(obj, keys, layer) for(ejson _INNER_ = ejsk_first(obj, keys), itr##layer = 0; (itr##layer = _INNER_, _INNER_ = ejso_next(_INNER_), itr##layer); )
+#define ejsr_itrl(obj, rawk, layer) for(ejson _INNER_ = ejsr_first(obj, rawk), itr##layer = 0; (itr##layer = _INNER_, _INNER_ = ejso_next(_INNER_), itr##layer); )
 
 /// -- ejson compare --
 int    ejso_cmpi(ejson obj, int    val);       // return -2 if obj is NULL, return -3 if type not match, return -1 if obj.i < val, return 1 if obj.i > val, else return 0

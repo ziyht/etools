@@ -9,7 +9,7 @@ void nTrans_pub_test()
     //natsTrans_p trans = natsTrans_NewTo2("paratera", "paratera.com","172.18.4.205", 4242);
     //nTrans trans2 = nTrans_NewTo3(opts);
     // nTrans trans2 = nTrans_New("nats://172.18.4.205:4242");
-    nTrans trans2 = nTPool_Add(p, "trans1", "nats://172.18.4.205:4242");
+    nTrans trans2 = nTPool_Add(p, "trans1", "nats://localhost:4242");
 
 
     int64_t         last   = 0;

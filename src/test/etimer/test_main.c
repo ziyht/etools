@@ -64,10 +64,12 @@ int main()
     char buf[19];
     printf("%s\n", etimer_nowS(buf, 19));  fflush(stdout);
 
-    etimer_start(t1, on_timer1, 1000, 100);
+    etimer_start(t1, on_timer1, 1000, 1000);
     //etimer_start(t2, on_timer2, 500 , 1);
 
-    sleep(5);
+
+
+    sleep(5000);
 
     etloop_stop(loop);
 
