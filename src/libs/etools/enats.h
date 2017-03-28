@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-typedef struct ntStatistics_s{
+typedef struct enats_statistics_s{
     // -- for conn
     uint64_t    inMsgs;
     uint64_t    outMsgs;
@@ -40,7 +40,7 @@ typedef struct ntStatistics_s{
     int         maxPendingBytes;
     int64_t     deliveredMsgs;
     int64_t     droppedMsgs;
-}ntStatistics_t, ntStatistics;
+}enats_stats_t;
 
 typedef struct enats_opts_s {
     char*    conn_string;
@@ -105,8 +105,9 @@ void  enats_join(enats e);
 void  enats_destroy(enats e);
 
 /// -- return the urls that have been connected/reserved by natsTrans
-constr enats_connurls(enats e);
 constr enats_urls(enats e);
+constr enats_connurl(enats e);
+constr enats_lasturl(enats e);
 
 /// -- return pool infomation if the enats in a enatp, else return NULL
 constr enats_name(enats e);
@@ -194,8 +195,8 @@ natsStatus  enats_req(enats e, constr subj, conptr data, int dataLen, constr rep
 /// \param subj : the specific subject you want to query
 /// \return
 ///
-ntStatistics enats_stats (enats e, constr subj);
-constr       enats_statsS(enats e, int mode, constr subj);
+enats_stats_t enats_stats (enats e, constr subj);
+constr        enats_statsS(enats e, constr subj);
 
 /// -- get the lats err info of natsTrans, trans can be NULL
 constr       enats_err(enats e);
@@ -204,10 +205,10 @@ constr       enats_err(enats e);
 /// ---------------------------------------------------------
 /// ---------------- natsTrans Pool API ---------------------
 
-enatp enatp_new();
-void  enatp_destroy(enatp_p _p);
+enatp enatp_New();
+void  enatp_Destroy(enatp_p _p);
 
-void  enatp_join(enatp p);   // blocking until p is been destoried
+void  enatp_Join(enatp p);   // blocking until p is been destoried
 
 /// -- add a connection in enatp
 //           tag    user     pass         server       port
@@ -224,8 +225,8 @@ natsStatus  enatp_AddOpts(enatp p, enats_opts opts);
 natsStatus  enatp_AddOptsLazy(enatp p, enats_opts opts);
 
 int         enatp_IsInLazyQueue(enatp p, constr name);
-enats      enatp_Get(enatp p, constr name);
-enats      enatp_Del(enatp p, constr name);
+enats       enatp_Get(enatp p, constr name);
+enats       enatp_Del(enatp p, constr name);
 void        enatp_Release(enatp p, constr name);
 
 int         enatp_CntTrans(enatp p);
@@ -240,17 +241,17 @@ constr*     enatp_GetNLazyUrls(enatp p, int* cnt);
 #define CONN_TRANS 0
 #define LAZY_TRANS 1
 #define ALL_TRANS  2
-void        enatp_SetConnectedCB(enatp p, int type, enats_ConnectedCB cb, void* closure);            // only effect on unconnected lazy trans
-void        enatp_SetClosedCB(enatp p, int type, enats_ClosedCB cb, void* closure);
-void        enatp_SetDisconnectedCB(enatp p, int type, enats_DisconnectedCB cb, void* closure);
-void        enatp_SetReconnectedCB(enatp p, int type, enats_ReconnectedCB cb, void* closure);
-void        enatp_SetErrHandler(enatp p, int type, enats_ErrHandler cb, void* closure);
+void        enatp_SetConnectedCB   (enatp p, int type, enats_evtHandler cb, void* closure);            // only effect on unconnected lazy trans
+void        enatp_SetClosedCB      (enatp p, int type, enats_evtHandler cb, void* closure);
+void        enatp_SetDisconnectedCB(enatp p, int type, enats_evtHandler cb, void* closure);
+void        enatp_SetReconnectedCB (enatp p, int type, enats_evtHandler cb, void* closure);
+void        enatp_SetErrHandler    (enatp p, int type, enats_errHandler cb, void* closure);
 
-void        enatp_SetConnectedCBByName(enatp p, constr name, enats_ConnectedCB cb, void* closure);   // only effect on unconnected lazy trans
-void        enatp_SetClosedCBByName(enatp p, constr name, enats_ClosedCB cb, void* closure);
-void        enatp_SetDisconnectedCBByName(enatp p, constr name, enats_DisconnectedCB cb, void* closure);
-void        enatp_SetReconnectedCBByName(enatp p, constr name, enats_ReconnectedCB cb, void* closure);
-void        enatp_SetErrHandlerByName(enatp p, constr name, enats_ErrHandler cb, void* closure);
+void        enatp_SetConnectedCBByName   (enatp p, constr name, enats_evtHandler cb, void* closure);   // only effect on unconnected lazy trans
+void        enatp_SetClosedCBByName      (enatp p, constr name, enats_evtHandler cb, void* closure);
+void        enatp_SetDisconnectedCBByName(enatp p, constr name, enats_evtHandler cb, void* closure);
+void        enatp_SetReconnectedCBByName (enatp p, constr name, enats_evtHandler cb, void* closure);
+void        enatp_SetErrHandlerByName    (enatp p, constr name, enats_errHandler cb, void* closure);
 
 /// -- publish msgs
 // note:
@@ -273,8 +274,8 @@ natsStatus  enatp_PollReq(enatp p, constr subj, conptr data, int dataLen, constr
 natsStatus  enatp_Sub(enatp p, constr name, constr subj, enats_MsgHandler onMsg, void* closure);
 natsStatus  enatp_Unsub(enatp p, constr name, constr subj);
 
-ntStatistics enatp_GetStats(enatp p, constr subj);
-constr       enatp_GetStatsStr(enatp p, int mode, constr subj);
+enats_stats_t enatp_GetStats(enatp p, constr subj);
+constr        enatp_GetStatsStr(enatp p, int mode, constr subj);
 
 int          enatp_IsErr(enatp p);
 constr       enatp_LastErr(enatp p);
