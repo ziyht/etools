@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
+#include <pthread.h>
 
 typedef struct{
     cstr tag;
@@ -44,9 +46,26 @@ static void on_timer2(etimer t)
     printf("%s %s %d: %ld\n", etimer_nowS(buf, 19), d->tag, d->cnt, etimer_now());  fflush(stdout);
 }
 
+etloop loop;
+pthread_mutex_t wait_mu;
+
+void sig_handler(int i) {
+    switch (i) {
+    case SIGHUP:    ;
+    case SIGINT:    ;
+    case SIGTERM:   break;
+    default:             return;
+    }
+
+    etloop_stop(loop);
+    pthread_mutex_unlock(&wait_mu);
+}
+
+
+
 int main()
 {
-    etloop loop; etimer t1, t2;
+     etimer t1, t2;
 
     DATA d[] = {
         {"timer1", 0,},
@@ -61,20 +80,22 @@ int main()
     t1->data = &d[0];
     t2->data = &d[1];
 
+    signal(SIGINT,  sig_handler);
+    signal(SIGHUP,  sig_handler);
+    signal(SIGTERM, sig_handler);
+
     char buf[19];
     printf("%s\n", etimer_nowS(buf, 19));  fflush(stdout);
 
-    etimer_start(t1, on_timer1, 1000, 1000);
-    //etimer_start(t2, on_timer2, 500 , 1);
+    etimer_start(t1, on_timer1, 5000, 5000);
+    //usleep(1000);
+    //etimer_start(t2, on_timer2, 500 , 10);
 
 
 
-    sleep(5000);
-
-    etloop_stop(loop);
-
-
-    sleep(1);
+    pthread_mutex_init(&wait_mu, 0);
+    pthread_mutex_lock(&wait_mu);
+    pthread_mutex_lock(&wait_mu);
 
     return 0;
 }

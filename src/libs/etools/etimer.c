@@ -194,7 +194,7 @@ static void __task_after_cb(_etimer e)
         esl_insertO(loop->tl, e->mydl, e);
         llog("readd timer: %d %p", esl_len(loop->tl), (void*)e);
         llog("ulck and cond_all");
-        mutex_ulck(loop->mu_wait);
+
         cond_all(loop->co_wait);
         mutex_ulck(loop->mu);
     }
@@ -211,13 +211,12 @@ static void* __tl_th_cb(void* arg)
         if(!(first = esl_first(loop->tl)))
         {
             llog("lock");
-            //mutex_lock(loop->mu_wait);
+
             __nextspec(&abstime, 100);
             cond_twait(loop->co_wait, loop->mu_wait, abstime);
-            //cond_wait(loop->co_wait, loop->mu_wait);
-            //mutex_ulck(loop->mu_wait);
+
             llog("lock over");
-            mutex_ulck(loop->mu_wait);
+
             continue;
         }
 
@@ -337,8 +336,8 @@ void   etloop_stop(etloop loop)
     loop->quit   = 1;
     ert_release(loop->tp, ERT_WAITING_TASKS);
     ert_join(loop->tp);
-    llog("ulck and cond_all");
-    mutex_ulck(loop->mu_wait);
+    llog("cond_all");
+
     cond_all(loop->co_wait);
     mutex_lock(loop->mu);
 
@@ -408,10 +407,10 @@ int    etimer_start(etimer _e, etm_cb cb, u64 timeout, u64 repeat)
     }
 
     llog("ulck and cond_all: %ld", e->mydl);
-    mutex_ulck(loop->mu_wait);
-    cond_all(e->loop->co_wait);
 
-    mutex_ulck(e->loop->mu);
+    cond_all(loop->co_wait);
+
+    mutex_ulck(loop->mu);
 
     return 1;
 }
