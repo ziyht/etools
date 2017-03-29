@@ -927,7 +927,7 @@ ejson  ejso_addS(ejson root, constr key, constr val)
     return obj;
 }
 
-ejson  ejso_addF(ejson root, constr key, double val)
+ejson  ejso_addN(ejson root, constr key, double val)
 {
     ejson obj; int len; cstr nk; dictLink_t l;
     is0_exeret(root, errset("ejso_addF err: root obj is NULL"), 0);
@@ -1178,7 +1178,7 @@ ejson  ejsk_addS(ejson root, constr keys, constr key, constr val)
     return obj;
 }
 
-ejson  ejsk_addF(ejson root, constr keys, constr key, double val)
+ejson  ejsk_addN(ejson root, constr keys, constr key, double val)
 {
     ejson obj; int len; cstr nk; dictLink_t l;
     is0_exeret(_isParent(root), errset("ejsk_addF err: root obj" _isParentErr);, 0);
@@ -1445,7 +1445,7 @@ ejson  ejsr_addS(ejson root, constr rawk, constr key, constr val)
     return obj;
 }
 
-ejson  ejsr_addF(ejson root, constr rawk, constr key, double val)
+ejson  ejsr_addN(ejson root, constr rawk, constr key, double val)
 {
     ejson obj; int len; cstr nk; dictLink_t l;
     is0_exeret(_isOBJ(root)   , errset("ejsr_addF err: root obj" _isOBJErr   );, 0);
@@ -2429,7 +2429,7 @@ ejson  ejsk_cntpp(ejson root, constr keys)
     }
     else
     {
-        obj = ejso_addF(root, keys, 1);
+        obj = ejso_addN(root, keys, 1);
     }
 
     return obj;
@@ -2446,7 +2446,7 @@ ejson  ejsk_cntmm(ejson root, constr keys)
     }
     else
     {
-        obj = ejso_addF(root, keys, 0);
+        obj = ejso_addN(root, keys, 0);
     }
 
     return obj;
@@ -2463,7 +2463,7 @@ ejson  ejsr_cntpp(ejson root, constr rawk)
     }
     else
     {
-        obj = ejso_addF(root, rawk, 1);
+        obj = ejso_addN(root, rawk, 1);
     }
 
     return obj;
@@ -2479,7 +2479,7 @@ ejson  ejsr_cntmm(ejson root, constr rawk)
     }
     else
     {
-        obj = ejso_addF(root, rawk, 0);
+        obj = ejso_addN(root, rawk, 0);
     }
 
     return obj;

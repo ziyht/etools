@@ -116,24 +116,24 @@ constr ejse_pos();                   // get the err_position last recured, is no
 
 ejson  ejso_addO(ejson root, constr key, ejson  obj);               // add an exist obj to root
 ejson  ejso_addE(ejson root, constr key, constr src);               // add an eval  obj to root
-ejson  ejso_addT(ejson root, constr key, int   type);               // add an opts  obj to root, only support FLASE,TURE,NULL,ARR,OBJ
-ejson  ejso_addF(ejson root, constr key, double val);               // add an NUM   obj to root
+ejson  ejso_addT(ejson root, constr key, int   type);               // add an type  obj to root, only support FLASE,TURE,NULL,ARR,OBJ
+ejson  ejso_addN(ejson root, constr key, double val);               // add an NUM   obj to root
 ejson  ejso_addS(ejson root, constr key, constr val);               // add a  STR   obj to root
 ejson  ejso_addP(ejson root, constr key, void*  ptr);               // add a  PTR   obj to root, the ptr will output like NUM obj when use all ejs_toStr()
 void*  ejso_addR(ejson root, constr key, int    len);               // add a  RAW   obj to root, alloc a new space(len) for data, this obj will output with str value "RAW" when use all ejs_toStr()
 
 ejson  ejsk_addO(ejson root, constr keys, constr key, ejson  obj);  // add an exist obj to specific obj in root via keys
 ejson  ejsk_addE(ejson root, constr keys, constr key, constr src);  // add an eval  obj to specific obj in root via keys
-ejson  ejsk_addT(ejson root, constr keys, constr key, int   type);  // add an opts  obj to specific obj in root via keys, only support FLASE,TURE,NULL,ARR,OBJ
-ejson  ejsk_addF(ejson root, constr keys, constr key, double val);  // add an NUM   obj to specific obj in root via keys
+ejson  ejsk_addT(ejson root, constr keys, constr key, int   type);  // add an type  obj to specific obj in root via keys, only support FLASE,TURE,NULL,ARR,OBJ
+ejson  ejsk_addN(ejson root, constr keys, constr key, double val);  // add an NUM   obj to specific obj in root via keys
 ejson  ejsk_addS(ejson root, constr keys, constr key, constr val);  // add a  STR   obj to specific obj in root via keys
 ejson  ejsk_addP(ejson root, constr keys, constr key, void*  ptr);  // add a  PTR   obj to specific obj in root via keys, the ptr will output like NUM obj when use all ejs_toStr()
 void*  ejsk_addR(ejson root, constr keys, constr key, int    len);  // add a  RAW   obj to root, alloc a new space(len) for data, this obj will output with str value "RAW" when use all ejs_toStr()
 
 ejson  ejsr_addO(ejson root, constr rawk, constr key, ejson  obj);  // add an exist obj to specific obj in root via keys
 ejson  ejsr_addE(ejson root, constr rawk, constr key, constr src);  // add an eval  obj to specific obj in root via keys
-ejson  ejsr_addT(ejson root, constr rawk, constr key, int   type);  // add an opts  obj to specific obj in root via keys, only support FLASE,TURE,NULL,ARR,OBJ
-ejson  ejsr_addF(ejson root, constr rawk, constr key, double val);  // add an NUM   obj to specific obj in root via keys
+ejson  ejsr_addT(ejson root, constr rawk, constr key, int   type);  // add an type  obj to specific obj in root via keys, only support FLASE,TURE,NULL,ARR,OBJ
+ejson  ejsr_addN(ejson root, constr rawk, constr key, double val);  // add an NUM   obj to specific obj in root via keys
 ejson  ejsr_addS(ejson root, constr rawk, constr key, constr val);  // add a  STR   obj to specific obj in root via keys
 ejson  ejsr_addP(ejson root, constr rawk, constr key, void*  ptr);  // add a  PTR   obj to specific obj in root via keys, the ptr will output like NUM obj when use all ejs_toStr()
 void*  ejsr_addR(ejson root, constr rawk, constr key, int    len);  // add a  RAW   obj to root, alloc a new space(len) for data, this obj will output with str value "RAW" when use all ejs_toStr()

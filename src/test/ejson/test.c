@@ -16,7 +16,7 @@ int main()
 
     ejson_sort_test();
 
-    // ejson_performance_test();
+    //ejson_performance_test();
 
     ejson_raw_ptr_test();
 
