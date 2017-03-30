@@ -8,8 +8,8 @@ int main()
     //ejson_cJSON_test();
 
     //ejson_eval_test();
-    ejson_obj_add_test();
-    //ejson_obj_get_test();
+    //ejson_obj_add_test();
+    ejson_obj_get_test();
     //ejson_del_test();
 
     //ejson_sub_test();
