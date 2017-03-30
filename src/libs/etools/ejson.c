@@ -35,14 +35,16 @@ static constr g_err;
 static constr g_errp;
 static char   g_err_buf[1024];
 
-#define exe_ret(expr, ret) {expr;}     return ret
-#define is0_ret(cond, ret) if(!(cond)) return ret
-#define is1_ret(cond, ret) if( (cond)) return ret
+#define exe_ret(expr, ret ) { expr;      return ret;}
+#define is0_ret(cond, ret ) if(!(cond)){ return ret;}
+#define is1_ret(cond, ret ) if( (cond)){ return ret;}
+#define is0_exe(cond, expr) if(!(cond)){ expr;}
+#define is1_exe(cond, expr) if( (cond)){ expr;}
 
-#define is0_exeret(cond, expr, ret) if(!(cond)){ expr; return ret;}
-#define is1_exeret(cond, expr, ret) if( (cond)){ expr; return ret;}
-#define is0_elsret(cond, expr, ret) if(!(cond)){expr;} else return ret
-#define is1_elsret(cond, expr, ret) if( (cond)){expr;} else return ret
+#define is0_exeret(cond, expr, ret) if(!(cond)){ expr;        return ret;}
+#define is1_exeret(cond, expr, ret) if( (cond)){ expr;        return ret;}
+#define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
+#define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
 #if defined(_WIN32)
 #define __unused
@@ -158,9 +160,22 @@ static inline cstr _snew2(conptr ptr, uint len) // create a _s from ptrs
 
 static inline cstr _swrb(cstr s, conptr ptr, uint len)  // write banary data to _s, from begining
 {
+    _s hhdr, nhdr;
+
+    if(!s)
+    {
+        is0_ret(nhdr  = _snewm(len), 0);
+        nhdr->cap = len;
+        nhdr->len = len;
+        s         = nhdr->s;
+        memcpy(s, ptr, len);
+        s[len] = 0;
+        return s;
+    }
+
     if(len > _scap(s))
     {
-        _s hhdr, nhdr;
+
         hhdr = _s2hdr(s);
         nhdr = _snewr(hhdr, len);
         is0_ret(nhdr, 0);
@@ -742,10 +757,13 @@ inline void   ejsf_set(opts opt) {   f_lstrip = opt&CMMT_ON ? lstrip2 : lstrip1;
 inline constr ejse_str()    {   return g_err;    }
 inline constr ejse_pos()    {   return g_errp;   }
 
+/// ------------------------  macro err ---------------------------
+#define _validS(s)      ((s) && *(s))
+
 #define _invalidS(s)    (!(s) || !*(s))
 #define _invalidO(o)    (!(o) || !_keyS(o))
 #define _canotAdd(r, o) (!(o) || (r)==(o) || _isChild(o))
-#define _canotRm(o)     (!(o) || !_isChild(o))
+#define _canotRm(o)     (!(o) || !_isChild(o))              // todo: should not need this operation
 
 #define _invalidSErr " is NULL or EMPTY"
 #define _isOBJErr    " is not a OBJ obj"
@@ -753,67 +771,72 @@ inline constr ejse_pos()    {   return g_errp;   }
 #define _canotAddErr " is NULL or is the root obj self or is a child obj of other obj"
 #define _canotRmErr  " is NULL or is not a child obj"
 
-#define _checkOBJ(o)    is0_ret(_isOBJ(o), 0)
-#define _checkParent(o) is0_ret(_isParent(o), 0)
-#define _checkInvldS(s) is1_ret(_invalidS(s), 0)
+#define _checkOBJ(o)        is0_exeret(_isOBJ(o)     , errset("invalid" #o " (not a OBJ object)"), 0)
+#define _checkNULL(o)       is0_exeret(o             , errset("invalid" #o " (nullptr)"), 0)
+#define _checkZERO(i)       is0_exeret(i             , errset("invalid" #i " (= 0)"), 0)
+#define _checkSRC(s)        is1_exeret(_invalidS(s)  , errset("invalid" #s " (nullptr or empty)");g_errp = _NIL_, 0)
+#define _checkParent(o)     is0_exeret(_isParent(o)  , errset("invalid" #o " (nullptr or not in ARR/OBJ type)"), 0)
+#define _checkInvldS(s)     is1_exeret(_invalidS(s)  , errset("invalid" #s " (nullptr or empty)"), 0)
+#define _checkCanAdd(r,o)   is1_exeret(_canotAdd(r,o), errset("invalid" #o " (nullptr or is the root obj self or is in another ejson already)"), 0)
 
-ejson  ejso_addO(ejson root, constr key, ejson  obj)
+#define _ERRSTR_NOKEY       "found no key in param and obj"
+#define _ERRSTR_PARSE       "src parsing error"
+#define _ERRSTR_TYPEDF      "invalid type (root obj is not in OBJ/ARR type)"
+
+#define _ERRSTR_ALLOC(tag)      "alloc faild for" #tag
+#define _ERRSTR_KEYINPRM(key)   "key \"%s\" in param is already exist in root obj", key
+#define _ERRSTR_KEYINOBJ(key)   "key \"%s\" in obj is already exist in root obj", key
+
+static inline ejson __ejso_addObj(ejson root, constr key, ejson  obj)
 {
     cstr nk, hk; uint len; dictLink_t l;
-    is0_exeret(root, errset("ejso_addO err: root obj is NULL"), 0);
-    is1_exeret(!obj || root == obj || _isChild(obj), errset("ejso_addO err: the obj to add is NULL or is the root obj or in another ejson"), 0);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset("ejso_addO err: _dicInit faild for root obj");, 0);
-                        if(!(hk = _keyS(obj)))      // have no key in obj
-                        {
-                            is1_exeret(_invalidS(key),                      errset("ejso_addO err: found no key"), 0);len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejso_addO err: the key: \"%s\" is already in root obj", key);, 0);
-                            is0_exeret(nk = _newS2(key, len),               errset("ejso_addO err: alloc for key failed"), 0);
-                            dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk;
-                        }
-                        else if(!_invalidS(key))    // hk is a key in obj, and has a key in param
+        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset(_ERRSTR_ALLOC(dict));, 0);
+
+                        hk = _keyS(obj);
+                        if(_validS(key))            // have a key in param
                         {
                             len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejso_addO err: the key: \"%s\" is already in root obj", key);, 0);
+                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt(_ERRSTR_KEYINPRM(key));, 0);
+                            is0_exeret(nk = _wrbS(hk, key, len)           , errset(_ERRSTR_ALLOC(key));   , 0);
 
-                            is0_exeret(nk = _wrbS(hk, key, len), errset("ejso_addO err: alloc for key failed"), 0);
                             if(nk != hk) _keyS(obj) = nk;
-
                             dict_link(l, obj);_objLink(root, obj);
                         }
-                        else                        // hk is a key in obj, and has no key in param
+                        else
                         {
-                            is0_exeret(_objAdd(root, hk, obj),    errfmt("ejso_addO err: the key: \"%s\" is already in root obj", hk);, 0);
+                            is0_exeret(hk,                     errset(_ERRSTR_NOKEY)        , 0);
+                            is0_exeret(_objAdd(root, hk, obj), errfmt(_ERRSTR_KEYINOBJ(hk));, 0);
                         }
                         break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejso_addO err: _arrInit faild for root obj");, 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset(_ERRSTR_ALLOC(list));, 0);
                         _arrAdd(root, obj);
                         break;
-        default       : errset("ejso_addO err: root obj is not in OBJ/ARR type"); return 0;
+        default       : errset(_ERRSTR_TYPEDF); return 0;
     }
 
     return obj;
 }
 
-ejson  ejso_addE(ejson root, constr key, constr src)
+static inline ejson __ejso_addEval(ejson root, constr key, constr src)
 {
     cstr nk, hk; ejson obj; uint len; _lstrip lstrip; dictLink_t l;
-    is0_exeret(root, errset("ejso_addE err: root obj is NULL"), 0);
-    is0_exeret(src,  errset("ejso_addE err: json is NULL"); g_errp = _NIL_;, 0);
+
 
     hk = NULL;  lstrip = e_lstrip;  src = lstrip(src);
+
     if(*src == '\"')
         parse_STR(&hk, &src, &g_errp, lstrip);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset("ejso_addE err: _dicInit faild for root obj");, 0);
+        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset(_ERRSTR_ALLOC(dict));, 0);
                         if(!hk)                     // have no key in src
                         {
-                            is1_exeret(_invalidS(key),                      errset("ejso_addE err: found no key"), 0);len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejso_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                            is0_exeret(nk  = _newS2(key, len),              errset("ejso_addE err: alloc for key failed"), 0);
-                            is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejso_addE err: json str parse err"); _freeS(nk);, 0);
+                            is1_exeret(_invalidS(key)                            , errset(_ERRSTR_NOKEY);            , 0); len = strlen(key);
+                            is0_exeret(dict_getL(_obj(root), key, len, &l)       , errfmt(_ERRSTR_KEYINPRM(key));    , 0);
+                            is0_exeret(nk  = _newS2(key, len)                    , errset(_ERRSTR_ALLOC(key));       , 0);
+                            is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset(_ERRSTR_PARSE); _freeS(nk);, 0);
                             dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk;
                         }
                         else
@@ -821,707 +844,197 @@ ejson  ejso_addE(ejson root, constr key, constr src)
                             if(*src != ':')         // have no key in src, hk is a str val
                             {
                                 if (e_check) {if (*src) {_freeS(hk);g_errp=src;return 0;}}
-                                is1_exeret(_invalidS(key),                      errset("ejso_addE err: found no key");_sfree(hk);, 0);len = strlen(key);
-                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejso_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                                is0_exeret(nk  = _newS2(key, len),              errset("ejso_addE err: alloc for key failed");_sfree(hk);, 0);
-                                is0_exeret(obj = _newStr(),                     errset("ejso_addE err: alloc _newStr failed");_sfree(nk);_freeS(hk);, 0);
+                                is1_exeret(_invalidS(key),                      errset(_ERRSTR_NOKEY)         ;_sfree(hk);           , 0);len = strlen(key);
+                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt(_ERRSTR_KEYINPRM(key)) ;_sfree(hk);           , 0);
+                                is0_exeret(nk  = _newS2(key, len),              errset(_ERRSTR_ALLOC(key))    ;_sfree(hk);           , 0);
+                                is0_exeret(obj = _newStr(),                     errset(_ERRSTR_ALLOC(STR obj));_sfree(nk);_freeS(hk);, 0);
                                 dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk; _valS(obj) = hk; _setSTR(obj);
                             }
                             else if(!_invalidS(key))  // hk is a key in src, and has a key in param
                             {
-                                len = strlen(key);
-                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejso_addE err: the key: \"%s\" is already in root obj", key);, 0);
                                 src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejso_addE err: json str parse err"); _freeS(hk);, 0);
+                                len = strlen(key);
+                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt(_ERRSTR_KEYINPRM(key));_freeS(hk);, 0);
+                                is0_exeret(nk = _wrbS(hk, key, len)           , errset(_ERRSTR_ALLOC(key))   ;_freeS(hk);, 0);
+                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset(_ERRSTR_PARSE) ;_freeS(hk);, 0);
                                 if (e_check) {if (*src) {_freeS(hk); ejso_free(obj); g_errp=src;return 0;}}
-
-                                is0_exeret(nk = _wrbS(hk, key, len), errset("ejso_addE err: alloc for key failed");_freeS(hk);, 0);
-                                _keyS(obj) = nk;
-
-                                dict_link(l, obj); _objLink(root, obj);
+                                dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk;
                             }
                             else                    // hk is a key in src, and has no key in param
                             {
-                                is0_exeret(dict_getL(_obj(root), hk, _lenS(hk), &l), errfmt("ejso_addE err: the key: \"%s\" is already in root obj", hk);_freeS(hk);, 0);
                                 src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejso_addE err: json str parse err"); _freeS(hk);, 0);
+                                is0_exeret(dict_getL(_obj(root), hk, _lenS(hk), &l)  , errfmt(_ERRSTR_KEYINOBJ(hk));_freeS(hk);, 0);
+                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset(_ERRSTR_PARSE)       ;_freeS(hk);, 0);
                                 dict_link(l, obj); _objLink(root, obj); _keyS(obj) = hk;
                             }
                         }
                         break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejso_addO err: _arrInit faild for root obj"); if(hk) _freeS(hk);, 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset(_ERRSTR_ALLOC(list)); if(hk) _freeS(hk);, 0);
                         if(!hk)                 // have no key in src
                         {
-                            is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset("ejso_addE err: json str parse err");, 0);
+                            is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset(_ERRSTR_PARSE);, 0);
                         }
                         else
                         {
                             if(*src != ':')     // have no key in src, hk is a str val
                             {
                                 if (e_check) {if (*src) {_freeS(hk);g_errp=src;return 0;}}
-                                is0_exeret(obj = _newStr(), errset("ejso_addE err: alloc _newStr failed");_freeS(hk);, 0);
+                                is0_exeret(obj = _newStr(), errset(_ERRSTR_ALLOC(obj));_freeS(hk);, 0);
                                 _valS(obj) = hk; _setSTR(obj);
                             }
                             else                // hk is a key in src, we do not check key in param when root is a ARR
                             {
                                 src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset("ejso_addE err: json str parse err"); _freeS(hk);, 0);
+                                is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset(_ERRSTR_PARSE); _freeS(hk);, 0);
                             }
                         }
                         _arrAdd(root, obj);
                         break;
-        default       : errset("ejso_addO err: root obj is not in OBJ/ARR type"); if(hk) _freeS(hk); return 0;
+        default       : errset(_ERRSTR_TYPEDF); if(hk) _freeS(hk); return 0;
     }
 
     return obj;
 }
 
-ejson  ejso_addT(ejson root, constr key, int type)
+static inline ejson __ejso_addType(ejson root, constr key, int type)
 {
     ejson obj; int len; cstr nk; dictLink_t l;
-    is1_exeret(!root, errset("ejso_addT err: root obj is NULL"), 0);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key), errset("ejso_addT err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root), errset("ejso_addT err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejso_addT err: the key: \"%s\" is already in root obj", key);, 0);
+        case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
+                        if(!_obj(root)) is0_exeret(_objInit(root)     , errset(_ERRSTR_ALLOC(dict));  , 0);
+                        is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt(_ERRSTR_KEYINPRM(key));, 0);
                         switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                  errset("ejso_addT err: alloc new obj failed"), 0);
-                        is0_exeret(nk = _newS2(key,len), errset("ejso_addT err: alloc new key failed");ejso_free(obj);, 0);
-                        dict_link(l, obj);_objLink(root, obj); _TYPE(obj) = type; _keyS(obj) = nk;
+                        is0_exeret(obj,                  errset(_ERRSTR_ALLOC(NIL obj));              , 0);
+                        is0_exeret(nk = _newS2(key,len), errset(_ERRSTR_ALLOC(key));ejso_free(obj);   , 0);
+                        dict_link(l, obj);_objLink(root, obj); _keyS(obj) = nk; _TYPE(obj) = type;
                         break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejso_addT err: _arrInit faild for root obj");, 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset(_ERRSTR_ALLOC(list));, 0);
                         switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                  errset("ejso_addT err: alloc new obj failed"), 0);
+                        is0_exeret(obj,                  errset(_ERRSTR_ALLOC(obj));           , 0);
                         _arrAdd(root, obj); _TYPE(obj) = type;
                         break;
-        default       : errset("ejso_addT err: root obj is not an OBJ/ARR type"); return 0;
+        default       : errset(_ERRSTR_TYPEDF); return 0;
     }
 
     return obj;
 }
 
-ejson  ejso_addS(ejson root, constr key, constr val)
+static inline ejson __ejso_addStr(ejson root, constr key, constr str)
 {
     ejson obj; int len; cstr nk, nv; dictLink_t l;
-    is0_exeret(root, errset("ejso_addS err: root obj is NULL"), 0);
-    is1_exeret(!val, errset("ejso_addS err: val str is NULL") , 0);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(!key || !*key                       , errset("ejso_addS err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejso_addS err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejso_addS err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejso_addS err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejso_addS err: alloc for key failed");_freeObj(obj);, 0);
-                        is0_exeret(nv  = _newS1(val)                   , errset("ejso_addS err: alloc for val failed");_freeObj(obj);_freeS(nk);, 0);
+        case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
+                        if(!_obj(root)) is0_exeret(_objInit(root)      , errset(_ERRSTR_ALLOC(dict))   ;                         , 0);
+                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt(_ERRSTR_KEYINPRM(key)) ;                         , 0);
+                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(STR obj));                         , 0);
+                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);           , 0);
+                        is0_exeret(nv  = _newS1(str)                   , errset(_ERRSTR_ALLOC(str))    ;_freeObj(obj);_freeS(nk);, 0);
                         dict_link(l, obj);_objLink(root, obj); _setSTR(obj); _keyS(obj) = nk; _valS(obj) = nv;
                         break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejso_addS err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejso_addS err: alloc _newStr failed"), 0);
-                        is0_exeret(nv  = _newS1(val)                   , errset("ejso_addS err: alloc for val failed");_freeObj(obj);, 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset(_ERRSTR_ALLOC(list))   ;              , 0);
+                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(STR obj));              , 0);
+                        is0_exeret(nv  = _newS1(str)                   , errset(_ERRSTR_ALLOC(str))    ;_freeObj(obj);, 0);
                         _arrAdd(root, obj); _setSTR(obj); _valS(obj) = nv;
                         break;
-        default       : errset("ejso_addS err: root obj is not in OBJ/ARR type"); return 0;
+        default       : errset(_ERRSTR_TYPEDF); return 0;
     }
 
     return obj;
 }
 
-ejson  ejso_addN(ejson root, constr key, double val)
+static inline ejson __ejso_addNum(ejson root, constr key, double val)
 {
     ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(root, errset("ejso_addF err: root obj is NULL"), 0);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key)                      , errset("ejso_addF err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejso_addF err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejso_addF err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newNum()                     , errset("ejso_addF err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejso_addF err: alloc for key failed");_freeObj(obj);, 0);
+        case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
+                        if(!_obj(root)) is0_exeret(_objInit(root)      , errset(_ERRSTR_ALLOC(dict))   ;              , 0);
+                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt(_ERRSTR_KEYINPRM(key)) ;              , 0);
+                        is0_exeret(obj = _newNum()                     , errset(_ERRSTR_ALLOC(NUM obj));              , 0);
+                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);, 0);
                         dict_link(l, obj); _objLink(root, obj); _setNUM(obj); _keyS(obj) = nk; _valI(obj) = (s64)(_valF(obj) = val);
                         break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejso_addF err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newNum()                     , errset("ejso_addF err: alloc _newStr failed"), 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset(_ERRSTR_ALLOC(list));   , 0);
+                        is0_exeret(obj = _newNum()                     , errset(_ERRSTR_ALLOC(NUM obj));, 0);
                         _arrAdd(root, obj); _setNUM(obj); _valI(obj) = (s64)(_valF(obj) = val);
                         break;
-        default       : errset("ejso_addF err: root obj is not in OBJ/ARR type"); return 0;
+        default       : errset(_ERRSTR_TYPEDF); return 0;
     }
 
     return obj;
 }
 
-ejson  ejso_addP(ejson root, constr key, void*  ptr)
+static inline ejson __ejso_addPtr(ejson root, constr key, void*  ptr)
 {
     ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(root, errset("ejso_addP err: root obj is NULL"), 0);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key)                      , errset("ejso_addP err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejso_addP err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejso_addP err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejso_addP err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejso_addP err: alloc for key failed");_freeObj(obj);, 0);
+        case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
+                        if(!_obj(root)) is0_exeret(_objInit(root)      , errset(_ERRSTR_ALLOC(dict))   ;              , 0);
+                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt(_ERRSTR_KEYINPRM(key)) ;              , 0);
+                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(PTR obj));              , 0);
+                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);, 0);
                         dict_link(l, obj); _objLink(root, obj); _setPTR(obj); _keyS(obj) = nk; _valP(obj) = ptr;
                         break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejso_addP err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejso_addP err: alloc _newStr failed"), 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset(_ERRSTR_ALLOC(list));   , 0);
+                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(PTR obj));, 0);
                         _arrAdd(root, obj); _setPTR(obj); _valP(obj) = ptr;
                         break;
-        default       : errset("ejso_addP err: root obj is not in OBJ/ARR type"); return 0;
+        default       : errset(_ERRSTR_TYPEDF); return 0;
     }
 
     return obj;
 }
 
-void*  ejso_addR(ejson root, constr key, int   _len)
+static inline ejson __ejso_addRaw(ejson root, constr key, int _len)
 {
     ejson obj; int len; cstr nk; void* nv; dictLink_t l;
-    is0_exeret(root , errset("ejso_addR err: root obj is NULL"), 0);
-    is1_exeret(!_len, errset("ejso_addR err: 0 space to alloc"), 0);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(!key || !*key                       , errset("ejso_addR err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejso_addR err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejso_addP err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejso_addR err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejso_addR err: alloc for key failed");_freeObj(obj);, 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset("ejso_addR err: alloc for raw failed");_freeObj(obj);_freeS(nk);, 0);
+        case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
+                        if(!_obj(root)) is0_exeret(_objInit(root)      , errset(_ERRSTR_ALLOC(dict))   ;                         , 0);
+                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt(_ERRSTR_KEYINPRM(key)) ;                         , 0);
+                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(RAW obj));                         , 0);
+                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);           , 0);
+                        is0_exeret(nv  = _newS2(0,  _len)              , errset(_ERRSTR_ALLOC(raw))    ;_freeObj(obj);_freeS(nk);, 0);
                         dict_link(l, obj); _objLink(root, obj); _setRAW(obj); _keyS(obj) = nk;
                         return _valR(obj) = nv;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejso_addR err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejso_addR err: alloc _newStr failed"), 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset("ejso_addR err: alloc for raw failed");_freeObj(obj);, 0);
+        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset(_ERRSTR_ALLOC(list))   ;              , 0);
+                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(RAW obj));              , 0);
+                        is0_exeret(nv  = _newS2(0,  _len)              , errset(_ERRSTR_ALLOC(raw))    ;_freeObj(obj);, 0);
                         _arrAdd(root, obj); _setRAW(obj);
                         return _valR(obj) = nv;
-        default       : errset("ejso_addR err: root obj is not in OBJ/ARR type"); return 0;
+        default       : errset(_ERRSTR_TYPEDF); return 0;
     }
 
     return 0;
 }
 
-ejson  ejsk_addO(ejson root, constr keys, constr key, ejson  obj)
-{
-    cstr nk, hk; uint len; dictLink_t l;
-    is0_exeret(_isParent(root)     , errset("ejsk_addO err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys)     , errset("ejsk_addO err: rawk"     _invalidSErr);, 0);
-    is1_exeret(_canotAdd(root, obj), errset("ejsk_addO err: add obj " _canotAddErr);, 0);
+ejson  ejso_addO(ejson root, constr key, ejson  obj) { _checkNULL(root); _checkCanAdd(root, obj); return __ejso_addObj (root, key, obj); }
+ejson  ejso_addE(ejson root, constr key, constr src) { _checkNULL(root); _checkSRC(src);          return __ejso_addEval(root, key, src); }
+ejson  ejso_addT(ejson root, constr key, int   type) { _checkNULL(root);                          return __ejso_addType(root, key,type); }
+ejson  ejso_addS(ejson root, constr key, constr val) { _checkNULL(root); _checkNULL(val);         return __ejso_addStr (root, key, val); }
+ejson  ejso_addN(ejson root, constr key, double val) { _checkNULL(root);                          return __ejso_addNum (root, key, val); }
+ejson  ejso_addP(ejson root, constr key, void*  ptr) { _checkNULL(root);                          return __ejso_addStr (root, key, ptr); }
+void*  ejso_addR(ejson root, constr key, int    len) { _checkNULL(root); _checkZERO(len);         return __ejso_addRaw (root, key, len); }
 
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset("ejsk_addO err: _dicInit faild for root obj");, 0);
-                        if(!(hk = _keyS(obj)))      // have no key in obj
-                        {
-                            is1_exeret(_invalidS(key)                     , errset("ejsk_addO err: found no key"), 0);len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsk_addO err: the key: \"%s\" is already in root obj", key);, 0);
-                            is0_exeret(nk = _newS2(key, len)              , errset("ejsk_addO err: alloc for key failed"), 0);
-                            dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk;
-                        }
-                        else if(!_invalidS(key))    // hk is a key in obj, and has a key in param
-                        {
-                            len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsk_addO err: the key: \"%s\" is already in root obj", key);, 0);
+ejson  ejsk_addO(ejson root, constr keys, constr key, ejson  obj) { _checkParent(root); _checkInvldS(keys); _checkCanAdd(root, obj); root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addObj (root, key, obj); }
+ejson  ejsk_addE(ejson root, constr keys, constr key, constr src) { _checkParent(root); _checkInvldS(keys); _checkSRC(src);          root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addEval(root, key, src); }
+ejson  ejsk_addT(ejson root, constr keys, constr key, int   type) { _checkParent(root); _checkInvldS(keys);                          root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addType(root, key,type); }
+ejson  ejsk_addS(ejson root, constr keys, constr key, constr val) { _checkParent(root); _checkInvldS(keys); _checkNULL(val);         root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addStr (root, key, val); }
+ejson  ejsk_addN(ejson root, constr keys, constr key, double val) { _checkParent(root); _checkInvldS(keys);                          root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addNum (root, key, val); }
+ejson  ejsk_addP(ejson root, constr keys, constr key, void*  ptr) { _checkParent(root); _checkInvldS(keys);                          root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addPtr (root, key, ptr); }
+void*  ejsk_addR(ejson root, constr keys, constr key, int    len) { _checkParent(root); _checkInvldS(keys); _checkZERO(len);         root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addRaw (root, key, len); }
 
-                            is0_exeret(nk = _wrbS(hk, key, len), errset("ejso_addO err: alloc for key failed"), 0);
-                            if(nk != hk) _keyS(obj) = nk;
-
-                            dict_link(l, obj);_objLink(root, obj);
-                        }
-                        else                        // hk is a key in obj, and has no key in param
-                        {
-                            is0_exeret(_objAdd(root, hk, obj),    errfmt("ejsk_addO err: the key: \"%s\" is already in root obj", hk);, 0);
-                        }
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejsk_addO err: _arrInit faild for root obj");, 0);
-                        _arrAdd(root, obj);
-                        break;
-        default       : errfmt("ejsk_addO err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsk_addE(ejson root, constr keys, constr key, constr src)
-{
-    cstr nk, hk; ejson obj; uint len; _lstrip lstrip; dictLink_t l;
-    is0_exeret(_isParent(root), errset("ejsk_addE err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_addE err: rawk"     _invalidSErr);, 0);
-    is0_exeret(src            , errset("ejsk_addE err: json is NULL"); g_errp = _NIL_;, 0);
-
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-
-    hk = NULL;  lstrip = e_lstrip;  src = lstrip(src);
-    if(*src == '\"')
-        parse_STR(&hk, &src, &g_errp, lstrip);
-
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset("ejsk_addE err: _dicInit faild for root obj");, 0);
-                        if(!hk)                     // have no key in src
-                        {
-                            is1_exeret(_invalidS(key),                      errset("ejsk_addE err: found no key"), 0);len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsk_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                            is0_exeret(nk  = _newS2(key, len),              errset("ejsk_addE err: alloc for key failed"), 0);
-                            is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejsk_addE err: json str parse err"); _freeS(nk);, 0);
-                            dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk;
-                        }
-                        else
-                        {
-                            if(*src != ':')         // have no key in src, hk is a str val
-                            {
-                                if (e_check) {if (*src) {_freeS(hk);g_errp=src;return 0;}}
-                                is1_exeret(_invalidS(key),                      errset("ejsk_addE err: found no key");_freeS(hk);, 0);len = strlen(key);
-                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsk_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                                is0_exeret(nk  = _newS2(key, len),              errset("ejsk_addE err: alloc for key failed");_freeS(hk);, 0);
-                                is0_exeret(obj = _newStr(),                     errset("ejsk_addE err: alloc _newStr failed");_freeS(nk);_freeS(hk);, 0);
-                                dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk; _valS(obj) = hk; _setSTR(obj);
-                            }
-                            else if(!_invalidS(key))  // hk is a key in src, and has a key in param
-                            {
-                                len = strlen(key);
-                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsk_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                                src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejsk_addE err: json str parse err"); _freeS(hk);, 0);
-                                if (e_check) {if (*src) {_freeS(hk); ejso_free(obj); g_errp=src;return 0;}}
-
-                                is0_exeret(nk = _wrbS(hk, key, len), errset("ejso_addE err: alloc for key failed");_freeS(hk);, 0);
-                                _keyS(obj) = nk;
-
-                                dict_link(l, obj); _objLink(root, obj);
-                            }
-                            else                    // hk is a key in src, and has no key in param
-                            {
-                                is0_exeret(dict_getL(_obj(root), hk, _lenS(hk), &l), errfmt("ejsk_addE err: the key: \"%s\" is already in root obj", hk);_freeS(hk);, 0);
-                                src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejsk_addE err: json str parse err"); _freeS(hk);, 0);
-                                dict_link(l, obj); _objLink(root, obj); _keyS(obj) = hk;
-                            }
-                        }
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejsk_addE err: _arrInit faild for root obj"); if(hk) _freeS(hk);, 0);
-                        if(!hk)                 // have no key in src
-                        {
-                            is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset("ejsk_addE err: json str parse err");, 0);
-                        }
-                        else
-                        {
-                            if(*src != ':')     // have no key in src, hk is a str val
-                            {
-                                if (e_check) {if (*src) {_freeS(hk);g_errp=src;return 0;}}
-                                is0_exeret(obj = _newStr(), errset("ejsk_addE err: alloc _newStr failed");_freeS(hk);, 0);
-                                _valS(obj) = hk; _setSTR(obj);
-                            }
-                            else                // hk is a key in src, we do not check key in param when root is a ARR
-                            {
-                                src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset("ejsk_addE err: json str parse err"); _freeS(hk);, 0);
-                            }
-                        }
-                        _arrAdd(root, obj);
-                        break;
-        default       : errfmt("ejsk_addE err: keys \"%s\" in root obj" _isParentErr, keys); if(hk) _freeS(hk); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsk_addT(ejson root, constr keys, constr key, int   type)
-{
-    ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(_isParent(root),       errset("ejsk_addT err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys),       errset("ejsk_addT err: rawk"     _invalidSErr);, 0);
-
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key), errset("ejsk_addT err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root), errset("ejsk_addT err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsk_addT err: the key: \"%s\" is already in root obj", key);, 0);
-                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                   errset("ejsk_addT err: alloc new obj failed"), 0);
-                        is0_exeret(nk = _newS2(key, len), errset("ejsk_addT err: alloc new key failed");ejso_free(obj);, 0);
-                        dict_link(l, obj);_objLink(root, obj); _TYPE(obj) = type; _keyS(obj) = nk;
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejsk_addT err: _arrInit faild for root obj");, 0);
-                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                   errset("ejsk_addT err: alloc new obj failed"), 0);
-                        _arrAdd(root, obj); _TYPE(obj) = type;
-                        break;
-        default       : errfmt("ejsk_addT err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsk_addS(ejson root, constr keys, constr key, constr val)
-{
-    ejson obj; int len; cstr nk, nv; dictLink_t l;
-    is0_exeret(_isParent(root), errset("ejsk_addS err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_addS err: rawk"     _invalidSErr);, 0);
-    is1_exeret(!val           , errset("ejsk_addS err: val str is NULL") , 0);
-
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(!key || !*key                       , errset("ejsk_addS err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsk_addS err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsk_addS err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsk_addS err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsk_addS err: alloc for key failed");_freeObj(obj);, 0);
-                        is0_exeret(nv  = _newS1(val)                   , errset("ejsk_addS err: alloc for val failed");_freeObj(obj);_freeS(nk);, 0);
-                        dict_link(l, obj);_objLink(root, obj); _setSTR(obj); _keyS(obj) = nk; _valS(obj) = nv;
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsk_addS err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsk_addS err: alloc _newStr failed"), 0);
-                        is0_exeret(nv  = _newS1(val)                   , errset("ejsk_addS err: alloc for val failed");_freeObj(obj);, 0);
-                        _arrAdd(root, obj); _setSTR(obj); _valS(obj) = nv;
-                        break;
-        default       : errfmt("ejsk_addS err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsk_addN(ejson root, constr keys, constr key, double val)
-{
-    ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(_isParent(root), errset("ejsk_addF err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_addF err: rawk"     _invalidSErr);, 0);
-
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key)                      , errset("ejsk_addF err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsk_addF err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsk_addF err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newNum()                     , errset("ejsk_addF err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsk_addF err: alloc for key failed");_freeObj(obj);, 0);
-                        dict_link(l, obj); _objLink(root, obj); _setNUM(obj); _keyS(obj) = nk; _valI(obj) = (s64)(_valF(obj) = val);
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsk_addF err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newNum()                     , errset("ejsk_addF err: alloc _newStr failed"), 0);
-                        _arrAdd(root, obj); _setNUM(obj); _valI(obj) = (s64)(_valF(obj) = val);
-                        break;
-        default       : errfmt("ejsk_addF err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsk_addP(ejson root, constr keys, constr key, void*  ptr)
-{
-    ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(_isParent(root), errset("ejsk_addP err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_addP err: rawk"     _invalidSErr);, 0);
-
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key)                      , errset("ejsk_addP err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsk_addP err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsk_addP err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsk_addP err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsk_addP err: alloc for key failed");_freeObj(obj);, 0);
-                        dict_link(l, obj); _objLink(root, obj); _setPTR(obj); _keyS(obj) = nk; _valP(obj) = ptr;
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsk_addP err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsk_addP err: alloc _newStr failed"), 0);
-                        _arrAdd(root, obj); _setPTR(obj); _valP(obj) = ptr;
-                        break;
-        default       : errfmt("ejsk_addP err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
-    return obj;
-}
-
-void*  ejsk_addR(ejson root, constr keys, constr key, int   _len)
-{
-    ejson obj; int len; cstr nk; void* nv; dictLink_t l;
-    is0_exeret(_isParent(root), errset("ejsk_addR err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_addR err: rawk"     _invalidSErr);, 0);
-    is1_exeret(!_len          , errset("ejsk_addR err: 0 space to alloc"), 0);
-
-    is0_ret(root = _getObjByKeys(root, keys), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(!key || !*key                       , errset("ejsk_addR err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsk_addR err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsk_addR err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsk_addR err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsk_addR err: alloc for key failed");_freeObj(obj);, 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset("ejsk_addR err: alloc for raw failed");_freeObj(obj);_freeS(nk);, 0);
-                        dict_link(l, obj); _objLink(root, obj); _setRAW(obj); _keyS(obj) = nk;
-                        return _valR(obj) = nv;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsk_addR err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsk_addR err: alloc _newStr failed"), 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset("ejsk_addR err: alloc for raw failed");_freeObj(obj);, 0);
-                        _arrAdd(root, obj); _setRAW(obj);
-                        return _valR(obj) = nv;
-        default       : errfmt("ejsk_addR err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
-    return 0;
-}
-
-ejson  ejsr_addO(ejson root, constr rawk, constr key, ejson  obj)
-{
-    cstr nk, hk; uint len; dictLink_t l;
-    is0_exeret(_isOBJ(root)        ,  errset("ejsr_addO err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk)     ,  errset("ejsr_addO err: rawk"     _invalidSErr);, 0);
-    is1_exeret(_canotAdd(root, obj),  errset("ejsr_addO err: add obj " _canotAddErr);, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset("ejsr_addO err: _dicInit faild for root obj");, 0);
-                        if(!(hk = _keyS(obj)))      // have no key in obj
-                        {
-                            is1_exeret(_invalidS(key),                      errset("ejsr_addO err: found no key"), 0);len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsr_addO err: the key: \"%s\" is already in root obj", key);, 0);
-                            is0_exeret(nk = _newS2(key, len),                errset("ejsr_addO err: alloc for key failed"), 0);
-                            dict_link(l, obj);_objLink(root, obj);_keyS(obj) = nk;
-                        }
-                        else if(!_invalidS(key))    // hk is a key in obj, and has a key in param
-                        {
-                            len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsr_addO err: the key: \"%s\" is already in root obj", key);, 0);
-
-                            is0_exeret(nk = _wrbS(hk, key, len), errset("ejso_addO err: alloc for key failed"), 0);
-                            if(nk != hk) _keyS(obj) = nk;
-
-                            dict_link(l, obj);_objLink(root, obj);
-                        }
-                        else                        // hk is a key in obj, and has no key in param
-                        {
-                            is0_exeret(_objAdd(root, hk, obj),    errfmt("ejsr_addO err: the key: \"%s\" is already in root obj", hk);, 0);
-                        }
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejsr_addO err: _arrInit faild for root obj");, 0);
-                        _arrAdd(root, obj);
-                        break;
-        default       : errfmt("ejsr_addO err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsr_addE(ejson root, constr rawk, constr key, constr src)
-{
-    cstr nk, hk; ejson obj; uint len; _lstrip lstrip; dictLink_t l;
-    is0_exeret(_isOBJ(root)   , errset("ejsr_addE err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsr_addE err: rawk"     _invalidSErr);, 0);
-    is0_exeret(src            , errset("ejsr_addE err: json is NULL"); g_errp = _NIL_;, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-
-    hk = NULL;  lstrip = e_lstrip;  src = lstrip(src);
-    if(*src == '\"')
-        parse_STR(&hk, &src, &g_errp, lstrip);
-
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_obj(root)) is0_exeret(_objInit(root), errset("ejsr_addE err: _dicInit faild for root obj");, 0);
-                        if(!hk)                     // have no key in src
-                        {
-                            is1_exeret(_invalidS(key)                     , errset("ejsr_addE err: found no key"), 0);len = strlen(key);
-                            is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsr_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                            is0_exeret(nk  = _newS2(key, len)             , errset("ejsr_addE err: alloc for key failed"), 0);
-                            is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejso_addE err: json str parse err"); _freeS(nk);, 0);
-                            dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk;
-                        }
-                        else
-                        {
-                            if(*src != ':')         // have no key in src, hk is a str val
-                            {
-                                if (e_check) {if (*src) {_freeS(hk);g_errp=src;return 0;}}
-                                is1_exeret(_invalidS(key)                     , errset("ejsr_addE err: found no key");_freeS(hk);, 0);len = strlen(key);
-                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsr_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                                is0_exeret(nk  = _newS2(key, len)             , errset("ejsr_addE err: alloc for key failed");_freeS(hk);, 0);
-                                is0_exeret(obj = _newStr()                    , errset("ejsr_addE err: alloc _newStr failed");_freeS(nk);_freeS(hk);, 0);
-                                dict_link(l, obj); _objLink(root, obj); _keyS(obj) = nk; _valS(obj) = hk; _setSTR(obj);
-                            }
-                            else if(!_invalidS(key))  // hk is a key in src, and has a key in param
-                            {
-                                len = strlen(key);
-                                is0_exeret(dict_getL(_obj(root), key, len, &l), errfmt("ejsr_addE err: the key: \"%s\" is already in root obj", key);, 0);
-                                src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejsr_addE err: json str parse err"); _freeS(hk);, 0);
-                                if (e_check) {if (*src) {_freeS(hk); ejso_free(obj); g_errp=src;return 0;}}
-
-#if NEWS
-                                if(len <= _capS(hk)) {
-                                    memcpy(hk, key, len);hk[len] = '\0';_lenS(hk) = len;
-                                    _keyS(obj) = hk;}
-                                else{
-                                    _freeS(hk);
-                                    is0_exeret(nk = _newS2(key, len), errset("ejso_addE err: alloc for key failed");, 0);
-                                    _keyS(obj) = nk; }
-#else
-                                is0_exeret(nk = _wrbS(hk, key, len), errset("ejso_addE err: alloc for key failed");_freeS(hk);, 0);
-                                _keyS(obj) = nk;
-#endif
-
-                                dict_link(l, obj); _objLink(root, obj);
-                            }
-                            else                    // hk is a key in src, and has no key in param
-                            {
-                                is0_exeret(dict_getL(_obj(root), hk, _lenS(hk), &l), errfmt("ejsr_addE err: the key: \"%s\" is already in root obj", hk);_freeS(hk);, 0);
-                                src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset("ejsr_addE err: json str parse err"); _freeS(hk);, 0);
-                                dict_link(l, obj); _objLink(root, obj); _keyS(obj) = hk;
-                            }
-                        }
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejsr_addE err: _arrInit faild for root obj"); if(hk) _freeS(hk);, 0);
-                        if(!hk)                 // have no key in src
-                        {
-                            is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset("ejsr_addE err: json str parse err");, 0);
-                        }
-                        else
-                        {
-                            if(*src != ':')     // have no key in src, hk is a str val
-                            {
-                                if (e_check) {if (*src) {_freeS(hk);g_errp=src;return 0;}}
-                                is0_exeret(obj = _newStr(), errset("ejsr_addE err: alloc _newStr failed");_freeS(hk);, 0);
-                                _valS(obj) = hk; _setSTR(obj);
-                            }
-                            else                // hk is a key in src, we do not check key in param when root is a ARR
-                            {
-                                src = lstrip(src + 1);
-                                is0_exeret(obj = parse_eval(&hk, &src, &g_errp, lstrip), errset("ejsr_addE err: json str parse err"); _freeS(hk);, 0);
-                            }
-                        }
-                        _arrAdd(root, obj);
-                        break;
-        default       : errfmt("ejsr_addE err: rawk \"%s\" in root obj" _isParentErr, rawk); if(hk) _freeS(hk); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsr_addT(ejson root, constr rawk, constr key, int   type)
-{
-    ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(_isOBJ(root)   ,       errset("ejsr_addT err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk),       errset("ejsr_addT err: rawk"     _invalidSErr);, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key), errset("ejsr_addT err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root), errset("ejsr_addT err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsr_addT err: the key: \"%s\" is already in root obj", key);, 0);
-                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                   errset("ejsr_addT err: alloc new obj failed"), 0);
-                        is0_exeret(nk = _newS2(key, len), errset("ejsr_addT err: alloc new key failed");ejso_free(obj);, 0);
-                        dict_link(l, obj);_objLink(root, obj); _TYPE(obj) = type; _keyS(obj) = nk;
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root), errset("ejsr_addT err: _arrInit faild for root obj");, 0);
-                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                  errset("ejsr_addT err: alloc new obj failed"), 0);
-                        _arrAdd(root, obj); _TYPE(obj) = type;
-                        break;
-        default       : errfmt("ejsr_addT err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsr_addS(ejson root, constr rawk, constr key, constr val)
-{
-    ejson obj; int len, lenv; cstr nk, nv; dictLink_t l;
-    is0_exeret(_isOBJ(root)   , errset("ejsr_addS err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsr_addS err: rawk"     _invalidSErr);, 0);
-    is1_exeret(!val           , errset("ejsr_addS err: val str is NULL"      );, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(!key || !*key                       , errset("ejsr_addS err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsr_addS err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsr_addS err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsr_addS err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsr_addS err: alloc for key failed");_freeObj(obj);, 0);
-                        is0_exeret(nv  = _newS1(val)                   , errset("ejsr_addS err: alloc for val failed");_freeObj(obj);_freeS(nk);, 0);
-                        dict_link(l, obj);_objLink(root, obj); _setSTR(obj); _keyS(obj) = nk; _valS(obj) = nv;
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsr_addS err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsr_addS err: alloc _newStr failed"), 0);
-                        is0_exeret(nv  = _newS1(val)                   , errset("ejsr_addS err: alloc for val failed");_freeObj(obj);, 0);
-                        _arrAdd(root, obj); _setSTR(obj); _valS(obj) = nv;
-                        break;
-        default       : errfmt("ejsr_addS err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsr_addN(ejson root, constr rawk, constr key, double val)
-{
-    ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(_isOBJ(root)   , errset("ejsr_addF err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsr_addF err: rawk"     _invalidSErr);, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key)                      , errset("ejsr_addF err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsr_addF err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsr_addF err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newNum()                     , errset("ejsr_addF err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsr_addF err: alloc for key failed");_freeObj(obj);, 0);
-                        dict_link(l, obj); _objLink(root, obj); _setNUM(obj); _keyS(obj) = nk; _valI(obj) = (s64)(_valF(obj) = val);
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsr_addF err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newNum()                     , errset("ejsr_addF err: alloc _newStr failed"), 0);
-                        _arrAdd(root, obj); _setNUM(obj); _valI(obj) = (s64)(_valF(obj) = val);
-                        break;
-        default       : errfmt("ejsr_addF err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return obj;
-}
-
-ejson  ejsr_addP(ejson root, constr rawk, constr key, void*  ptr)
-{
-    ejson obj; int len; cstr nk; dictLink_t l;
-    is0_exeret(_isOBJ(root)   , errset("ejsr_addP err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsr_addP err: rawk"     _invalidSErr);, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(_invalidS(key)                      , errset("ejsr_addP err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsr_addP err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsr_addP err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsr_addP err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsr_addP err: alloc for key failed");_freeObj(obj);, 0);
-                        dict_link(l, obj); _objLink(root, obj); _setPTR(obj); _keyS(obj) = nk; _valP(obj) = ptr;
-                        break;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsr_addP err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsr_addP err: alloc _newStr failed"), 0);
-                        _arrAdd(root, obj); _setPTR(obj); _valP(obj) = ptr;
-                        break;
-        default       : errfmt("ejsr_addP err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return obj;
-}
-
-void*  ejsr_addR(ejson root, constr rawk, constr key, int   _len)
-{
-    ejson obj; int len; cstr nk; void* nv; dictLink_t l;
-    is0_exeret(_isOBJ(root)   , errset("ejsr_addR err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsr_addR err: rawk"     _invalidSErr);, 0);
-    is1_exeret(!_len          , errset("ejsr_addR err: 0 space to alloc"     );, 0);
-
-    is0_ret(root = _getObjByRawk(root, rawk), 0);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is1_exeret(!key || !*key                       , errset("ejsr_addR err: key is NULL or empty"), 0);len = strlen(key);
-                        if(!_obj(root)) {is0_exeret(_objInit(root)     , errset("ejsr_addR err: _dicInit faild for root obj");, 0);}
-                        is0_exeret(dict_getL(_obj(root), key, len, &l) , errfmt("ejsr_addR err: the key: \"%s\" is already in root obj", key);, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsr_addR err: alloc _newStr failed"), 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset("ejsr_addR err: alloc for key failed");_freeObj(obj);, 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset("ejsr_addR err: alloc for raw failed");_freeObj(obj);_freeS(nk);, 0);
-                        dict_link(l, obj); _objLink(root, obj); _setRAW(obj); _keyS(obj) = nk;
-                        return _valR(obj) = nv;
-        case EJSON_ARR: if(!_arr(root)) is0_exeret(_arrInit(root)      , errset("ejsr_addR err: _arrInit faild for root obj");, 0);
-                        is0_exeret(obj = _newStr()                     , errset("ejsr_addR err: alloc _newStr failed"), 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset("ejsr_addR err: alloc for raw failed");_freeObj(obj);, 0);
-                        _arrAdd(root, obj); _setSTR(obj);
-                        return _valR(obj) = nv;
-        default       : errfmt("ejsr_addR err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return 0;
-}
+ejson  ejsr_addO(ejson root, constr rawk, constr key, ejson  obj) { _checkOBJ(root);    _checkInvldS(rawk); _checkCanAdd(root, obj); root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addObj (root, key, obj); }
+ejson  ejsr_addE(ejson root, constr rawk, constr key, constr src) { _checkOBJ(root);    _checkInvldS(rawk); _checkSRC(src);          root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addEval(root, key, src); }
+ejson  ejsr_addT(ejson root, constr rawk, constr key, int   type) { _checkOBJ(root);    _checkInvldS(rawk);                          root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addType(root, key,type); }
+ejson  ejsr_addS(ejson root, constr rawk, constr key, constr val) { _checkOBJ(root);    _checkInvldS(rawk); _checkNULL(val);         root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addStr (root, key, val); }
+ejson  ejsr_addN(ejson root, constr rawk, constr key, double val) { _checkOBJ(root);    _checkInvldS(rawk);                          root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addNum (root, key, val); }
+ejson  ejsr_addP(ejson root, constr rawk, constr key, void*  ptr) { _checkOBJ(root);    _checkInvldS(rawk);                          root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addPtr (root, key, ptr); }
+void*  ejsr_addR(ejson root, constr rawk, constr key, int    len) { _checkOBJ(root);    _checkInvldS(rawk); _checkZERO(len);         root = _getObjByRawk(root, rawk); _checkParent(root); return __ejso_addRaw (root, key, len); }
 
 void   ejso_free(ejson obj)
 {

@@ -2,21 +2,48 @@
 
 void ejson_obj_add_test()
 {
-    printf("\n-- ejson_obj_add_test 1: add_eval() --\n");
-    ejson e = ejso_new(_OBJ_);
-    cstr k, ks, s; double d; int i;
-    printf("e: %s \n", s = ejso_toUStr(e)); ejss_free(s);
-    ejso_addE(e, 0, s = "\"null\":null");              printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"false\":false");            printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"true\":true");              printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"int\": 100");               printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"double\":100.132");         printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"str\":\"this is a str\"");  printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"arr\": []");                printf("add eval to e: %s \n", s);
-    ejso_addE(e, 0, s = "\"obj\": {}");                printf("add eval to e: %s \n", s);
+    ejson e; cstr k, ks, s; double d; int i;
+
+    printf("\n-- ejson_obj_add_test 1: ejso_addE() --\n");
+    e = ejso_new(_OBJ_);
+    printf("e: %s \n", s = ejso_toUStr(e)); ejss_free(s); k = 0;
+    ejso_addE(e, 0, s = "\"null\":null");              printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"false\":false");            printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"true\":true");              printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"int\": 100");               printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"double\":100.132");         printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"str\":\"this is a str\"");  printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"arr\": []");                printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, 0, s = "\"obj\": {}");                printf("add eval to e: k:%s val:%s \n", k, s);
     printf("e to pretty str:\n%s\n", s = ejso_toFStr(e)); ejss_free(s);ejso_free(e); fflush(stdout);
 
-    printf("\n-- ejson_obj_add_test 2: add_*() --\n");
+    printf("\n-- ejson_obj_add_test 2: ejso_addE() --\n");
+    e = ejso_new(_OBJ_);
+    printf("e: %s \n", s = ejso_toUStr(e)); ejss_free(s);
+    ejso_addE(e, k = "key1", s = "\"1\":null");               printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key2", s = "\"2\":false");              printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key3", s = "\"3\":true");               printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key4", s = "\"4\": 100");               printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key5", s = "\"5\":100.132");            printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key6", s = "\"6\":\"this is a str\"");  printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key7", s = "\"6\": []");                printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key8", s = "\"7\": {}");                printf("add eval to e: k:%s val:%s \n", k, s);
+    printf("e to pretty str:\n%s\n", s = ejso_toFStr(e)); ejss_free(s);ejso_free(e); fflush(stdout);
+
+    printf("\n-- ejson_obj_add_test 3: ejso_addE() --\n");
+    e = ejso_new(_OBJ_);
+    printf("e: %s \n", s = ejso_toUStr(e)); ejss_free(s);
+    ejso_addE(e, k = "key1", s = "null");             printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key2", s = "false");            printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key3", s = "true");             printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key4", s = "100");              printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key5", s = "100.132");          printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key6", s = "\"this is a str\"");    printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key7", s = "[]");               printf("add eval to e: k:%s val:%s \n", k, s);
+    ejso_addE(e, k = "key8", s = "{}");               printf("add eval to e: k:%s val:%s \n", k, s);
+    printf("e to pretty str:\n%s\n", s = ejso_toFStr(e)); ejss_free(s);ejso_free(e); fflush(stdout);
+
+    printf("\n-- ejson_obj_add_test 4: ejso_add*() --\n");
     e = ejso_new(_OBJ_);
     printf("e: %s \n", s = ejso_toUStr(e)); ejss_free(s);
     ejso_addT(e, k = "key1", _FALSE_);                  printf("add false  to e: k:%s val:none \n", k);
@@ -30,7 +57,7 @@ void ejson_obj_add_test()
     printf("to pretty str:\n%s\n", s = ejso_toFStr(e)); ejss_free(s);ejso_free(e); fflush(stdout);
 
 
-    printf("\n-- ejson_obj_add_test 3: add_evalTo() --\n");
+    printf("\n-- ejson_obj_add_test 5: ejsk_addE() --\n");
     e = ejss_eval("{}");
     ejso_addO(e, 0, ejss_eval("\"obj\":{}"));
     printf("e: %s \n", s = ejso_toUStr(e)); ejss_free(s);
@@ -45,7 +72,7 @@ void ejson_obj_add_test()
     ejsk_addE(e, ks, 0, s = "\"obj\": {}");               printf("add eval to e.%s: %s \n", ks, s);
     printf("to pretty str:\n%s\n", s = ejso_toFStr(e)); ejss_free(s);ejso_free(e); fflush(stdout);
 
-    printf("\n-- ejson_obj_add_test 4: add_*To() --\n");
+    printf("\n-- ejson_obj_add_test 6: ejsk_add*() --\n");
     e = ejss_eval("{}");
     ejso_addO(e, 0, ejss_eval("\"obj\":{}"));
     ejsk_addO(e, "obj", 0, ejss_eval("\"obj\":{}"));

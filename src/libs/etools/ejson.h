@@ -17,7 +17,7 @@
 #ifndef __EJSON_H__
 #define __EJSON_H__
 
-#define EJSON_VERSION "ejson 0.8.3"      // add macro ejso_itrl
+#define EJSON_VERSION "ejson 0.8.4"      // some optimizations of _add() API
 
 #include "etype.h"
 
