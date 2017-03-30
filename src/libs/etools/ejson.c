@@ -566,6 +566,33 @@ static ejson _objByKeys(ejson obj, constr keys_, int del, int raw);
 #define errset(err)  g_err = err
 #define errfmt(...)  {snprintf(g_err_buf, 1024, ##__VA_ARGS__);g_err = g_err_buf;}
 
+/// ------------------------  macro err ---------------------------
+#define _validS(s)      ((s) && *(s))
+
+#define _invalidS(s)    (!(s) || !*(s))
+#define _invalidO(o)    (!(o) || !_keyS(o))
+#define _canotAdd(r, o) (!(o) || (r)==(o) || _isChild(o))
+#define _canotRm(o)     (!(o) || !_isChild(o))
+
+#define _checkOBJ(o)        is0_exeret(_isOBJ(o)     , errset("invalid" #o " (is not a OBJ obj)"), 0)
+#define _checkNULL(o)       is0_exeret(o             , errset("invalid" #o " (is nullptr)"), 0)
+#define _checkZERO(i)       is0_exeret(i             , errset("invalid" #i " (is 0)"), 0)
+#define _checkSRC(s)        is1_exeret(_invalidS(s)  , errset("invalid" #s " (is nullptr or empty)");g_errp = _NIL_, 0)
+#define _checkParent(o)     is0_exeret(_isParent(o)  , errset("invalid" #o " (is nullptr or not in ARR/OBJ type)"), 0)
+#define _checkInvldS(s)     is1_exeret(_invalidS(s)  , errset("invalid" #s " (is nullptr or empty)"), 0)
+#define _checkCanAdd(r,o)   is1_exeret(_canotAdd(r,o), errset("invalid" #o " (is nullptr or is the root obj self or is in another ejson already)"), 0)
+#define _checkCanRm(o)      is1_exeret(_canotRm(o)   , errset("invalid" #o " (is nullptr or not a child obj)");, 0);
+
+#define _ERRSTR_NOKEY       "found no key in param and obj"
+#define _ERRSTR_PARSE       "src parsing error"
+#define _ERRSTR_TYPEDF      "invalid type (root obj is not in OBJ/ARR type)"
+#define _ERRSTR_RMFOBJ      "obj to remove is not in the root(OBJ obj)"
+#define _ERRSTR_RMFARR      "obj to remove is not in the root(ARR obj)"
+
+#define _ERRSTR_ALLOC(tag)      "alloc faild for" #tag
+#define _ERRSTR_KEYINPRM(key)   "key \"%s\" in param is already exist in root obj", key
+#define _ERRSTR_KEYINOBJ(key)   "key \"%s\" in obj is already exist in root obj", key
+
 // -- ejson API definition --
 ejson ejso_new(type type)
 {
@@ -756,36 +783,6 @@ inline void   ejsf_set(opts opt) {   f_lstrip = opt&CMMT_ON ? lstrip2 : lstrip1;
 
 inline constr ejse_str()    {   return g_err;    }
 inline constr ejse_pos()    {   return g_errp;   }
-
-/// ------------------------  macro err ---------------------------
-#define _validS(s)      ((s) && *(s))
-
-#define _invalidS(s)    (!(s) || !*(s))
-#define _invalidO(o)    (!(o) || !_keyS(o))
-#define _canotAdd(r, o) (!(o) || (r)==(o) || _isChild(o))
-#define _canotRm(o)     (!(o) || !_isChild(o))              // todo: should not need this operation
-
-#define _invalidSErr " is NULL or EMPTY"
-#define _isOBJErr    " is not a OBJ obj"
-#define _isParentErr " is not a ARR/OBJ obj"
-#define _canotAddErr " is NULL or is the root obj self or is a child obj of other obj"
-#define _canotRmErr  " is NULL or is not a child obj"
-
-#define _checkOBJ(o)        is0_exeret(_isOBJ(o)     , errset("invalid" #o " (not a OBJ object)"), 0)
-#define _checkNULL(o)       is0_exeret(o             , errset("invalid" #o " (nullptr)"), 0)
-#define _checkZERO(i)       is0_exeret(i             , errset("invalid" #i " (= 0)"), 0)
-#define _checkSRC(s)        is1_exeret(_invalidS(s)  , errset("invalid" #s " (nullptr or empty)");g_errp = _NIL_, 0)
-#define _checkParent(o)     is0_exeret(_isParent(o)  , errset("invalid" #o " (nullptr or not in ARR/OBJ type)"), 0)
-#define _checkInvldS(s)     is1_exeret(_invalidS(s)  , errset("invalid" #s " (nullptr or empty)"), 0)
-#define _checkCanAdd(r,o)   is1_exeret(_canotAdd(r,o), errset("invalid" #o " (nullptr or is the root obj self or is in another ejson already)"), 0)
-
-#define _ERRSTR_NOKEY       "found no key in param and obj"
-#define _ERRSTR_PARSE       "src parsing error"
-#define _ERRSTR_TYPEDF      "invalid type (root obj is not in OBJ/ARR type)"
-
-#define _ERRSTR_ALLOC(tag)      "alloc faild for" #tag
-#define _ERRSTR_KEYINPRM(key)   "key \"%s\" in param is already exist in root obj", key
-#define _ERRSTR_KEYINOBJ(key)   "key \"%s\" in obj is already exist in root obj", key
 
 static inline ejson __ejso_addObj(ejson root, constr key, ejson  obj)
 {
@@ -1056,208 +1053,57 @@ void   ejso_free(ejson obj)
 
 }
 
-void   ejsk_free (ejson root, constr keys)
-{
-    is0_exeret(_isParent(root), errset("ejso_freeK err: root obj" _isParentErr);, );
-    is1_exeret(_invalidS(keys), errset("ejso_freeK err: keys"     _invalidSErr);, );
+inline void ejsk_free (ejson root, constr keys) { is0_ret(_isParent(root), ); is1_ret(_invalidS(keys), ); ejso_free(_rmObjByKeys(root, keys)); }
+inline void ejsr_free (ejson root, constr rawk) { is0_ret(_isParent(root), ); is1_ret(_invalidS(rawk), ); ejso_free(_rmObjByRawk(root, rawk)); }
 
-    ejso_free(_rmObjByKeys(root, keys));
-}
-void   ejsr_free (ejson root, constr rawk)
-{
-    is0_exeret(_isOBJ(root),    errset("ejso_freeR err: root obj" _isOBJErr   );, );
-    is1_exeret(_invalidS(rawk), errset("ejso_freeR err: keys"     _invalidSErr);, );
-
-    ejso_free(_rmObjByRawk(root, rawk));
-}
-
-void ejso_freeO(ejson root, ejson  obj)
-{
-    is0_exeret(root, errset("ejso_freeO err: root obj is NULL"), );
-    is0_exeret(obj , errset("ejso_freeO err: free obj is NULL"), );
-
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is0_exeret(_keyS(obj)        , errset("ejso_freeO err: free obj have no key" );, );
-                        is0_exeret(_objRmO(root, obj), errset("ejso_freeO err: free obj is not in the root OBJ"), );
-                        break;
-        case EJSON_ARR: is0_exeret(_arrRmO(root, obj), errset("ejso_freeO err: free obj is not in the root ARR"), );
-                        break;
-        default       : errset("ejso_freeO err: root obj" _isParentErr);
-    }
-
-    ejso_free(obj);
-}
-
-inline void ejso_freeK(ejson root, constr keys)
-{
-    is0_exeret(_isParent(root), errset("ejso_freeK err: root obj" _isParentErr);, );
-    is1_exeret(_invalidS(keys), errset("ejso_freeK err: keys"     _invalidSErr);, );
-
-    ejso_free(_rmObjByKeys(root, keys));
-}
-
-inline void ejso_freeR(ejson root, constr rawk)
-{
-    is0_exeret(_isParent(root), errset("ejso_freeR err: root obj" _isParentErr);, );
-    is1_exeret(_invalidS(rawk), errset("ejso_freeR err: keys"     _invalidSErr);, );
-
-    ejso_free(_rmObjByRawk(root, rawk));
-}
+inline void ejso_freeO(ejson root, ejson   obj) {                                                         ejso_free(ejso_rmO(root, obj));      }
+inline void ejso_freeK(ejson root, constr keys) { is0_ret(_isParent(root), ); is1_ret(_invalidS(keys), ); ejso_free(_rmObjByKeys(root, keys)); }
+inline void ejso_freeR(ejson root, constr rawk) { is0_ret(_isParent(root), ); is1_ret(_invalidS(rawk), ); ejso_free(_rmObjByRawk(root, rawk)); }
 
 ejson   ejso_rmO(ejson root, ejson obj)
 {
-    is0_exeret(root, errset("ejso_rmv err: root obj is NULL"), 0);
-    is0_exeret(obj , errset("ejso_rmO err: rm obj is NULL"), 0);
+    _checkNULL(root); _checkNULL(obj);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: is0_exeret(_keyS(obj)        , errset("ejso_rmO err: rm obj have no key" );, 0);
-                        is0_exeret(_objRmO(root, obj), errset("ejso_rmO err: rm obj is not in the root OBJ"), 0);
-                        break;
-        case EJSON_ARR: is0_exeret(_arrRmO(root, obj), errset("ejso_rmO err: rm obj is not in the root ARR"), 0);
-                        break;
-        default       : errset("ejso_rmO err: root obj" _isParentErr); return 0;
+        case EJSON_OBJ: return _keyS(obj) ? _objRmO(root, obj) : 0;
+        case EJSON_ARR: return _arrRmO(root, obj);
     }
-
-    return obj;
-}
-
-ejson  ejso_rmK(ejson root, constr keys)
-{
-    is0_exeret(_isParent(root), errset("ejso_rmK err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejso_rmK err: keys"     _invalidSErr);, 0);
-
-    return _rmObjByKeys(root, keys);
-}
-
-ejson  ejso_rmR(ejson root, constr rawk)
-{
-    is0_exeret(_isParent(root), errset("ejso_rmR err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(rawk), errset("ejso_rmR err: rawk"     _invalidSErr);, 0);
-
-    return _rmObjByRawk(root, rawk);
-}
-
-ejson  ejsk_rmO(ejson root, constr keys, ejson obj)
-{
-    is0_exeret(_isParent(root), errset("ejsk_rmO err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_rmO err: keys"     _invalidSErr);, 0);
-    is1_exeret(_canotRm(obj)  , errset("ejsk_rmO err: rm obj "  _canotRmErr );, 0);
-
-    root = _getObjByKeys(root, keys);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is0_exeret(_keyS(obj)        , errset("ejsk_rmO err: rm obj have no key" );, 0);
-                        is0_exeret(_objRmO(root, obj), errset("ejsk_rmO err: rm obj is not in the root OBJ"), 0);
-                        break;
-        case EJSON_ARR: is0_exeret(_arrRmO(root, obj), errset("ejsk_rmO err: rm obj is not in the root ARR"), 0);
-                        break;
-        default       : errfmt("ejsk_rmO err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-    }
-
     return 0;
 }
 
-ejson  ejsr_rmO(ejson root, constr rawk, ejson obj)
-{
-    is0_exeret(_isOBJ(root)   , errset("ejsk_rmO err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsk_rmO err: keys"     _invalidSErr);, 0);
-    is1_exeret(_canotRm(obj)  , errset("ejsk_rmO err: rm obj "  _canotRmErr );, 0);
+ejson  ejsk_rmO(ejson root, constr keys, ejson obj) { _checkParent(root); _checkInvldS(keys); _checkCanRm(obj); return ejso_rmO(_getObjByKeys(root, keys), obj); }
+ejson  ejsr_rmO(ejson root, constr rawk, ejson obj) { _checkOBJ(root)   ; _checkInvldS(rawk); _checkCanRm(obj); return ejso_rmO(_getObjByRawk(root, rawk), obj); }
 
-    root = _getObjByRawk(root, rawk);
-    switch (_TYPE(root)) {
-        case EJSON_OBJ: is0_exeret(_keyS(obj)        , errset("ejsk_rmO err: rm obj have no key" );, 0);
-                        is0_exeret(_objRmO(root, obj), errset("ejsk_rmO err: rm obj is not in the root OBJ"), 0);
-                        break;
-        case EJSON_ARR: is0_exeret(_arrRmO(root, obj), errset("ejsk_rmO err: rm obj is not in the root ARR"), 0);
-                        break;
-        default       : errfmt("ejsk_rmO err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-    }
-
-    return 0;
-}
+ejson  ejso_rmK(ejson root, constr keys) { _checkParent(root); _checkInvldS(keys); return _rmObjByKeys(root, keys); }
+ejson  ejso_rmR(ejson root, constr rawk) { _checkOBJ(root)   ; _checkInvldS(rawk); return _rmObjByRawk(root, rawk); }
 
 ejson  ejso_pop(ejson root )
 {
-    is0_exeret(root, errset("ejso_pop err: root obj is NULL"), 0);
+    _checkNULL(root);
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: return _objPop(root);
         case EJSON_ARR: return _arrPop(root);
-        default       : errset("ejso_pop err: root obj" _isParentErr); return 0;
     }
 
     return 0;
 }
-
-ejson  ejsk_pop(ejson root, constr keys)
-{
-    is0_exeret(_isParent(root), errset("ejsk_pop err: root obj"       _isParentErr);, 0);
-
-    if(!_invalidS(keys) && (root = _getObjByKeys(root, keys)))
-    {
-        switch (_TYPE(root)) {
-            case EJSON_OBJ: return _objPop(root);
-            case EJSON_ARR: return _arrPop(root);
-            default       : errfmt("ejsk_pop err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-        }
-    }
-    return 0;
-}
-ejson  ejsr_pop(ejson root, constr rawk)
-{
-    is0_exeret(_isOBJ(root), errset("ejsr_pop err: root obj"       _isOBJErr);, 0);
-
-    if(!_invalidS(rawk) && (root = _getObjByRawk(root, rawk)))
-    {
-        switch (_TYPE(root)) {
-            case EJSON_OBJ: return _objPop(root);
-            case EJSON_ARR: return _arrPop(root);
-            default       : errfmt("ejsr_pop err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-        }
-    }
-    return 0;
-}
+ejson  ejsk_pop(ejson root, constr keys) { _checkParent(root); _checkInvldS(keys); return ejso_pop(_getObjByKeys(root, keys)); }
+ejson  ejsr_pop(ejson root, constr rawk) { _checkOBJ(root)   ; _checkInvldS(rawk); return ejso_pop(_getObjByRawk(root, rawk)); }
 
 ejson  ejso_popT(ejson root )
 {
-    is0_exeret(root, errset("ejso_popT err: root obj is NULL"), 0);
+    _checkNULL(root);
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: return _objPopT(root);
         case EJSON_ARR: return _arrPopT(root);
-        default       : errset("ejso_popT err: root obj" _isParentErr); return 0;
     }
 
     return 0;
 }
-
-ejson  ejsk_popT(ejson root, constr keys)
-{
-    is0_exeret(_isParent(root), errset("ejsk_popT err: root obj"       _isParentErr);, 0);
-
-    if(!_invalidS(keys) && (root = _getObjByKeys(root, keys)))
-    {
-        switch (_TYPE(root)) {
-            case EJSON_OBJ: return _objPopT(root);
-            case EJSON_ARR: return _arrPopT(root);
-            default       : errfmt("ejsk_popT err: keys \"%s\" in root obj" _isParentErr, keys); return 0;
-        }
-    }
-    return 0;
-}
-ejson  ejsr_popT(ejson root, constr rawk)
-{
-    is0_exeret(_isOBJ(root), errset("ejsr_popT err: root obj"       _isOBJErr);, 0);
-
-    if(!_invalidS(rawk) && (root = _getObjByRawk(root, rawk)))
-    {
-        switch (_TYPE(root)) {
-            case EJSON_OBJ: return _objPopT(root);
-            case EJSON_ARR: return _arrPopT(root);
-            default       : errfmt("ejsr_popT err: rawk \"%s\" in root obj" _isParentErr, rawk); return 0;
-        }
-    }
-    return 0;
-}
+ejson  ejsk_popT(ejson root, constr keys) { _checkParent(root); _checkInvldS(keys); return ejso_popT(_getObjByKeys(root, keys)); }
+ejson  ejsr_popT(ejson root, constr rawk) { _checkOBJ(root)   ; _checkInvldS(rawk); return ejso_popT(_getObjByRawk(root, rawk)); }
 
 ejson  ejso_clear(ejson root)
 {
@@ -1276,48 +1122,8 @@ ejson  ejso_clear(ejson root)
 
     return root;
 }
-
-ejson  ejsk_clear(ejson root, constr keys)
-{
-    ejson head;
-
-    is0_exeret(_isParent(root), errset("ejsk_clear err: root obj" _isParentErr);, 0);
-    is1_exeret(_invalidS(keys), errset("ejsk_clear err: keys"     _invalidSErr);, 0);
-
-    root = _getObjByKeys(root, keys);
-    is0_exeret(_isParent(root), errfmt("ejsk_clear err: \"%s\" in root obj" _isParentErr, keys);, 0);
-
-    switch (_TYPE(root)) {
-        case EJSON_ARR: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _arrFree(root);break;
-        case EJSON_OBJ: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _objFree(root);break;
-    }
-    _obj(root)     = 0;
-    _objLen(root)  = 0;
-    _objHead(root) = _objTail(root) = 0;
-
-    return root;
-}
-
-ejson  ejsr_clear(ejson root, constr rawk)
-{
-    ejson head;
-
-    is0_exeret(_isOBJ(root)   , errset("ejsr_clear err: root obj" _isOBJErr   );, 0);
-    is1_exeret(_invalidS(rawk), errset("ejsr_clear err: keys"     _invalidSErr);, 0);
-
-    root = _getObjByRawk(root, rawk);
-    is0_exeret(_isParent(root), errfmt("ejsr_clear err: \"%s\" in root obj" _isParentErr, rawk);, 0);
-
-    switch (_TYPE(root)) {
-        case EJSON_ARR: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _arrFree(root);break;
-        case EJSON_OBJ: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _objFree(root);break;
-    }
-    _obj(root)     = 0;
-    _objLen(root)  = 0;
-    _objHead(root) = _objTail(root) = 0;
-
-    return root;
-}
+ejson  ejsk_clear(ejson root, constr keys) { _checkParent(root); _checkInvldS(keys); return ejso_clear(_getObjByKeys(root, keys)); }
+ejson  ejsr_clear(ejson root, constr rawk) { _checkOBJ(root)   ; _checkInvldS(rawk); return ejso_clear(_getObjByRawk(root, rawk)); }
 
 typedef struct ejsw_s{
     uint cap;
