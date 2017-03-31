@@ -22,7 +22,7 @@
 #ifndef __ESTR_H__
 #define __ESTR_H__
 
-#define ESTR_VERSION "estr 1.0.6"        // splitlen can be 0 in estr_split()
+#define ESTR_VERSION "estr 1.0.7"        // add estr_fromInput()
 
 #include <stdarg.h>
 
@@ -65,12 +65,14 @@ estr estr_newLen(conptr ptr, size len);
 estr estr_fromS64(s64 val);
 estr estr_fromU64(u64 val);
 
+estr estr_fromInput(constr tag, int code);          // if code = 1, the character you type in will be hidden
+
 estr estr_dup(estr s);
 
 void estr_free(estr s);
 
 /// -- estr writer --------------------------------------
-estr estr_wrt (estr s, estr   s2 );                 // wrt: write from the beginning, if s is 0, will create a new estr autolly
+estr estr_wrt (estr s, estr   s2 );                 // wrt: write from the beginning, if s is 0, will create a new estr automaticly
 estr estr_wrtS(estr s, constr src);
 estr estr_wrtB(estr s, conptr ptr, size    len);
 estr estr_wrtV(estr s, constr fmt, va_list ap );
@@ -81,7 +83,7 @@ estr estr_wrtP(estr s, constr fmt, ...);
 #endif
 estr estr_wrtF(estr s, constr fmt, ...);
 
-estr estr_cat (estr s, estr   s2 );                 // cat: write continued, if s is 0, will create a new estr autolly
+estr estr_cat (estr s, estr   s2 );                 // cat: write continued, if s is 0, will create a new estr automaticly
 estr estr_catS(estr s, constr src);
 estr estr_catB(estr s, conptr ptr, size    len);
 estr estr_catV(estr s, constr fmt, va_list ap );

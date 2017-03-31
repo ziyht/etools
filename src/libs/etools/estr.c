@@ -26,6 +26,8 @@
 #include <limits.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <termios.h>        // tcsetattr()
+#include <errno.h>
 
 #include "estr.h"
 
@@ -472,6 +474,63 @@ estr estr_fromU64(u64 val)
     int len = _ull2str(buf, val);
 
     return estr_newLen(buf, len);
+}
+
+/// @brief set_disp_mode
+/// @param fd     : STDIN_FILENO for stdin
+/// @param option : 0: off, 1: on ;
+/// @return [0] - set ok
+///         [1] - set err
+///
+#define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
+static inline int __set_disp_mode(int fd, int option)
+{
+   int err; struct termios term;
+
+   if(tcgetattr(fd, &term) == -1)
+   {
+        perror("Cannot get the attribution of the terminal");
+        return 1;
+   }
+   if(option) term.c_lflag |=  ECHOFLAGS;
+   else       term.c_lflag &= ~ECHOFLAGS;
+
+   err = tcsetattr(fd, TCSAFLUSH, &term);
+
+   if(err == -1 && err == EINTR){
+        perror("Cannot set the attribution of the terminal");
+        return 1;
+   }
+
+   return 0;
+}
+
+estr estr_fromInput(constr tag, int code)
+{
+    char c; estr input;
+
+    input = estr_newLen(0, 16);
+
+    is0_ret(input, 0);
+
+    if(tag)  write(STDOUT_FILENO, tag, strlen(tag));
+    if(code) __set_disp_mode(STDIN_FILENO, 0);
+
+    do{
+       c = getchar();
+       if (c != '\n' && c !='\r'){
+         input = estr_catB(input, &c, 1);
+
+       }
+    }while(c != '\n' && c !='\r');
+
+    if(code)
+    {
+        __set_disp_mode(STDIN_FILENO, 1);
+        write(STDOUT_FILENO, "\n", 1);
+    }
+
+    return input;
 }
 
 inline estr estr_dup(estr s) { return estr_newLen(s, _estr_len(s)); }
