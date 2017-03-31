@@ -1014,7 +1014,7 @@ ejson  ejso_addE(ejson root, constr key, constr src) { _checkNULL(root); _checkS
 ejson  ejso_addT(ejson root, constr key, int   type) { _checkNULL(root);                          return __ejso_addType(root, key,type); }
 ejson  ejso_addS(ejson root, constr key, constr val) { _checkNULL(root); _checkNULL(val);         return __ejso_addStr (root, key, val); }
 ejson  ejso_addN(ejson root, constr key, double val) { _checkNULL(root);                          return __ejso_addNum (root, key, val); }
-ejson  ejso_addP(ejson root, constr key, void*  ptr) { _checkNULL(root);                          return __ejso_addStr (root, key, ptr); }
+ejson  ejso_addP(ejson root, constr key, void*  ptr) { _checkNULL(root);                          return __ejso_addPtr (root, key, ptr); }
 void*  ejso_addR(ejson root, constr key, int    len) { _checkNULL(root); _checkZERO(len);         return __ejso_addRaw (root, key, len); }
 
 ejson  ejsk_addO(ejson root, constr keys, constr key, ejson  obj) { _checkParent(root); _checkInvldS(keys); _checkCanAdd(root, obj); root = _getObjByKeys(root, keys); _checkParent(root); return __ejso_addObj (root, key, obj); }
