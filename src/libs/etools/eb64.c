@@ -66,7 +66,11 @@ estr eb64_decb  (conptr in, size inlen)
 
     is0_ret(out = estr_newLen(0, (inlen) / 4 * 3), 0);
 
-    base64_decode(in, inlen, out, &outlen, 0);
+    if(!base64_decode(in, inlen, out, &outlen, 0))
+    {
+        estr_free(out);
+        return 0;
+    }
 
     estr_incrLen(out, outlen);
 
@@ -77,9 +81,7 @@ int  eb64_decb2b(conptr in, size inlen, cptr   out  , size* outlen)
 {
     is0_ret(in, 0); is0_ret(inlen, 0); is0_ret(out, 0); is0_ret(outlen, 0);
 
-    base64_decode(in, inlen, out, outlen, 0);
-
-    return 1;
+    return base64_decode(in, inlen, out, outlen, 0);
 }
 
 inline void   eb64_show(estr s) {        estr_show(s);}

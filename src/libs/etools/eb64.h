@@ -17,7 +17,7 @@
 #ifndef __EB64_H__
 #define __EB64_H__
 
-#define EB64_VERSION "eb64 1.1.1"      // change param type
+#define EB64_VERSION "eb64 1.1.3"      // fix bug of eb64_decb
 
 #include "etype.h"
 #include "estr.h"
