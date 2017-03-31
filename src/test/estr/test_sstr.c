@@ -27,6 +27,33 @@ void sstr_basic_test()
     printf("\n\n"); fflush(stdout);
 }
 
+void sstr_subc_test()
+{
+    estr e0, e1; cstr from, to; char buf0[100]; char buf1[100];
+
+    printf("--------- sstr subc test ------------\n"); fflush(stdout);
+
+    e0 = sstr_init(buf0, 100);
+    e1 = sstr_init(buf1, 100);
+
+    sstr_wrtS(e0, "abcdcbd");
+    sstr_wrtS(e1, "aascdasdabcsbcabbccabcdf");
+    estr_show(e0);
+    estr_show(e1);
+
+    from = "abc"; to = "1234";
+    printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
+    sstr_subc(e0, from, to); estr_show(e0);
+    sstr_subc(e1, from, to); estr_show(e1);
+
+    from = "1234"; to = "*";
+    printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
+    sstr_subc(e0, from, to); estr_show(e0);
+    sstr_subc(e1, from, to); estr_show(e1);
+
+    printf("\n\n"); fflush(stdout);
+}
+
 void sstr_subs_test()
 {
     estr e0 = 0, e1 = 0, e2 = 0, e3 = 0; cstr from, to;

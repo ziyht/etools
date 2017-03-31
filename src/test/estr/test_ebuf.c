@@ -26,6 +26,34 @@ void ebuf_basic_test()
     printf("\n\n"); fflush(stdout);
 }
 
+void ebuf_subc_test()
+{
+    ebuf e0, e1; cstr from, to;
+
+    printf("--------- ebuf subc test ------------\n"); fflush(stdout);
+
+    e0 = ebuf_new("abcdcbd");
+    e1 = ebuf_new("aascdasdabcsbcabbccabcdf");
+
+    ebuf_show(e0);
+    ebuf_show(e1);
+
+    from = "abc"; to = "1234";
+    printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
+    ebuf_subc(e0, from, to); ebuf_show(e0);
+    ebuf_subc(e1, from, to); ebuf_show(e1);
+
+    from = "1234"; to = "*";
+    printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
+    ebuf_subc(e0, from, to); ebuf_show(e0);
+    ebuf_subc(e1, from, to); ebuf_show(e1);
+
+    ebuf_free(e0);
+    ebuf_free(e1);
+
+    printf("\n\n"); fflush(stdout);
+}
+
 void ebuf_subs_test()
 {
     ebuf e0 = 0, e1 = 0, e2 = 0, e3 = 0; cstr from, to;

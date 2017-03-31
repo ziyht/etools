@@ -1006,7 +1006,8 @@ inline estr estr_upper(estr s)
     return s;
 }
 
-/* Turn the string into a smaller (or equal) string containing only the
+/**
+ * Turn the string into a smaller (or equal) string containing only the
  * substring specified by the 'start' and 'end' indexes.
  *
  * start and end can be negative, where -1 means the last character of the
@@ -1050,7 +1051,8 @@ inline estr estr_range(estr s, int start, int end)
     return s;
 }
 
-/* Modify the string substituting all the occurrences of the set of
+/**
+ * Modify the string substituting all the occurrences of the set of
  * characters specified in the 'from' string to the corresponding character
  * in the 'to' array.
  *
@@ -1058,7 +1060,8 @@ inline estr estr_range(estr s, int start, int end)
  * will have the effect of turning the string "hello" into "0ell1".
  *
  * The function returns the sds string pointer, that is always the same
- * as the input pointer since no resize is needed. */
+ * as the input pointer since no resize is needed.
+ */
 inline estr estr_mapc (estr s, constr from, constr to)
 {
     size_t j, i, l, len, len2;
@@ -1099,6 +1102,62 @@ inline estr estr_mapcl(estr s, constr from, constr to, size_t len)
             }
         }
     }
+    return s;
+}
+
+/**
+ *  @brief estr_subc - to replace all continuous character made up
+ *      from input character set by new str, but we do not expand
+ *      any of them
+ *
+ *      cset: abc
+ *      to  : 1234
+ *            ___ __        __ _ _  ___ __________
+ *      src : abcdcbd       aascdasdabcsbcabbccabcdf
+ *            ___ __        __ _ _  ___ ____
+ *      out : 123d12d       12s1d1sd123s1234df
+ */
+estr estr_subc (estr s, constr cset, constr to)
+{
+    int subLen, newLen, offNow; u8* fd_s, * cp_s; u8 tag[256] = {0};
+
+    is0_ret(s, 0); is1_ret(!cset || !to, s);
+
+    newLen = strlen(cset);
+    for(subLen = 0; subLen < newLen; subLen++)
+        if(!tag[(u8)cset[subLen]]) tag[(u8)cset[subLen]] = 1;
+
+    newLen = strlen(to);
+    offNow = 0;
+    fd_s   = cp_s = (u8*)s;
+    while(*fd_s)
+    {
+        subLen = 0;
+
+        while(*fd_s && !tag[*fd_s]) {*cp_s++ = *fd_s++;}
+        while(          tag[*fd_s]) {fd_s++; subLen++; }
+
+        if(!subLen) break;
+
+        if(newLen)
+        {
+            if(subLen > newLen)
+            {
+                offNow += subLen - newLen;
+                subLen = newLen;
+            }
+            memcpy(cp_s, to, subLen);
+            cp_s += subLen;
+        }
+        else
+        {
+            offNow += subLen;
+        }
+    }
+
+    *cp_s = '\0';
+    _sdsdeclen(s, offNow);
+
     return s;
 }
 
@@ -1162,7 +1221,7 @@ estr estr_subs (estr s, constr from, constr to)
             }
 
             memmove(cp_s - offNow, cp_s, end_p - cp_s);
-            _sdsdeclen(s, offNow);;
+            _sdsdeclen(s, offNow);
             *(end_p - offNow) = '\0';
         }
     }
@@ -2063,6 +2122,8 @@ inline sstr sstr_trim (sstr s, constr cset)          { return estr_trim (s, cset
 inline sstr sstr_mapc (sstr s, constr from, constr to)             { return estr_mapc(s, from, to); }
 inline sstr sstr_mapcl(sstr s, constr from, constr to, size_t len) { return estr_mapcl(s, from, to, len); }
 
+inline sstr sstr_subc (sstr s, constr from, constr to) { return estr_subc(s, from, to); }
+
 sstr sstr_subs (sstr s, constr from, constr to)
 {
     int subLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p;
@@ -2486,6 +2547,7 @@ inline ebuf ebuf_trim (ebuf b, constr cset)        { if(b) { estr_trim(b->s, cse
 inline ebuf ebuf_mapc (ebuf b, constr from, constr to)             { if(b) {estr_mapc (b->s, from, to     ); } return b->s ? b : 0; }
 inline ebuf ebuf_mapcl(ebuf b, constr from, constr to, size_t len) { if(b) {estr_mapcl(b->s, from, to, len); } return b->s ? b : 0; }
 
+inline ebuf ebuf_subc (ebuf b, constr from, constr to) { if(b) {        estr_subc(b->s, from, to); } return b           ; }
 inline ebuf ebuf_subs (ebuf b, constr from, constr to) { if(b) { b->s = estr_subs(b->s, from, to); } return b->s ? b : 0; }
 
 /// -- Low level functions exposed to the user API --

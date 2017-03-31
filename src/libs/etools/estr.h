@@ -22,8 +22,7 @@
 #ifndef __ESTR_H__
 #define __ESTR_H__
 
-#define ESTR_VERSION "estr 1.0.7"        // add estr_fromInput()
-
+#define ESTR_VERSION "estr 1.0.8"        // add _subc()
 #include <stdarg.h>
 
 #include "etype.h"
@@ -115,6 +114,7 @@ estr estr_range(estr s, int   start, int end);
 estr estr_trim (estr s, constr cset);
 estr estr_mapc (estr s, constr from, constr to);
 estr estr_mapcl(estr s, constr from, constr to, size_t len);
+estr estr_subc (estr s, constr cset, constr to);
 estr estr_subs (estr s, constr from, constr to);
 
 estr estr_join (char** argv, int argc, constr sep);
@@ -200,6 +200,7 @@ sstr sstr_range(sstr s, int   start, int end);
 sstr sstr_trim (sstr s, constr cset);
 sstr sstr_mapc (sstr s, constr from, constr to);
 sstr sstr_mapcl(sstr s, constr from, constr to, size_t len);
+sstr sstr_subc (sstr s, constr from, constr to);
 sstr sstr_subs (sstr s, constr from, constr to);
 
 
@@ -267,6 +268,7 @@ ebuf ebuf_range(ebuf b, int   start, int end);
 ebuf ebuf_trim (ebuf b, constr cset);
 ebuf ebuf_mapc (ebuf b, constr from, constr to);
 ebuf ebuf_mapcl(ebuf b, constr from, constr to, size_t len);
+ebuf ebuf_subc (ebuf b, constr from, constr to);
 ebuf ebuf_subs (ebuf b, constr from, constr to);
 
 /// -- Low level functions exposed to the user API ------

@@ -26,6 +26,34 @@ void estr_basic_test()
     printf("\n\n"); fflush(stdout);
 }
 
+void estr_subc_test()
+{
+    estr e0, e1; cstr from, to;
+
+    printf("--------- estr subc test ------------\n"); fflush(stdout);
+
+    e0 = estr_new("abcdcbd");
+    e1 = estr_new("aascdasdabcsbcabbccabcdf");
+
+    estr_show(e0);
+    estr_show(e1);
+
+    from = "abc"; to = "1234";
+    printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
+    estr_subc(e0, from, to); estr_show(e0);
+    estr_subc(e1, from, to); estr_show(e1);
+
+    from = "1234"; to = "*";
+    printf("\n\"%s\" -> \"%s\":\n", from, to); fflush(stdout);
+    estr_subc(e0, from, to); estr_show(e0);
+    estr_subc(e1, from, to); estr_show(e1);
+
+    estr_free(e0);
+    estr_free(e1);
+
+    printf("\n\n"); fflush(stdout);
+}
+
 void estr_subs_test()
 {
     estr e0 = 0, e1 = 0, e2 = 0, e3 = 0; cstr from, to;
