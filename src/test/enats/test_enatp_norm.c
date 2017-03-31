@@ -36,7 +36,7 @@ void enatp_nrom_test()
                                  "",    // ca
                                  "",    // key
                                  ""     // cert
-                             }}};
+                             },0}};
 
     start = nats_Now();
     char buf[100];

@@ -364,10 +364,10 @@ static inline natsStatus __processUrlString(natsOptions *opts, constr urls)
 
 static inline enats __enats_newHandle(constr urls, enats_opts e_opts)
 {
-    natsStatus      s     = NATS_OK;
-    natsOptions*    opts  = NULL;
-    estr            nurls = NULL;
-    enats e;
+    enats e; natsOptions* opts; estr nurls; natsStatus s = NATS_OK;
+
+    opts  = NULL;
+    nurls = NULL;
 
     if(e_opts && e_opts->tls.enanle)
     {
@@ -379,10 +379,12 @@ static inline enats __enats_newHandle(constr urls, enats_opts e_opts)
     // -- for urls parser
     if(!urls)
     {
-        char*    auth        = e_opts->auth;
-        char*    user        = e_opts->username;
-        char*    pass        = e_opts->password;
-        char*    url         = e_opts->conn_string;
+        cstr auth, user, pass, url;
+
+        auth = e_opts->auth;
+        user = e_opts->username;
+        pass = e_opts->password;
+        url  = e_opts->conn_string;
 
         nurls = ((user && *user) || (pass && *pass)) ? __enats_makeUrls(user, pass, url, 0)
                                                      : __enats_makeUrls(auth, 0   , url, 0);
@@ -402,6 +404,9 @@ static inline enats __enats_newHandle(constr urls, enats_opts e_opts)
     natsOptions_SetErrorHandler  (opts, __on_erroccurred,  e);
     natsOptions_SetMaxReconnect  (opts, -1                  );
     //natsOptions_SetNoRandomize   (opts, true                );
+
+    if(e_opts && e_opts->timeout)
+        natsOptions_SetTimeout(opts, e_opts->timeout);
 
     if(e_opts && e_opts->tls.enanle)
     {

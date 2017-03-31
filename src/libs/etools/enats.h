@@ -18,7 +18,7 @@
 #ifndef __ENATS__
 #define __ENATS__
 
-#define ENATS_VERSION     "enats 1.0.0"
+#define ENATS_VERSION     "enats 1.0.1"     // add timeout options in enats_opts
 
 #include "nats.h"
 #include "etype.h"
@@ -29,46 +29,46 @@ extern "C" {
 
 typedef struct enats_statistics_s{
     // -- for conn
-    uint64_t    inMsgs;
-    uint64_t    outMsgs;
-    uint64_t    inBytes;
-    uint64_t    outBytes;
-    uint64_t    reconnects;
+    u64  inMsgs;
+    u64  outMsgs;
+    u64  inBytes;
+    u64  outBytes;
+    u64  reconnects;
 
     // -- for sub
-    int         pendingMsgs;
-    int         pendingBytes;
-    int         maxPendingMsgs;
-    int         maxPendingBytes;
-    int64_t     deliveredMsgs;
-    int64_t     droppedMsgs;
+    int  pendingMsgs;
+    int  pendingBytes;
+    int  maxPendingMsgs;
+    int  maxPendingBytes;
+    s64  deliveredMsgs;
+    s64  droppedMsgs;
 }enats_stats_t;
 
 typedef struct enats_opts_s {
-    char*    conn_string;
-    char*    auth;
-    char*    username;
-    char*    password;
+    cstr    conn_string;
+    cstr    auth;
+    cstr    username;
+    cstr    password;
     struct {
-        int   enanle;
-        char* ca;
-        char* key;
-        char* cert;
-    }tls;
+        int     enanle;
+        cstr    ca;
+        cstr    key;
+        cstr    cert;
+    }       tls;
+    s64     timeout;
 }enats_opts_t, * enats_opts;
 
 typedef struct eMsg_s
 {
-    void* reserved1;
-    void* reserved2;
+    cptr    __1, __2;
 
-    const char          *subject;
-    const char          *reply;
-    const char          *data;
-    int                 dataLen;
+    constr  subject;
+    constr  reply;
+    constr  data;
+    int     dataLen;
 }eMsg_t, * eMsg;
 
-static inline void eMsg_free(eMsg msg){ if(msg->reserved2) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
+static inline void eMsg_free(eMsg msg){ if(msg->__2) natsMsg_Destroy((natsMsg*)msg); else free(msg); }
 
 typedef struct enats_s* enats;
 typedef struct enatp_s* enatp;
