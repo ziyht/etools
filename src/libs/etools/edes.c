@@ -448,7 +448,7 @@ void process_message(unsigned char* message_piece, unsigned char* processed_piec
     }
 }
 
-/// ----------------------------- edes ---------------------------------------
+/// -------------------------- micros helper ---------------------------------
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
@@ -529,7 +529,6 @@ static int __processb2b(constr key, constr in, size inlen, cstr out, size* outle
     return 1;
 }
 
-
 /*
 static void __processb2f(constr key, constr in, size inlen, constr out, int type)
 {
@@ -597,15 +596,22 @@ static void __processb2f(constr key, constr in, size inlen, constr out, int type
 }
 */
 
+/// ------------------------ win32 API setting -------------------------------
+#if (_WIN32)
+#define inline
+#endif
+
+/// ----------------------------- edes ---------------------------------------
+
 cstr edes_genkey(char key[8], int human)
 {
     static char key_set[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    static int  seed;
+    static uint  seed;
     int i;
 
     srand((unsigned) time(0) + seed);
 
-    seed += time(0);
+    seed += (uint)time(0);
 
     if(human) for(i=0; i<8; i++) key[i] = key_set[rand()%(sizeof(key_set) - 1)];
     else      for(i=0; i<8; i++) key[i] = rand()%255;
@@ -616,7 +622,7 @@ cstr edes_genkey(char key[8], int human)
 static  u64 __EDES_INNER_MAGIC_NUM = 0xFDFEFFEEEEFFFEFDLL;
 #define EDES_INNER_MAGIC_KEY (char*)&__EDES_INNER_MAGIC_NUM
 
-static inline void __rand_key(cstr key) { edes_genkey(key, 0); key[7] = 0; }
+static inline void __rand_key(cstr key) { edes_genkey(key, 0); key[7] = '\0'; }
 
 /// ---------------------- encoder -------------------------
 
@@ -688,7 +694,7 @@ estr edes_decb  (constr key, conptr in, size inlen)
     {
         char real_key[8];
 
-        __processb2b(key, in, 8, real_key, &outlen, DECRYPTION_MODE);
+        __processb2b(key, in, 8, real_key, &outlen, DECRYPTION_MODE); real_key[7] = '\0';
 
         __processb2b(real_key, (char*)in + 8, inlen - 8, out, &outlen, DECRYPTION_MODE);
         estr_incrLen(out, outlen);
@@ -711,7 +717,7 @@ int  edes_decb2b(constr key, conptr in, size inlen, cptr out, size* outlen)
     {
         char real_key[8];
 
-        __processb2b(key, in, 8, real_key, outlen, DECRYPTION_MODE);
+        __processb2b(key, in, 8, real_key, outlen, DECRYPTION_MODE); real_key[7] = '\0';
 
         __processb2b(real_key, (cstr)in + 8, inlen - 8, out, outlen, DECRYPTION_MODE);
     }

@@ -67,6 +67,11 @@ static int timing_safe_strcmp(const char *str1, const char *str2)
     return ret;
 }
 
+/// ------------------ win32 API setting -------------------
+#if (_WIN32)
+#define inline
+#endif
+
 /*
  * This function expects a work factor between 4 and 31 and a char array to
  * store the resulting generated salt. The char array should typically have
@@ -81,7 +86,7 @@ int  ecrypt_gensalt(uint   factor, char   salt[ECRYPT_SIZE])
 {
     static uint seed; char input[RANDBYTES]; int workf, i; char *aux;
 
-    seed += time(0);
+    seed += (uint)time(0);
     srand(seed);
 
     for(i = 0; i < RANDBYTES; i++) input[i] = rand()%255;
@@ -104,7 +109,7 @@ int  ecrypt_gensalt(uint   factor, char   salt[ECRYPT_SIZE])
  * bcrypt_checkpw when verifying a password.
  *
  */
-estr ecrypt_hashs  (constr passwd, conchr salt[ECRYPT_SIZE])
+estr ecrypt_hashs  (constr passwd, coni8 salt[ECRYPT_SIZE])
 {
     estr hash;
 
@@ -116,7 +121,7 @@ estr ecrypt_hashs  (constr passwd, conchr salt[ECRYPT_SIZE])
     return hash;
 }
 
-int  ecrypt_hashs2s(constr passwd, conchr salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE])
+int  ecrypt_hashs2s(constr passwd, coni8 salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE])
 {
     return crypt_rn(passwd, salt, hash, ECRYPT_SIZE) ? 1 : 0;
 }
@@ -144,7 +149,7 @@ int  ecrypt_encs2s(constr passwd, char hash[ECRYPT_SIZE])
     return crypt_rn(passwd, salt, hash, ECRYPT_SIZE) ? 1 : 0;
 }
 
-int  ecrypt_check (constr passwd, conchr hash[ECRYPT_SIZE])
+int  ecrypt_check (constr passwd, coni8 hash[ECRYPT_SIZE])
 {
     char outhash[ECRYPT_SIZE];
 

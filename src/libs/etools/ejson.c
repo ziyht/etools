@@ -29,7 +29,12 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <fcntl.h>
+
 #include "ejson.h"
+
+#define  ECOMPAT_UNISTD
+#include "ecompat.h"
+#include "etype.h"
 
 static constr g_err;
 static constr g_errp;
@@ -46,39 +51,6 @@ static char   g_err_buf[1024];
 #define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
 #define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
-#if defined(_WIN32)
-#define __unused
-#define inline
-#define strdup _strdup
-typedef _In_ int (__cdecl* __compar_fn_t)(void const*, void const*);
-#if defined(_MSC_VER) && _MSC_VER >= 1600
-#include <stdint.h>
-#elif defined(__WATCOMC__) || defined(__MINGW32__) || defined(__CYGWIN__)
-#include <stdint.h>
-#else
-typedef unsigned int  uint32_t, u32;
-typedef unsigned char uint8_t , u8;
-#endif
-typedef unsigned long  int ulong;
-typedef unsigned short int ushort, u16;
-typedef unsigned int       uint,   u32;
-#include <io.h>
-#define memccpy  _memccpy
-#define open     _open
-#define close    _close
-#define lseek    _lseek
-#define read     _read
-#elif defined(__GNUC__) && !defined(__VXWORKS__)
-#include <stdint.h>
-#include <unistd.h>
-#define __unused __attribute__((unused))
-#else
-#define __unused __attribute__((unused))
-typedef unsigned int  uint32_t, u32;
-typedef unsigned char uint8_t , u8;
-#endif
-
-
 // ------------------------- obj header -----------------------
 typedef struct obj_header_s{
     uint type     :  4;
@@ -89,38 +61,28 @@ typedef struct obj_header_s{
     uint _len     : 32;
 }obj_header_t, * OBJ;
 
-// -- helper used for micros --
-static void* obj__new(size_t size, uint _len);
-static cstr  obj__str(uint _len);
-
 // -- micros --
 #define OBJ_size            sizeof(obj_header_t)
-#define obj_to_val(o)       (void*)(o + 1)
 #define val_to_obj(v)       ((char*)v - OBJ_size)
-#define val_type(v)         val_to_obj(v)->type
-#define obj_new(T)          (T*)obj__new(sizeof(T), 1)
-#define val_free(v)         free(val_to_obj(v));
-#define obj_newArr(T, len)  (T*)obj__new(sizeof(T), (len))
-#define obj_newStr(len)     obj__str(len)
-#define val_arrLen(v)       ((OBJ)val_to_obj(v))->_len
-#define val_strLen(v)       ((OBJ)val_to_obj(v))->_len
 
 /// --------------------- str for ejson ----------------------------
 
-#define COMPAT_ESTR 0
+#define COMPAT_ESTR 1
 
-typedef struct __attribute__ ((__packed__)) _s_s{
+#pragma pack(push, 1)
+typedef struct  _s_s{
     uint cap;
     uint len;
 #if COMPAT_ESTR
     u8   type;
 #endif
     char s[];
-}_s_t, * _s;
+}_s_t, * _s ;
+#pragma pack(pop)
 
 // -- API --
-static cstr _snew1(constr src);
-static cstr _snew2(conptr ptr, uint len);
+static inline cstr _snew1(constr src);
+static inline cstr _snew2(conptr ptr, uint len);
 
 // -- micros --
 #define _s2hdr(s)    ((_s)(s) - 1)
@@ -269,7 +231,7 @@ static inline void __cstr_replace(cstr s, cstr* end, cstr* last, constr from, si
 /// @note:
 ///     1. new str, note: we do not free the old s if replace faild
 ///
-static inline cstr _ssub(cstr s, constr from, constr to)
+static cstr _ssub(cstr s, constr from, constr to)
 {
     int subLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p;
 
@@ -345,7 +307,7 @@ static inline cstr _ssub(cstr s, constr from, constr to)
             {
                 cstr new_s, new_p; int len;
 
-                is0_ret(new_s = _snew2(0, offNow * 1.2), 0);
+                is0_ret(new_s = _snew2(0, (uint)(offNow * 1.2)), 0);
 
                 // -- to new str
                 cp_s  = fd_s = s;
@@ -371,8 +333,8 @@ static inline cstr _ssub(cstr s, constr from, constr to)
     return s;
 }
 
-
 /// --------------------- dict hash table -------------------------
+#pragma pack(push, 1)
 typedef struct dictht_s{
     ejson*  table;       // to save data
     ulong   size;
@@ -380,55 +342,49 @@ typedef struct dictht_s{
     ulong   used;
 }dictht_t, dictht;
 
-#define dictht_reset(ht)   memset(ht, 0, sizeof(dictht_t));
-
-/// -------------------------- dict -------------------------------
 typedef struct dict_s {
 //  void*    privdata;
     dictht_t ht[2];
     long     rehashidx;
-    int      iterators;
+//  int      iterators;
 }dict_t, * dict;
-
-typedef struct dictIterator_s {
-    dict  d;
-    long  index;
-    int   table, safe;
-    ejson entry, nextEntry;
-    long long fingerprint;
-}dictIterator_t, * dictIterator;
 
 typedef struct dictLink_s{
     ejson* _pos;
     ulong* _used;
 }dictLink_t, *L;
-
+#pragma pack(pop)
 
 // -- pre definitions
-#define DICT_OK   0
-#define DICT_ERR  1
-#define DICT_HT_INITIAL_SIZE     4
+#define DICT_OK                   0
+#define DICT_ERR                  1
+#define DICT_HT_INITIAL_SIZE      4
 
-static int  _dict_can_resize         = 1;
-static uint _dict_force_resize_ratio = 5;
+#define _dict_can_resize          1
+#define _dict_force_resize_ratio  5
 
 // -- API
-static dict  _dict_new();
-static void  _dict_free(dict d);
-static ejson _dict_add (dict d, const void*k, int k_len, ejson obj);
-static ejson _dict_find(dict d, const void*k, int k_len);
-static ejson _dict_del (dict d, ejson del);
-static int   _dict_getL(dict d, const void* k, int k_len, L l);
+static inline dict  _dict_new();
+static inline void  _dict_clear(dict d);
+static inline void  _dict_free(dict d);
+static inline ejson _dict_add (dict d, const void*k, int k_len, ejson obj);
+static inline ejson _dict_find(dict d, const void*k, int k_len);
+static inline ejson _dict_findS(dict d, const void*k);
+static inline ejson _dict_del (dict d, ejson del);
+static inline int   _dict_getL(dict d, const void* k, int k_len, L l);
 
-#define _dict_link(l, o) {(o)->next = *((l)._pos); *((l)._pos) = o; *((l)._used) += 1;}
+#define _dict_link(l, o)    {(o)->next = *((l)._pos); *((l)._pos) = o; *((l)._used) += 1;}
+#define _dictHashKey(k, l)  __djbHashS(k)
 
 // -- micros
+#define _dict_htreset(ht)   memset(ht, 0, sizeof(dictht_t));
 #define _dict_resetHt(d)    memset(d->ht, 0, sizeof(dictht_t) * 2);
 #define _dictIsRehashing(d) ((d)->rehashidx != -1)
 #define _dictSize(d)        ((d)->ht[0].used+(d)->ht[1].used)
 
 /// ----------------------------- ejson ---------------------------
-typedef struct __attribute__ ((__packed__)) ejson_s{
+#pragma pack(push, 1)
+typedef struct  ejson_s{
     obj_header_t h;      // head info
     union{
         cstr     s;      // str key if obj in object
@@ -439,31 +395,51 @@ typedef struct __attribute__ ((__packed__)) ejson_s{
     void*        next;   // next node, used for EJSON_OBJ obj's dic
 
     union{
-        s64      i;      // int   value of NUM
+        i64      i;      // int   value of NUM
         double   f[2];   // float value of NUM, f[1] is the used value
 
         cstr     s;      // str   ptr   of STR
         void*    p;      // ptr   value of RAW/PTR, point to raw data alloced by _addR()/_addP()
 
-        void*    arr;    // history info of ARR
-        dict_t*  obj;    // children dic of OBJ
+        dict_t*  dict;   // children dic of OBJ
 
         struct{
-        void* _;
-        ejson h, t;      // head, tail link of first, last child for ARR and OBJ
-        }        l;
+          void* _h;
+          ejson h, t;    // head, tail link of first, last child for ARR and OBJ
+        }        list;
     }v;
 }ejson_t;
 
+typedef struct ejsw_s{
+    uint cap;
+    uint len;
+    cstr s;
+}ejsw_t, * ejsw;
+#pragma pack(pop)
+
+#define wlenInc(w, l)   (w)->len+=(l)
+#define wlenDec(w, l)   (w)->len-=(l)
+#define wlenPP(w)       (w)->len++
+#define wlenMM(w)       (w)->len--
+
+#define DF_WBUF_LEN     8
+
 // -- pre definitions
 typedef struct _inner_{
-    obj_header_t h;
-    char v[16];
+    uint cap;
+    uint len;
+#if COMPAT_ESTR
+    u8   type;
+#endif
+    char s[16];
 }_inner_;
-static _inner_ __NIL = {{0,0,1,0,0, 5}, "(nil)" };
-static _inner_ __VER = {{0,0,1,0,0, sizeof(EJSON_VERSION)-1}, EJSON_VERSION};
-static const cstr _NIL_ = __NIL.v;
-static const cstr _VER_ = __VER.v;
+
+#define SDS_STACK_MASK 8    // form estr.c
+
+static _inner_ __VER = {sizeof(EJSON_VERSION)-1, sizeof(EJSON_VERSION)-1, SDS_STACK_MASK, EJSON_VERSION};
+static _inner_ __NIL = {5, 5, SDS_STACK_MASK, "(nil)"};
+static const cstr _NIL_ = __NIL.s;
+static const cstr _VER_ = __VER.s;
 
 // -- helpler --
 typedef constr (*_lstrip)(constr str);
@@ -474,33 +450,35 @@ static inline int    check_eval(             constr* _src, constr* _err, _lstrip
 static inline cstr   wrap_obj(ejson obj, int depth, int pretty, ejsw w);
 
 // -- ejson dict operations --
-#define _edict(o)               (o)->v.obj
+#define _edict(o)               (o)->v.dict
 #define _edictInit(o)           _edict(o) = _dict_new()
-#define _edictFree(o)           if(_edict(o)) _dict_free(_edict(o))
-#define _edictFind(o, k)        (_edict(o) ? _dict_find(_edict(o), k, strlen(k)) : 0)
+#define _edictFree(o)           _dict_free(_edict(o))
+#define _edictClear(o)          _dict_clear(_edict(o))
+#define _edictFind(o, k)        (_edict(o) ? _dict_findS(_edict(o), k) : 0)
 #define _edictGetL(r,k,len,lp)  _dict_getL(_edict(r), k, len, lp)
 
-static ejson _edictAdd (ejson root, cstr  key, ejson obj);
-static ejson _edictPush(ejson root, cstr  key, ejson obj);
-static void  _edictLink(ejson root, ejson obj, L l);
-static ejson _edictPop (ejson root);
-static ejson _edictPopT(ejson root);
-static ejson _edictRmO (ejson root, ejson obj);
+static inline ejson _edictAdd (ejson root, cstr  key, ejson obj);
+static inline ejson _edictPush(ejson root, cstr  key, ejson obj);
+static inline void  _edictLink(ejson root, ejson obj, L l);
+static inline ejson _edictPop (ejson root);
+static inline ejson _edictPopT(ejson root);
+static inline ejson _edictRmO (ejson root, ejson obj);
 
 // -- ejson list operations --
-#define _elist(o)           (o)->v.arr
+#define _elist(o)           (o)->v.list._h
 #define _elistInit(o)       _elist(o) = calloc(3, sizeof(uint))
+#define _elistClear(o)      memset(_elist(o), 0, sizeof(uint) * 3)
 #define _elistFree(o)       free(_elist(o))
 
-static ejson _elistAdd (ejson root, ejson obj);
-static ejson _elistPush(ejson root, ejson obj);
-static ejson _elistPop (ejson root);
-static ejson _elistPopT(ejson root);
-static ejson _elistFind(ejson root, uint  idx);
-static ejson _elistRmI (ejson root, uint  idx);
-static ejson _elistRmO (ejson root, ejson obj);
+static inline void  _elistAdd (ejson root, ejson obj);
+static inline ejson _elistPush(ejson root, ejson obj);
+static inline ejson _elistPop (ejson root);
+static inline ejson _elistPopT(ejson root);
+static inline ejson _elistFind(ejson root, uint  idx);
+static inline ejson _elistRmI (ejson root, uint  idx);
+static inline ejson _elistRmO (ejson root, ejson obj);
 
-static ejson _objByKeys(ejson obj, constr keys_, int del, int raw);
+static inline ejson _objByKeys(ejson obj, constr keys_, int del, int raw);
 
 // -- micros --
 #define _newNil()     (ejson)calloc(1, OBJ_size + sizeof(void*)*4)                      // for FALSE, TRUE, NULL obj
@@ -553,8 +531,8 @@ static ejson _objByKeys(ejson obj, constr keys_, int del, int raw);
 #define _arrLen(o)    (o)->h._len
 #define _objPrev(o)   (o)->p
 #define _objNext(o)   (o)->n
-#define _objHead(o)   (o)->v.l.h
-#define _objTail(o)   (o)->v.l.t
+#define _objHead(o)   (o)->v.list.h
+#define _objTail(o)   (o)->v.list.t
 
 #define _getObjByKeys(obj, keys) _objByKeys(obj, keys, 0, 0)
 #define _getObjByRawk(obj, keys) _objByKeys(obj, keys, 0, 1)
@@ -563,6 +541,7 @@ static ejson _objByKeys(ejson obj, constr keys_, int del, int raw);
 
 #define errset(err)  g_err = err
 #define errfmt(...)  {snprintf(g_err_buf, 1024, ##__VA_ARGS__);g_err = g_err_buf;}
+#define errlog(...)  fprintf(stderr, ##__VA_ARGS__);
 
 /// ------------------------  macro err ---------------------------
 #define _validS(s)      ((s) && *(s))
@@ -591,20 +570,33 @@ static ejson _objByKeys(ejson obj, constr keys_, int del, int raw);
 #define _ERRSTR_KEYINPRM(key)   "key \"%s\" in param is already exist in root obj", key
 #define _ERRSTR_KEYINOBJ(key)   "key \"%s\" in obj is already exist in root obj", key
 
-// -- ejson API definition --
-ejson ejso_new(type type)
+/// -----------------------  inline compat ------------------------
+#if defined(WIN32) && !defined(__cplusplus)
+#define inline
+#else
+#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+#if GCC_VERSION < 40300
+#define inline
+#endif
+#endif
+
+/// ------------------- ejson API definition ----------------------
+ejson ejso_new(uint type_len)
 {
     ejson out;
-    switch (type) {
+    switch (type_len & 0xFF) {
         case EJSON_FALSE: is0_exeret(out = _newNil(), errset("alloc err"), 0); _setFALSE(out); break;
         case EJSON_TRUE : is0_exeret(out = _newNil(), errset("alloc err"), 0); _setTRUE (out); break;
         case EJSON_NULL : is0_exeret(out = _newNil(), errset("alloc err"), 0); _setNULL (out); break;
         case EJSON_NUM  : is0_exeret(out = _newNum(), errset("alloc err"), 0); _setNUM  (out); break;
         case EJSON_STR  : is0_exeret(out = _newStr(), errset("alloc err"), 0); _setSTR  (out); break;
         case EJSON_PTR  : is0_exeret(out = _newStr(), errset("alloc err"), 0); _setPTR  (out); break;
-        case EJSON_RAW  : is0_exeret(out = _newStr(), errset("alloc err"), 0); _setRAW  (out); break;
-        case EJSON_ARR  : is0_exeret(out = _newObj(), errset("alloc err"), 0); _setARR  (out); break;
-        case EJSON_OBJ  : is0_exeret(out = _newObj(), errset("alloc err"), 0); _setOBJ  (out); break;
+        case EJSON_RAW  : is0_exeret(out = _newStr(), errset("alloc err"), 0); _setRAW  (out);
+                          _valR(out) = _newS2(0,  type_len >> 8); break;
+        case EJSON_ARR  : is0_exeret(out = _newObj(), errset("alloc err"), 0);
+                          is0_exeret(_elistInit(out), errset(_ERRSTR_ALLOC(list)); free(out);, 0);_setARR  (out); break;
+        case EJSON_OBJ  : is0_exeret(out = _newObj(), errset("alloc err"), 0);
+                          is0_exeret(_edictInit(out), errset(_ERRSTR_ALLOC(dict)); free(out);, 0);_setOBJ  (out); break;
         default         : out = 0;  errset("invalid type");  break;
     }
     return out;
@@ -741,7 +733,7 @@ ejson  ejsf_eval(constr file)
     lstrip = f_lstrip;
 
     src = lstrip(data);
-    is1_exeret(*src != '{', memccpy(_errp_buf, src, 0, 511);g_errp = _errp_buf;free(data);, 0);
+    is1_exeret(*src != '{' && *src != '[', memccpy(_errp_buf, src, 0, 511);g_errp = _errp_buf;free(data);, 0);
     if(!(obj = parse_eval(0, &src, &g_errp, lstrip))){                                 memccpy(_errp_buf, g_errp, '\0', 511);g_errp = _errp_buf;}
     if(f_check && obj) {src=lstrip(src);if (*src)    {ejso_free(obj);obj=0;g_errp=src; memccpy(_errp_buf, g_errp, '\0', 511);g_errp = _errp_buf;}}
 
@@ -768,19 +760,25 @@ ejson  ejsf_evalOpts(constr file, constr* err_pos, opts opt)
     lstrip = opt&CMMT_ON  ? lstrip2 : lstrip1;
 
     src = (char*)lstrip(data);
-    is1_exeret(*src != '{', memccpy(_errp_buf, src, 0, 511);g_errp = _errp_buf;free(data);, 0);
+    is1_exeret(*src != '{' && *src != '[', memccpy(_errp_buf, src, 0, 511);g_errp = _errp_buf;free(data);, 0);
     if(!(obj = parse_eval(0, &src, err, lstrip)))      {                                 memccpy(_errp_buf, *err, '\0', 511);g_errp = _errp_buf;}
     if(obj && opt&ENDCHK_ON) {src=lstrip(src);if (*src){ejso_free(obj);obj=0;g_errp=src; memccpy(_errp_buf, *err, '\0', 511);g_errp = _errp_buf;}}
+
+    if(*err && err_pos)
+    {
+        errfmt("%s", *err);
+        *err_pos = g_errp;
+    }
 
     free(data);
     return obj;
 }
 
-inline void   ejse_set(opts opt) {   e_lstrip = opt&CMMT_ON ? lstrip2 : lstrip1; e_check = opt&ENDCHK_ON ? 1 : 0;}
-inline void   ejsf_set(opts opt) {   f_lstrip = opt&CMMT_ON ? lstrip2 : lstrip1; f_check = opt&ENDCHK_ON ? 1 : 0;}
+inline void   ejss_evalSet(opts opt) {   e_lstrip = opt&CMMT_ON ? lstrip2 : lstrip1; e_check = opt&ENDCHK_ON ? 1 : 0;}
+inline void   ejsf_evalSet(opts opt) {   f_lstrip = opt&CMMT_ON ? lstrip2 : lstrip1; f_check = opt&ENDCHK_ON ? 1 : 0;}
 
-inline constr ejse_str()    {   return g_err;    }
-inline constr ejse_pos()    {   return g_errp;   }
+inline constr ejson_err()     {   return g_err;    }
+inline constr ejson_errp()    {   return g_errp;   }
 
 
 
@@ -789,9 +787,7 @@ static inline ejson __ejso_addObj(ejson root, constr key, ejson  obj)
     cstr nk, hk; uint len; dictLink_t l;
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_edict(root)) is0_exeret(_edictInit(root), errset(_ERRSTR_ALLOC(dict));, 0);
-
-                        hk = _keyS(obj);
+        case EJSON_OBJ: hk = _keyS(obj);
                         if(_validS(key))            // have a key in param
                         {
                             len = strlen(key);
@@ -807,8 +803,7 @@ static inline ejson __ejso_addObj(ejson root, constr key, ejson  obj)
                             is0_exeret(_edictAdd(root, hk, obj), errfmt(_ERRSTR_KEYINOBJ(hk));, 0);
                         }
                         break;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root), errset(_ERRSTR_ALLOC(list));, 0);
-                        _elistAdd(root, obj);
+        case EJSON_ARR: _elistAdd(root, obj);
                         break;
         default       : errset(_ERRSTR_TYPEDF); return 0;
     }
@@ -827,8 +822,7 @@ static inline ejson __ejso_addEval(ejson root, constr key, constr src)
         parse_STR(&hk, &src, &g_errp, lstrip);
 
     switch (_TYPE(root)) {
-        case EJSON_OBJ: if(!_edict(root)) is0_exeret(_edictInit(root), errset(_ERRSTR_ALLOC(dict));, 0);
-                        if(!hk)                     // have no key in src
+        case EJSON_OBJ: if(!hk)                     // have no key in src
                         {
                             is1_exeret(_invalidS(key)                            , errset(_ERRSTR_NOKEY);            , 0); len = strlen(key);
                             is0_exeret(_edictGetL(root, key, len, &l)            , errfmt(_ERRSTR_KEYINPRM(key));    , 0);
@@ -866,8 +860,7 @@ static inline ejson __ejso_addEval(ejson root, constr key, constr src)
                             }
                         }
                         break;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root), errset(_ERRSTR_ALLOC(list)); if(hk) _freeS(hk);, 0);
-                        if(!hk)                 // have no key in src
+        case EJSON_ARR: if(!hk)                 // have no key in src
                         {
                             is0_exeret(obj = parse_eval(0, &src, &g_errp, lstrip), errset(_ERRSTR_PARSE);, 0);
                         }
@@ -899,16 +892,12 @@ static inline ejson __ejso_addType(ejson root, constr key, int type)
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
-                        if(!_edict(root)) is0_exeret(_edictInit(root), errset(_ERRSTR_ALLOC(dict));  , 0);
                         is0_exeret(_edictGetL(root, key, len, &l)    , errfmt(_ERRSTR_KEYINPRM(key));, 0);
-                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                  errset(_ERRSTR_ALLOC(NIL obj));              , 0);
+                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:obj = _newObj();is0_exeret(_elistInit(obj), errset(_ERRSTR_ALLOC(list)); free(obj); obj = 0;, 0);break;case EJSON_OBJ: obj = _newObj();is0_exeret(obj, errset(_ERRSTR_ALLOC(obj));, 0);is0_exeret(_edictInit(obj), errset(_ERRSTR_ALLOC(dict)); free(obj); obj = 0;, 0);break; default: errset("unsupported type");return 0;}
                         is0_exeret(nk = _newS2(key,len), errset(_ERRSTR_ALLOC(key));ejso_free(obj);   , 0);
                         _edictLink(root, obj, &l); _TYPE(obj) = type; _keyS(obj) = nk;
                         break;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root), errset(_ERRSTR_ALLOC(list));, 0);
-                        switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:case EJSON_OBJ: obj = _newObj();break; default: errset("ejso_addT err: not supported type");return 0;}
-                        is0_exeret(obj,                  errset(_ERRSTR_ALLOC(obj));           , 0);
+        case EJSON_ARR: switch (type)   {case EJSON_FALSE:case EJSON_TRUE:case EJSON_NULL: obj = _newNil();break; case EJSON_ARR:obj = _newObj();is0_exeret(_elistInit(obj), errset(_ERRSTR_ALLOC(list)); free(obj); obj = 0;, 0);break;case EJSON_OBJ: obj = _newObj();is0_exeret(obj, errset(_ERRSTR_ALLOC(obj));, 0);is0_exeret(_edictInit(obj), errset(_ERRSTR_ALLOC(dict)); free(obj); obj = 0;, 0);break; default: errset("unsupported type");return 0;}
                         _elistAdd(root, obj); _TYPE(obj) = type;
                         break;
         default       : errset(_ERRSTR_TYPEDF); return 0;
@@ -923,16 +912,14 @@ static inline ejson __ejso_addStr(ejson root, constr key, constr str)
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
-                        if(!_edict(root)) is0_exeret(_edictInit(root)  , errset(_ERRSTR_ALLOC(dict))   ;                         , 0);
-                        is0_exeret(_edictGetL(root, key, len, &l)      , errfmt(_ERRSTR_KEYINPRM(key)) ;                         , 0);
-                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(STR obj));                         , 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);           , 0);
-                        is0_exeret(nv  = _newS1(str)                   , errset(_ERRSTR_ALLOC(str))    ;_freeObj(obj);_freeS(nk);, 0);
+                        is0_exeret(_edictGetL(root, key, len, &l)    , errfmt(_ERRSTR_KEYINPRM(key)) ;                         , 0);
+                        is0_exeret(obj = _newStr()                   , errset(_ERRSTR_ALLOC(STR obj));                         , 0);
+                        is0_exeret(nk  = _newS2(key, len)            , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);           , 0);
+                        is0_exeret(nv  = _newS1(str)                 , errset(_ERRSTR_ALLOC(str))    ;_freeObj(obj);_freeS(nk);, 0);
                         _edictLink(root, obj, &l); _setSTR(obj); _keyS(obj) = nk; _valS(obj) = nv;
                         break;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root)  , errset(_ERRSTR_ALLOC(list))   ;              , 0);
-                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(STR obj));              , 0);
-                        is0_exeret(nv  = _newS1(str)                   , errset(_ERRSTR_ALLOC(str))    ;_freeObj(obj);, 0);
+        case EJSON_ARR: is0_exeret(obj = _newStr()                   , errset(_ERRSTR_ALLOC(STR obj));              , 0);
+                        is0_exeret(nv  = _newS1(str)                 , errset(_ERRSTR_ALLOC(str))    ;_freeObj(obj);, 0);
                         _elistAdd(root, obj); _setSTR(obj); _valS(obj) = nv;
                         break;
         default       : errset(_ERRSTR_TYPEDF); return 0;
@@ -947,15 +934,13 @@ static inline ejson __ejso_addNum(ejson root, constr key, double val)
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
-                        if(!_edict(root)) is0_exeret(_edictInit(root)  , errset(_ERRSTR_ALLOC(dict))   ;              , 0);
-                        is0_exeret(_edictGetL(root, key, len, &l)      , errfmt(_ERRSTR_KEYINPRM(key)) ;              , 0);
-                        is0_exeret(obj = _newNum()                     , errset(_ERRSTR_ALLOC(NUM obj));              , 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);, 0);
-                        _edictLink(root, obj, &l); _setNUM(obj); _keyS(obj) = nk; _valI(obj) = (s64)(_valF(obj) = val);
+                        is0_exeret(_edictGetL(root, key, len, &l)    , errfmt(_ERRSTR_KEYINPRM(key)) ;              , 0);
+                        is0_exeret(obj = _newNum()                   , errset(_ERRSTR_ALLOC(NUM obj));              , 0);
+                        is0_exeret(nk  = _newS2(key, len)            , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);, 0);
+                        _edictLink(root, obj, &l); _setNUM(obj); _keyS(obj) = nk; _valI(obj) = (i64)(_valF(obj) = val);
                         break;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root)  , errset(_ERRSTR_ALLOC(list));   , 0);
-                        is0_exeret(obj = _newNum()                     , errset(_ERRSTR_ALLOC(NUM obj));, 0);
-                        _elistAdd(root, obj); _setNUM(obj); _valI(obj) = (s64)(_valF(obj) = val);
+        case EJSON_ARR: is0_exeret(obj = _newNum()                   , errset(_ERRSTR_ALLOC(NUM obj));, 0);
+                        _elistAdd(root, obj); _setNUM(obj); _valI(obj) = (i64)(_valF(obj) = val);
                         break;
         default       : errset(_ERRSTR_TYPEDF); return 0;
     }
@@ -969,14 +954,12 @@ static inline ejson __ejso_addPtr(ejson root, constr key, void*  ptr)
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
-                        if(!_edict(root)) is0_exeret(_edictInit(root)  , errset(_ERRSTR_ALLOC(dict))   ;              , 0);
-                        is0_exeret(_edictGetL(root, key, len, &l)      , errfmt(_ERRSTR_KEYINPRM(key)) ;              , 0);
-                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(PTR obj));              , 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);, 0);
+                        is0_exeret(_edictGetL(root, key, len, &l)    , errfmt(_ERRSTR_KEYINPRM(key)) ;              , 0);
+                        is0_exeret(obj = _newStr()                   , errset(_ERRSTR_ALLOC(PTR obj));              , 0);
+                        is0_exeret(nk  = _newS2(key, len)            , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);, 0);
                         _edictLink(root, obj, &l); _setPTR(obj); _keyS(obj) = nk; _valP(obj) = ptr;
                         break;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root)  , errset(_ERRSTR_ALLOC(list));   , 0);
-                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(PTR obj));, 0);
+        case EJSON_ARR: is0_exeret(obj = _newStr()                   , errset(_ERRSTR_ALLOC(PTR obj));, 0);
                         _elistAdd(root, obj); _setPTR(obj); _valP(obj) = ptr;
                         break;
         default       : errset(_ERRSTR_TYPEDF); return 0;
@@ -991,16 +974,14 @@ static inline ejson __ejso_addRaw(ejson root, constr key, int _len)
 
     switch (_TYPE(root)) {
         case EJSON_OBJ: _checkInvldS(key); len = strlen(key);
-                        if(!_edict(root)) is0_exeret(_edictInit(root)  , errset(_ERRSTR_ALLOC(dict))   ;                         , 0);
-                        is0_exeret(_edictGetL(root, key, len, &l)      , errfmt(_ERRSTR_KEYINPRM(key)) ;                         , 0);
-                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(RAW obj));                         , 0);
-                        is0_exeret(nk  = _newS2(key, len)              , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);           , 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset(_ERRSTR_ALLOC(raw))    ;_freeObj(obj);_freeS(nk);, 0);
+                        is0_exeret(_edictGetL(root, key, len, &l)    , errfmt(_ERRSTR_KEYINPRM(key)) ;                         , 0);
+                        is0_exeret(obj = _newStr()                   , errset(_ERRSTR_ALLOC(RAW obj));                         , 0);
+                        is0_exeret(nk  = _newS2(key, len)            , errset(_ERRSTR_ALLOC(key))    ;_freeObj(obj);           , 0);
+                        is0_exeret(nv  = _newS2(0,  _len)            , errset(_ERRSTR_ALLOC(raw))    ;_freeObj(obj);_freeS(nk);, 0);
                         _edictLink(root, obj, &l); _setRAW(obj); _keyS(obj) = nk;
                         return _valR(obj) = nv;
-        case EJSON_ARR: if(!_elist(root)) is0_exeret(_elistInit(root)  , errset(_ERRSTR_ALLOC(list))   ;              , 0);
-                        is0_exeret(obj = _newStr()                     , errset(_ERRSTR_ALLOC(RAW obj));              , 0);
-                        is0_exeret(nv  = _newS2(0,  _len)              , errset(_ERRSTR_ALLOC(raw))    ;_freeObj(obj);, 0);
+        case EJSON_ARR: is0_exeret(obj = _newStr()                   , errset(_ERRSTR_ALLOC(RAW obj));              , 0);
+                        is0_exeret(nv  = _newS2(0,  _len)            , errset(_ERRSTR_ALLOC(raw))    ;_freeObj(obj);, 0);
                         _elistAdd(root, obj); _setRAW(obj);
                         return _valR(obj) = nv;
         default       : errset(_ERRSTR_TYPEDF); return 0;
@@ -1043,14 +1024,15 @@ void   ejso_free(ejson obj)
         switch (_TYPE(obj)) {
             case EJSON_RAW: _freeS(_valR(obj)); break;
             case EJSON_STR: _freeS(_valS(obj)); break;
-            case EJSON_ARR: if(_objTail(obj)) {_objNext(_objTail(obj)) = _objNext(obj);_objNext(obj)= _objHead(obj);} _elistFree(obj);break;
             case EJSON_OBJ: if(_objTail(obj)) {_objNext(_objTail(obj)) = _objNext(obj);_objNext(obj)= _objHead(obj);} _edictFree(obj);break;
+            case EJSON_ARR: if(_objTail(obj)) {_objNext(_objTail(obj)) = _objNext(obj);_objNext(obj)= _objHead(obj);} _elistFree(obj);break;
+            default       : break;
         }
         if(_keyS(obj)) _freeS(_keyS(obj));
-        obj = _objNext(itr = obj);
-        _freeObj(itr);
+        itr = _objNext(obj);
+        _freeObj(obj);
+        obj = itr;
     }while(obj);
-
 }
 
 inline void ejsk_free (ejson root, constr keys) { is0_ret(_isParent(root), ); is1_ret(_invalidS(keys), ); ejso_free(_rmObjByKeys(root, keys)); }
@@ -1067,6 +1049,7 @@ ejson   ejso_rmO(ejson root, ejson obj)
     switch (_TYPE(root)) {
         case EJSON_OBJ: return _keyS(obj) ? _edictRmO(root, obj) : 0;
         case EJSON_ARR: return _elistRmO(root, obj);
+        default       : return 0;
     }
     return 0;
 }
@@ -1084,6 +1067,7 @@ ejson  ejso_pop(ejson root )
     switch (_TYPE(root)) {
         case EJSON_OBJ: return _edictPop(root);
         case EJSON_ARR: return _elistPop(root);
+        default       : return 0;
     }
 
     return 0;
@@ -1098,6 +1082,7 @@ ejson  ejso_popT(ejson root )
     switch (_TYPE(root)) {
         case EJSON_OBJ: return _edictPopT(root);
         case EJSON_ARR: return _elistPopT(root);
+        default       : return 0;
     }
 
     return 0;
@@ -1112,11 +1097,11 @@ ejson  ejso_clear(ejson root)
     is0_ret(root, 0);
 
     switch (_TYPE(root)) {
-        case EJSON_ARR: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _edictFree(root);break;
-        case EJSON_OBJ: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _elistFree(root);break;
+        case EJSON_OBJ: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _edictClear(root);break;
+        case EJSON_ARR: if((head = _objHead(root))){_isChild(head) = 0; ejso_free(head);} _elistClear(root);break;
         default       : return 0;
     }
-    _edict(root)   = 0;
+
     _objLen(root)  = 0;
     _objHead(root) = _objTail(root) = 0;
 
@@ -1125,138 +1110,51 @@ ejson  ejso_clear(ejson root)
 ejson  ejsk_clear(ejson root, constr keys) { _checkParent(root); _checkInvldS(keys); return ejso_clear(_getObjByKeys(root, keys)); }
 ejson  ejsr_clear(ejson root, constr rawk) { _checkOBJ(root)   ; _checkInvldS(rawk); return ejso_clear(_getObjByRawk(root, rawk)); }
 
-typedef struct ejsw_s{
-    uint cap;
-    uint len;
-    cstr s;
-}ejsw_t;
-
-#define DF_WBUF_LEN 8
-
-ejsw   ejsw_new(uint len)
+static inline cstr __ejso_toStr(ejson obj, cstr s, int pretty)
 {
-    ejsw w;
+    ejsw_t w;
 
-    if(len < 8)    len = DF_WBUF_LEN;
-    if(len > 1024) len = 1024;
+    if(!s || s == _NIL_)
+    {
+        is0_ret(s = _snewm(DF_WBUF_LEN), 0);
+        s         = _hdr2s(s);
+        _capS(s)  = DF_WBUF_LEN;
+    }
 
-#if COMPAT_ESTR
-
-    is0_ret(w = calloc(1, sizeof(ejsw_t)), 0);
-    is0_exeret(w->s = _snewm(len), free(w), 0);
-
-    w->cap = len;
-    w->s   = _hdr2s(w->s);
-
-#else
-    is0_ret(w = calloc(1, sizeof(ejsw_t)), 0);
-    is0_exeret(w->s = (char*)malloc(OBJ_size + len), free(w), 0);
-
-    w->cap = len;
-    w->s  += OBJ_size;
-#endif
-    return w;
-}
-
-cstr ejso_toFStr(ejson obj)
-{
-    cstr s;   ejsw_t w;
-
-#if COMPAT_ESTR
-    is0_ret(obj, _NIL_);
-    is0_ret(w.s = _snewm(DF_WBUF_LEN), 0);
-
-    w.cap = DF_WBUF_LEN;
+    w.cap = _scap(s);
     w.len = 0;
-    w.s   = _hdr2s(w.s);
-#else
-    is0_ret(obj, _NIL_);
-    is0_ret(w.s = (char*)malloc(OBJ_size + DF_WBUF_LEN), 0);
+    w.s   = s;
+    s[0]  = 0;
 
-    w.cap = DF_WBUF_LEN;
-    w.len = 0;
-    w.s  += OBJ_size;
-#endif
+    if(wrap_obj(obj, 0, pretty, &w)){_capS(w.s) = w.cap;_lenS(w.s) = w.len;}
+    else                            {_capS(w.s) = w.cap;_lenS(w.s) = 0    ; w.s[0] = 0;}
 
-    if((s = wrap_obj(obj, 0, 1, &w))) {_capS(s) = w.cap; _lenS(s) = w.len;}
-
-    return s;
+    return w.s;
 }
 
-cstr ejso_toUStr(ejson obj)
+cstr ejso_toFStr(ejson obj, cstr s)
 {
-    cstr s;   ejsw_t w;
+    is0_exeret(obj, is1_exeret(s && s != _NIL_, s[0] = 0;_lenS(s) = 0;, s);, _NIL_);
 
-#if COMPAT_ESTR
-
-    is0_ret(obj, _NIL_);
-    is0_ret(w.s = _snewm(DF_WBUF_LEN), 0);
-
-    w.cap = DF_WBUF_LEN;
-    w.len = 0;
-    w.s   = _hdr2s(w.s);
-
-#else
-
-    is0_ret(obj, _NIL_);
-    is0_ret(w.s = (char*)malloc(OBJ_size + DF_WBUF_LEN), 0);
-
-    if(!obj)    return _NIL_;
-
-    w.cap  = DF_WBUF_LEN;
-    w.len  = 0;
-    w.s   += OBJ_size;
-
-#endif
-    if((s = wrap_obj(obj, 0, 0, &w))) {_capS(s) = w.cap; _lenS(s) = w.len;}
-
-    return s;
+    return __ejso_toStr(obj, s, 1);
 }
 
-inline cstr ejsk_toFStr(ejson root, constr keys){   return ejso_toFStr(ejsk(root, keys));}
-inline cstr ejsk_toUStr(ejson root, constr keys){   return ejso_toUStr(ejsk(root, keys));}
-inline cstr ejsr_toFStr(ejson root, constr rawk){   return ejso_toFStr(ejsr(root, rawk));}
-inline cstr ejsr_toUStr(ejson root, constr rawk){   return ejso_toUStr(ejsr(root, rawk));}
-
-cstr   ejso_toFWra(ejson obj, ejsw w)
+cstr ejso_toUStr(ejson obj, cstr s)
 {
-    cstr s;
+    is0_exeret(obj, is1_exeret(s && s != _NIL_, s[0] = 0;_lenS(s) = 0;, s);, _NIL_);
 
-    is0_ret(w, 0); is0_ret(obj, _NIL_);
-
-    w->len = 0;
-    if((s = wrap_obj(obj, 0, 1, w))) {_capS(s) = w->cap; _lenS(s) = w->len;}
-    else w->len = 0;
-
-    return s;
+    return __ejso_toStr(obj, s, 0);
 }
 
-cstr   ejso_toUWra(ejson obj, ejsw w)
-{
-    cstr s;
-
-    is0_ret(w, 0); is0_ret(obj, _NIL_);
-
-    w->len = 0;
-    if((s = wrap_obj(obj, 0, 0, w))) {_capS(s) = w->cap; _lenS(s) = w->len;}
-    else w->len = 0;
-
-    return s;
-}
-
-cstr   ejsk_toFWra(ejson root, constr keys, ejsw w) { return ejso_toFWra(ejsk(root, keys), w); }
-cstr   ejsk_toUWra(ejson root, constr keys, ejsw w) { return ejso_toUWra(ejsk(root, keys), w); }
-cstr   ejsr_toFWra(ejson root, constr rawk, ejsw w) { return ejso_toFWra(ejsr(root, rawk), w); }
-cstr   ejsr_toUWra(ejson root, constr rawk, ejsw w) { return ejso_toUWra(ejsr(root, rawk), w); }
+inline cstr ejsk_toFStr(ejson root, constr keys, cstr s){   return ejso_toFStr(ejsk(root, keys), s);}
+inline cstr ejsk_toUStr(ejson root, constr keys, cstr s){   return ejso_toUStr(ejsk(root, keys), s);}
+inline cstr ejsr_toFStr(ejson root, constr rawk, cstr s){   return ejso_toFStr(ejsr(root, rawk), s);}
+inline cstr ejsr_toUStr(ejson root, constr rawk, cstr s){   return ejso_toUStr(ejsr(root, rawk), s);}
 
 inline void ejss_show  (constr s) {if(!s) puts("(s:nil)"); else printf("(s:%d/%d):%s\n", _lenS(s), _capS(s), s   ); fflush(stdout);}
-inline void ejsw_show  (ejsw   w) {if(!w) puts("(w:nil)"); else printf("(w:%d/%d):%s\n", w->len  , w->cap  , w->s); fflush(stdout);}
-
 inline uint ejss_len   (constr s) { return s ? _lenS(s) : 0;}
 inline void ejss_free  (cstr   s) { if(s && s != _NIL_) _freeS(s);}
-inline cstr ejsw_valS  (ejsw   w) { return w ? w->s   : 0; }
-inline uint ejsw_len   (ejsw   w) { return w ? w->len : 0; }
-inline void ejsw_free  (ejsw   w) { if(w){_freeS(w->s);free(w);} }
+
 
 static inline cstr split(cstr key, char c) {
     cstr p = strchr(key, c);
@@ -1271,7 +1169,7 @@ static inline cstr splitdot(cstr key) {
 // assume that the obj and keys_ is valid, please check before calling
 static inline ejson _objByKeys(ejson obj, constr keys_, int rm, int raw)
 {
-    char  keys[MAX_KEY_LEN]; cstr fk, sk, last_fk = 0;    // first key, second key, last first key
+    char  keys[MAX_KEY_LEN]; cstr fk, sk, last_fk;    // first key, second key, last first key
     ejson root;
     cstr  _idx; uint idx;
 
@@ -1307,6 +1205,7 @@ static inline ejson _objByKeys(ejson obj, constr keys_, int rm, int raw)
                            case EJSON_NUM  :  errfmt("%s is [NUMBER] obj", keys); break;
                            case EJSON_STR  :  errfmt("%s is [STRING] obj", keys); break;
                            case EJSON_OBJ  :  errfmt("%s is [OBJ] obj",    keys); break;
+                           default         :  errfmt("%s is [unknown] obj",keys); break;
                        }, NULL);
 
             *(_idx - 1) = '[';          // restore
@@ -1324,9 +1223,9 @@ static inline ejson _objByKeys(ejson obj, constr keys_, int rm, int raw)
 
         // -- found and return it
         is0_exeret(sk, is1_exeret(rm, switch (_TYPE(root)) {
-                                      //case EJSON_ARR: _arrRmI(root, idx); break;
                                       case EJSON_ARR: _elistRmO(root, obj); break;
-                                      case EJSON_OBJ: _edictRmO(root, obj); break;}, obj), obj);
+                                      case EJSON_OBJ: _edictRmO(root, obj); break;
+                                      default       : return 0;                   }, obj), obj);
         last_fk = fk;
         fk = sk;
         sk = splitdot(fk);
@@ -1340,6 +1239,7 @@ static inline ejson _objByKeys(ejson obj, constr keys_, int rm, int raw)
         case EJSON_NUM  :  errfmt("%s is [NUMBER] obj", keys); break;
         case EJSON_STR  :  errfmt("%s is [STRING] obj", keys); break;
         case EJSON_ARR  :  errfmt("%s is [ARRAY] obj",  keys); break;
+        default         :  errfmt("%s is [unknown] obj",keys); break;
     }
 
     return 0;
@@ -1348,66 +1248,68 @@ static inline ejson _objByKeys(ejson obj, constr keys_, int rm, int raw)
 /// -- ejson get --
 
 inline constr ejso_keyS (ejson obj){   return obj ? _keyS(obj) : _NIL_;  }
-inline type   ejso_type (ejson obj){   return obj ? _TYPE(obj) : -1   ;  }
+inline uint   ejso_type (ejson obj){   return obj ? _TYPE(obj) : -1   ;  }
 inline constr ejso_typeS(ejson obj)
 {
-    static _inner_ t_false = {{0,0,1,0,0, 5}, "false" };
-    static _inner_ t_true  = {{0,0,1,0,0, 4}, "true"  };
-    static _inner_ t_null  = {{0,0,1,0,0, 4}, "null"  };
-    static _inner_ t_num   = {{0,0,1,0,0, 6}, "number"};
-    static _inner_ t_str   = {{0,0,1,0,0, 6}, "string"};
-    static _inner_ t_arr   = {{0,0,1,0,0, 5}, "array" };
-    static _inner_ t_obj   = {{0,0,1,0,0, 3}, "obj"   };
+    static _inner_ t_false = {5, 5, SDS_STACK_MASK, "false" };
+    static _inner_ t_true  = {4, 4, SDS_STACK_MASK, "true"  };
+    static _inner_ t_null  = {4, 4, SDS_STACK_MASK, "null"  };
+    static _inner_ t_num   = {6, 6, SDS_STACK_MASK, "number"};
+    static _inner_ t_str   = {6, 6, SDS_STACK_MASK, "string"};
+    static _inner_ t_arr   = {5, 5, SDS_STACK_MASK, "array" };
+    static _inner_ t_obj   = {3, 3, SDS_STACK_MASK, "obj"   };
+    static _inner_ t_unkown= {6, 6, SDS_STACK_MASK, "unkown"};
 
     is0_ret(obj, _NIL_);
 
     switch (_TYPE(obj)) {
-        case EJSON_FALSE:  return t_false.v;
-        case EJSON_TRUE :  return t_true.v ;
-        case EJSON_NULL :  return t_null.v ;
-        case EJSON_NUM  :  return t_num.v  ;
-        case EJSON_STR  :  return t_str.v  ;
-        case EJSON_ARR  :  return t_arr.v  ;
-        case EJSON_OBJ  :  return t_obj.v  ;
+        case EJSON_FALSE:  return t_false.s ;
+        case EJSON_TRUE :  return t_true.s  ;
+        case EJSON_NULL :  return t_null.s  ;
+        case EJSON_NUM  :  return t_num.s   ;
+        case EJSON_STR  :  return t_str.s   ;
+        case EJSON_ARR  :  return t_arr.s   ;
+        case EJSON_OBJ  :  return t_obj.s   ;
+        default         :  return t_unkown.s;
     }
     return 0;
 }
 inline int    ejso_is(ejson obj , int type) { return obj ? _TYPE(obj) == type : 0; }
 
 inline ejson  ejsk      (ejson root, constr keys)          { _checkParent(root);_checkInvldS(keys);return _getObjByKeys(root, keys);}
-inline type   ejsk_type (ejson root, constr keys)          { _checkParent(root);_checkInvldS(keys);return (root = _getObjByKeys(root, keys)) ? _TYPE(root)        : -1;}
+inline uint   ejsk_type (ejson root, constr keys)          { _checkParent(root);_checkInvldS(keys);return (root = _getObjByKeys(root, keys)) ? _TYPE(root)        : -1;}
 inline constr ejsk_typeS(ejson root, constr keys)          { _checkParent(root);_checkInvldS(keys);return ejso_typeS(_getObjByKeys(root, keys));}
 inline int    ejsk_is   (ejson root, constr keys, int type){ _checkParent(root);_checkInvldS(keys);return (root = _getObjByKeys(root, keys)) ? _TYPE(root) == type : 0;}
 
 inline ejson  ejsr      (ejson root, constr rawk)          { _checkOBJ(root)   ;_checkInvldS(rawk);return _getObjByRawk(root, rawk);}
-inline type   ejsr_type (ejson root, constr rawk)          { _checkOBJ(root)   ;_checkInvldS(rawk);return (root = _getObjByRawk(root, rawk)) ? _TYPE(root)        : -1;}
+inline uint   ejsr_type (ejson root, constr rawk)          { _checkOBJ(root)   ;_checkInvldS(rawk);return (root = _getObjByRawk(root, rawk)) ? _TYPE(root)        : -1;}
 inline constr ejsr_typeS(ejson root, constr rawk)          { _checkOBJ(root)   ;_checkInvldS(rawk);return ejso_typeS(_getObjByRawk(root, rawk));                       }
 inline int    ejsr_is   (ejson root, constr rawk, int type){ _checkOBJ(root)   ;_checkInvldS(rawk);return (root = _getObjByRawk(root, rawk)) ? _TYPE(root) == type : 0;}
 
 /// -- ejson value --
-inline int    ejso_valB(ejson obj) {if(obj){switch(_TYPE(obj)) {case EJSON_TRUE: return 1; case EJSON_STR : return _lenS(_valS(obj)) ? 1 : 0; case EJSON_NUM : return _valI(obj) ? 1 : 0;}}return 0;}
-inline s64    ejso_valI(ejson obj) {return _isNUM(obj) ? _valI(obj) : 0 ;}
+inline int    ejso_valB(ejson obj) {if(obj){switch(_TYPE(obj)) {case EJSON_TRUE: return 1; case EJSON_STR : return _lenS(_valS(obj)) ? 1 : 0; case EJSON_NUM : return _valI(obj) ? 1 : 0; default: return 0;}}return 0;}
+inline i64    ejso_valI(ejson obj) {return _isNUM(obj) ? _valI(obj) : 0 ;}
 inline double ejso_valF(ejson obj) {return _isNUM(obj) ? _valF(obj) : 0 ;}
 inline constr ejso_valS(ejson obj) {return _isSTR(obj) ? _valS(obj) : 0 ;}
 inline void*  ejso_valP(ejson obj) {return _isPTR(obj) ? _valP(obj) : 0 ;}
 inline void*  ejso_valR(ejson obj) {return _isRAW(obj) ? _valR(obj) : 0 ;}
 
-inline int    ejsk_valB(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){switch(_TYPE(root)){case EJSON_TRUE: return 1; case EJSON_STR : return _lenS(_valS(root)) ? 1 : 0; case EJSON_NUM : return _valI(root) ? 1 : 0;}}return 0;}
-inline s64    ejsk_valI(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){return _TYPE(root) == EJSON_NUM ? _valI(root) : 0;}return 0;}
+inline int    ejsk_valB(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){switch(_TYPE(root)){case EJSON_TRUE: return 1; case EJSON_STR : return _lenS(_valS(root)) ? 1 : 0; case EJSON_NUM : return _valI(root) ? 1 : 0; default: return 0;}}return 0;}
+inline i64    ejsk_valI(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){return _TYPE(root) == EJSON_NUM ? _valI(root) : 0;}return 0;}
 inline double ejsk_valF(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){return _TYPE(root) == EJSON_NUM ? _valF(root) : 0;}return 0;}
 inline constr ejsk_valS(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){return _TYPE(root) == EJSON_STR ? _valS(root) : 0;}return 0;}
 inline void*  ejsk_valP(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){return _TYPE(root) == EJSON_PTR ? _valP(root) : 0;}return 0;}
 inline void*  ejsk_valR(ejson root, constr keys){_checkParent(root);_checkInvldS(keys);if((root = _getObjByKeys(root, keys))){return _TYPE(root) == EJSON_RAW ? _valR(root) : 0;}return 0;}
 
-inline int    ejsr_valB(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){switch(_TYPE(root)){case EJSON_TRUE: return 1; case EJSON_STR : return _lenS(_valS(root)) ? 1 : 0; case EJSON_NUM : return _valI(root) ? 1 : 0;}}return 0;}
-inline s64    ejsr_valI(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){return _TYPE(root) == EJSON_NUM ? _valI(root) : 0;}return 0;}
+inline int    ejsr_valB(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){switch(_TYPE(root)){case EJSON_TRUE: return 1; case EJSON_STR : return _lenS(_valS(root)) ? 1 : 0; case EJSON_NUM : return _valI(root) ? 1 : 0; default: return 0;}}return 0;}
+inline i64    ejsr_valI(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){return _TYPE(root) == EJSON_NUM ? _valI(root) : 0;}return 0;}
 inline double ejsr_valF(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){return _TYPE(root) == EJSON_NUM ? _valF(root) : 0;}return 0;}
 inline constr ejsr_valS(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){return _TYPE(root) == EJSON_STR ? _valS(root) : 0;}return 0;}
 inline void*  ejsr_valP(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){return _TYPE(root) == EJSON_PTR ? _valP(root) : 0;}return 0;}
 inline void*  ejsr_valR(ejson root, constr rawk){_checkOBJ(root)   ;_checkInvldS(rawk);if((root = _getObjByRawk(root, rawk))){return _TYPE(root) == EJSON_RAW ? _valR(root) : 0;}return 0;}
 
 /// -- ejson len --
-inline uint   ejso_len (ejson obj){ return _isParent(obj) ? _objLen(obj)           : 0;}
+inline uint   ejso_len (ejson obj){ return _isParent(obj) ? _objLen(obj)      : 0;}
 inline uint   ejso_lenS(ejson obj){ return _isSTR(obj)    ? _lenS(_valS(obj)) : 0;}
 inline uint   ejso_lenR(ejson obj){ return _isRAW(obj)    ? _lenS(_valR(obj)) : 0;}
 
@@ -1425,11 +1327,11 @@ inline ejson  ejso_last (ejson obj){   return _isParent(obj) ? _objTail(obj) : 0
 inline ejson  ejso_next (ejson obj){   return obj ? _objNext(obj) : 0;  }
 inline ejson  ejso_prev (ejson obj){   return obj ? _objPrev(obj) : 0;  }
 
-inline ejson  ejsk_first(ejson obj, constr keys){ is1_elsret(obj = ejsk(obj, keys), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objHead(obj);}, 0); return 0;}
-inline ejson  ejsk_last (ejson obj, constr keys){ is1_elsret(obj = ejsk(obj, keys), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objTail(obj);}, 0); return 0;}
+inline ejson  ejsk_first(ejson obj, constr keys){ is1_elsret(obj = ejsk(obj, keys), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objHead(obj); default: return 0;}, 0); return 0;}
+inline ejson  ejsk_last (ejson obj, constr keys){ is1_elsret(obj = ejsk(obj, keys), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objTail(obj); default: return 0;}, 0); return 0;}
 
-inline ejson  ejsr_first(ejson obj, constr rawk){ is1_elsret(obj = ejsr(obj, rawk), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objHead(obj);}, 0); return 0;}
-inline ejson  ejsr_last (ejson obj, constr rawk){ is1_elsret(obj = ejsr(obj, rawk), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objTail(obj);}, 0); return 0;}
+inline ejson  ejsr_first(ejson obj, constr rawk){ is1_elsret(obj = ejsr(obj, rawk), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objHead(obj); default: return 0;}, 0); return 0;}
+inline ejson  ejsr_last (ejson obj, constr rawk){ is1_elsret(obj = ejsr(obj, rawk), switch(_TYPE(obj)){case EJSON_ARR: case EJSON_OBJ: return _objTail(obj); default: return 0;}, 0); return 0;}
 
 /// -- ejson compare --
 inline int ejso_cmpi(ejson obj, int    val){ return obj ? _TYPE(obj) == EJSON_NUM ? _valI(obj) < val ? -1 : _valI(obj) > val ? 1 : 0 : -3 : -2;}
@@ -1448,7 +1350,7 @@ ejson ejso_setk(ejson obj, constr key)
     is1_ret(_isChild(obj), 0); _checkInvldS(key);
 
     hk  = _keyS(obj);
-    is0_exeret(nk = _wrbS(hk, key, strlen(key)), errset("ejso_setk err: alloc for new key failed"), 0);
+    is0_exeret(nk = _wrbS(hk, key, strlen(key)), errset(_ERRSTR_ALLOC(key));, 0);
     if(nk != hk)  _keyS(obj) = nk;
 
     return obj;
@@ -1469,7 +1371,7 @@ ejson ejso_setF(ejson obj, double val)
 {
     is0_ret(obj, 0); is1_ret(_TYPE(obj) != EJSON_NUM, 0);
 
-    _valI(obj) = (s64)(_valF(obj) = val);
+    _valI(obj) = (i64)(_valF(obj) = val);
 
     return obj;
 }
@@ -1481,7 +1383,7 @@ ejson ejso_setS(ejson obj, constr val)
     is0_ret(obj, 0); is0_ret(val, 0); is1_ret(_TYPE(obj) != EJSON_STR, 0);
 
     hv  = _valS(obj);
-    is0_exeret(nv = _wrbS(hv, val, strlen(val)), errset("ejso_setS err: alloc for new val failed"), 0);
+    is0_exeret(nv = _wrbS(hv, val, strlen(val)), errset(_ERRSTR_ALLOC(str));, 0);
     if(nv != hv) _valS(obj) = nv;
 
     return obj;
@@ -1495,12 +1397,13 @@ void* ejso_setR(ejson obj, uint   len)
 
     switch (_TYPE(obj)) {
         case EJSON_RAW: hr = _valR(obj);
-                        is0_exeret(nr = _relS(hr, len), errset("ejso_setR err: alloc for new raw failed"), 0);
+                        is0_exeret(nr = _relS(hr, len), errset(_ERRSTR_ALLOC(raw));, 0);
                         if(nr != hr) _valR(obj) = nr;
                         return nr;
-        case EJSON_PTR: is0_exeret(nr = _newS2(0, len), errset("ejso_setR err: alloc for new failed"), 0);
+        case EJSON_PTR: is0_exeret(nr = _newS2(0, len), errset(_ERRSTR_ALLOC(raw));, 0);
                         _valR(obj) = nr; _setRAW(obj);
                         return nr;
+        default       : return 0;
     }
 
     return 0;
@@ -1537,7 +1440,7 @@ ejson ejsk_setF(ejson root, constr keys, double val)
 
     is1_ret(_TYPE(root) != EJSON_NUM, 0);
 
-    _valI(root) = (s64)(_valF(root) = val);
+    _valI(root) = (i64)(_valF(root) = val);
 
     return root;
 }
@@ -1551,7 +1454,7 @@ ejson ejsk_setS(ejson root, constr keys, constr val)
     is1_ret(_TYPE(root) != EJSON_STR, 0);
 
     hv  = _valS(root);
-    is0_exeret(nv = _wrbS(hv, val, strlen(val)), errset("ejsk_setS err: alloc for val failed"), 0);
+    is0_exeret(nv = _wrbS(hv, val, strlen(val)), errset(_ERRSTR_ALLOC(str));, 0);
     if(nv != hv) _valS(root) = nv;
 
     return root;
@@ -1566,12 +1469,13 @@ void* ejsk_setR(ejson root, constr keys, uint   len)
 
     switch (_TYPE(root)) {
         case EJSON_RAW: hr = _valR(root);
-                        is0_exeret(nr = _relS(hr, len), errset("ejsk_setR err: alloc for new raw failed"), 0);
+                        is0_exeret(nr = _relS(hr, len), errset(_ERRSTR_ALLOC(raw));, 0);
                         if(nr != hr) _valR(root) = nr;
                         return nr;
-        case EJSON_PTR: is0_exeret(nr = _newS2(0, len), errset("ejsk_setR err: alloc for new failed"), 0);
+        case EJSON_PTR: is0_exeret(nr = _newS2(0, len), errset(_ERRSTR_ALLOC(raw));, 0);
                         _valR(root) = nr; _setRAW(root);
                         return nr;
+        default       : return 0;
     }
 
     return 0;
@@ -1609,7 +1513,7 @@ ejson ejsr_setF(ejson root, constr rawk, double val)
 
     is1_ret(_TYPE(root) != EJSON_NUM, 0);
 
-    _valI(root) = (s64)(_valF(root) = val);
+    _valI(root) = (i64)(_valF(root) = val);
 
     return root;
 }
@@ -1623,7 +1527,7 @@ ejson ejsr_setS(ejson root, constr rawk, constr val)
     is1_ret(_TYPE(root) != EJSON_STR, 0);
 
     hv  = _valS(root);
-    is0_exeret(nv = _wrbS(hv, val, strlen(val)), errset("ejsk_setS err: alloc for val failed"), 0);
+    is0_exeret(nv = _wrbS(hv, val, strlen(val)), errset(_ERRSTR_ALLOC(str));, 0);
     if(nv != hv) _valS(root) = nv;
 
     return root;
@@ -1638,12 +1542,13 @@ void* ejsr_setR(ejson root, constr rawk, uint   len)
 
     switch (_TYPE(root)) {
         case EJSON_RAW: hr = _valR(root);
-                        is0_exeret(nr = _relS(hr, len), errset("ejsr_setR err: alloc for new raw failed"), 0);
+                        is0_exeret(nr = _relS(hr, len), errset(_ERRSTR_ALLOC(raw));, 0);
                         if(nr != hr) _valR(root) = nr;
                         return nr;
-        case EJSON_PTR: is0_exeret(nr = _newS2(0, len), errset("ejsr_setR err: alloc for new failed"), 0);
+        case EJSON_PTR: is0_exeret(nr = _newS2(0, len), errset(_ERRSTR_ALLOC(raw));, 0);
                         _valR(root) = nr; _setRAW(root);
                         return nr;
+        default       : return 0;
     }
 
     return 0;
@@ -1671,7 +1576,7 @@ ejson ejso_subk(ejson obj , constr subS, constr newS)
 
     is1_ret(_isChild(obj), 0); is0_ret((hk = _keyS(obj)), obj); is1_ret(_invalidS(subS), obj); is0_ret(newS, obj);
 
-    is0_exeret(nk = _subS(hk, subS, newS), errset("ejso_subk err: alloc for new key failed"), 0);
+    is0_exeret(nk = _subS(hk, subS, newS), errset(_ERRSTR_ALLOC(key));, 0);
     if(nk != hk) _keyS(obj) = nk;
 
     return obj;
@@ -1684,7 +1589,7 @@ ejson ejso_subS(ejson obj , constr subS, constr newS)
     is0_ret(_isSTR(obj), 0); is1_ret(_invalidS(subS), obj); is0_ret(newS, obj);
 
     hs = _valS(obj);
-    is0_exeret(ns = _subS(hs, subS, newS), errset("ejso_subS err: alloc for new str failed"), 0);
+    is0_exeret(ns = _subS(hs, subS, newS), errset(_ERRSTR_ALLOC(str));, 0);
     if(ns != hs) _valS(obj) = ns;
 
     return obj;
@@ -1700,7 +1605,7 @@ ejson ejsk_subS(ejson root, constr keys, constr subS, constr newS)
     is0_ret(_isSTR(root), 0); is1_ret(_invalidS(subS), root); is0_ret(newS, root);
 
     hs = _valS(root);
-    is0_exeret(ns = _subS(hs, subS, newS), errset("ejsk_subS err: alloc for new str failed"), 0);
+    is0_exeret(ns = _subS(hs, subS, newS), errset(_ERRSTR_ALLOC(str));, 0);
     if(ns != hs) _valS(root) = ns;
 
     return root;
@@ -1716,7 +1621,7 @@ ejson ejsr_subS(ejson root, constr rawk, constr subS, constr newS)
     is0_ret(_isSTR(root), 0); is1_ret(_invalidS(subS), root); is0_ret(newS, root);
 
     hs = _valS(root);
-    is0_exeret(ns = _subS(hs, subS, newS), errset("ejsr_subS err: alloc for new str failed"), 0);
+    is0_exeret(ns = _subS(hs, subS, newS), errset(_ERRSTR_ALLOC(str));, 0);
     if(ns != hs) _valS(root) = ns;
 
     return root;
@@ -1951,35 +1856,14 @@ int    __VALI_DES(ejson* _e1, ejson* _e2)
 
 // ------------------------- obj header difinitions -----------------------
 
-static inline void* obj__new(size_t size, uint _len)
-{
-    OBJ _out = calloc(1, OBJ_size + size * _len);
 
-    if(_len > 1)
-    {
-        _out->is_array = 1;
-        _out->_len     = _len;
-    }
 
-    return obj_to_val(_out);
-}
 
-static inline cstr obj__str(uint _len)
-{
-    OBJ  _head = calloc(1, OBJ_size + _len + 1);
-
-    is0_ret(_head, 0);
-
-    _head->is_array = 1;
-    _head->_len     = _len;
-
-    return obj_to_val(_head);
-}
 
 
 // --------------------------- dict definition -----------------------
 #define DICT_HASH_FUNCTION_SEED 5381;
-uint _dictHashKey(const void *key, int len) {
+uint __MurmurHash2(const void *key, int len) {
     /* 'm' and 'r' are mixing constants generated offline.
      They're not really 'magic', they just happen to work well.  */
     static uint32_t seed = DICT_HASH_FUNCTION_SEED;
@@ -2011,6 +1895,7 @@ uint _dictHashKey(const void *key, int len) {
     case 3: h ^= data[2] << 16;
     case 2: h ^= data[1] << 8;
     case 1: h ^= data[0]; h *= m;
+    default:;
     };
 
     /* Do a few final mixes of the hash to ensure the last few
@@ -2022,11 +1907,29 @@ uint _dictHashKey(const void *key, int len) {
     return (unsigned int)h;
 }
 
+static inline uint __djbHashB(constr buf, int len) {
+    register uint hash = (uint)5381;
+
+    while (len--)
+        hash += (hash << 5) + *buf++;   // hash * 33 + c
+
+    return hash & ~(1u << 31);
+}
+
+static inline uint __djbHashS(constr buf) {
+    register uint hash = (uint)5381;
+
+    while (*buf)
+        hash += (hash << 5) + *buf++;   // hash * 33 + c
+
+    return hash & ~(1u << 31);
+}
+
 static inline int _dict_init(dict d)
 {
     _dict_resetHt(d);
     d->rehashidx = -1;
-    d->iterators = 0;
+    //d->iterators = 0;
 
     return DICT_OK;
 }
@@ -2037,6 +1940,23 @@ static inline dict _dict_new()
 
     _dict_init(d);
     return d;
+}
+
+static inline void _dict_clear(dict d)
+{
+    if(d->ht[1].size > 0)
+    {
+        free(d->ht[0].table);
+        d->ht[0] = d->ht[1];
+        _dict_htreset(&d->ht[1]);
+    }
+    else
+    {
+        memset(d->ht[0].table, 0, sizeof(ejson*) * d->ht[0].size);
+    }
+
+    d->ht[0].used = 0;
+    d->rehashidx = -1;
 }
 
 static inline void _dict_free(dict d)
@@ -2079,7 +1999,7 @@ static inline int _dictRehash(dict d, int n)
     if (d->ht[0].used == 0) {
         free(d->ht[0].table);
         d->ht[0] = d->ht[1];
-        dictht_reset(&d->ht[1]);
+        _dict_htreset(&d->ht[1]);
         d->rehashidx = -1;
         return DICT_OK;
     }
@@ -2089,7 +2009,8 @@ static inline int _dictRehash(dict d, int n)
 
 static inline void _dictRehashPtrStep(dict d)
 {
-    if (d->iterators == 0) _dictRehash(d, 1);
+    //if (d->iterators == 0) _dictRehash(d, 1);
+    _dictRehash(d, 1);
 }
 
 static inline ulong _dictNextPower(ulong size)
@@ -2207,6 +2128,27 @@ static ejson _dict_find(dict d, const void* k, int k_len)
     return NULL;
 }
 
+static ejson _dict_findS(dict d, const void* k)
+{
+    ejson he;
+    unsigned int h, idx, table;
+
+    if(d->ht[0].size == 0) return NULL; /* We don't have a table at all */
+    if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
+    h = _dictHashKey(k, strlen(k));
+    for (table = 0; table <= 1; table++) {
+        idx = h & d->ht[table].sizemask;
+        he = d->ht[table].table[idx];
+        while(he) {
+            if ( !strcmp(k, _keyS(he)) )
+                return he;
+            he = he->next;
+        }
+        if (!_dictIsRehashing(d)) return NULL;
+    }
+    return NULL;
+}
+
 static int _dict_getL(dict d, const void* k, int k_len, L l)
 {
     int     idx;
@@ -2280,15 +2222,8 @@ static inline char* ensure(ejsw w, uint needed)
     if(ns != val_to_obj(w->s))
         w->s = ns + OBJ_size;
 #endif
-
-
     return w->s + w->len;
 }
-
-#define wlenInc( w, l)   (w)->len+=(l)
-#define wlenDec( w, l)   (w)->len-=(l)
-#define wlenPP(w)        (w)->len++
-#define wlenMM(w)        (w)->len--
 
 static inline constr lstrip1(constr str)
 {
@@ -2313,6 +2248,7 @@ static inline constr lstrip2(constr str)
                       break;
             case '#':                          {while (*str && *str!='\n'                 ) str++; if(*str) str += 1; else { errset("connot find '\\n'" ); goto return_;}}
                       break;
+            default : break;
         }
     }while(str);
 
@@ -2446,6 +2382,7 @@ static ejson parse_STR(cstr* _name, constr* _src, constr* _err, _lstrip lstrip)
                         case 3: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6;
                         case 2: *--ptr2 =((uc | 0x80) & 0xBF); uc >>= 6;
                         case 1: *--ptr2 =(uc | firstByteMark[len]);
+                        default:;
                     }
                     ptr2+=len;
                     break;
@@ -2492,6 +2429,7 @@ static ejson parse_ARR(cstr name, constr* _src, constr* _err, _lstrip lstrip)
     while (*(src = *_src) == ',')
     {
         *_src = lstrip(src + 1);
+        is1_exe(**_src == ']', break);
         is0_exeret(elem = parse_eval(0, _src, _err, lstrip), ejso_free(out), 0);
         _elistAdd(out, elem);
     }
@@ -2505,12 +2443,13 @@ static ejson parse_OBJ(cstr name, constr* _src, constr* _err, _lstrip lstrip)
 {
     cstr  c_name = 0; ejson out = 0;ejson child;
 
-    is1_elsret(out = _newObj(), _keyS(out) =name; _setOBJ(out);, 0);                  // mem fail
+    is1_elsret(out = _newObj(), _keyS(out) =name; _setOBJ(out);, 0);                // mem fail
+    is0_exeret(_edictInit(out), _freeObj(out);, 0);
     is1_exeret(*(*_src = lstrip(*_src + 1)) == '}', *_src = lstrip(*_src + 1), out);// empty obj
 
     // -- parse key of child
     *_src = lstrip(*_src);
-    is0_exeret(**_src == '\"', *_err = *_src; *_src = 0, 0);
+    is0_exeret(**_src == '\"', *_err = *_src; *_src = 0; _freeObj(out);, 0);
     parse_STR(&c_name, _src, _err, lstrip);
     is0_exeret(c_name, _freeObj(out), 0);
 
@@ -2519,16 +2458,17 @@ static ejson parse_OBJ(cstr name, constr* _src, constr* _err, _lstrip lstrip)
     *_src = lstrip(*_src + 1);
     is0_exeret(child = parse_eval(&c_name, _src, _err, lstrip), _freeObj(out), 0);
 
-    // -- init dict for father obj and add child
-    is0_exeret(_edictInit(out), ejso_free(child); _freeObj(out);, 0);
+    // -- add child
     _edictAdd(out, _keyS(child), child);
 
     // -- parse next
     while(**_src == ',')
     {
+        *_src = lstrip(*_src + 1);
+        is1_exe(**_src == '}', break);
+
         // -- parse key
         c_name = 0;
-        *_src = lstrip(*_src + 1);
         is0_exeret(**_src == '\"', *_err = *_src; *_src = 0, 0);
         parse_STR(&c_name, _src, _err, lstrip);
         is0_exeret(c_name, ejso_free(out), 0);
@@ -2674,12 +2614,13 @@ static cstr wrap_obj(ejson obj, int depth, int pretty, ejsw w)
         case EJSON_NULL : _out = ensure(w, 5);	if(_out){ strcpy(_out,"null"  );wlenInc(w, 4);}   break;
         case EJSON_FALSE: _out = ensure(w, 6);	if(_out){ strcpy(_out,"false" );wlenInc(w, 5);}   break;
         case EJSON_TRUE : _out = ensure(w, 5);	if(_out){ strcpy(_out,"true"  );wlenInc(w, 4);}   break;
-        case EJSON_NUM  : _out = wrap_NUM(obj, w);                                                 break;
-        case EJSON_STR  : _out = wrap_STR(obj, w);                                                 break;
-        case EJSON_ARR  : _out = wrap_ARR(obj, depth, pretty, w);                                  break;
-        case EJSON_OBJ  : _out = wrap_OBJ(obj, depth, pretty, w);                                  break;
+        case EJSON_NUM  : _out = wrap_NUM(obj, w);                                                break;
+        case EJSON_STR  : _out = wrap_STR(obj, w);                                                break;
+        case EJSON_ARR  : _out = wrap_ARR(obj, depth, pretty, w);                                 break;
+        case EJSON_OBJ  : _out = wrap_OBJ(obj, depth, pretty, w);                                 break;
         case EJSON_RAW  : _out = ensure(w, 26);	if(_out){ wlenInc(w, snprintf(_out, 26, "\"(RAW %d/%d)\"", _lenS(_valR(obj)), _capS(_valR(obj))));} break;
         case EJSON_PTR  : _out = ensure(w, 24); if(_out){ wlenInc(w, snprintf(_out, 24, "\"(PTR@%p)\""   , _valP(obj))                          );} break;
+        default         : errlog("invalid type in wrap_obj()"); exit(1);
     }
 
     return _out;
@@ -2689,7 +2630,7 @@ static cstr wrap_NUM(ejson obj, ejsw w)
 {
     int len = 0; char* str = 0; double d = _valF(obj);
 
-    if (d == 0)
+    if (((u64)d) == 0)
     {
         if ((str = ensure(w, 2))) {*str='0';*(str+1)=0;}    // special case for 0.
         len = 1;
@@ -2716,11 +2657,8 @@ static cstr wrap_NUM(ejson obj, ejsw w)
 
 static cstr wrap_ARR(ejson obj, int depth, int pretty, ejsw w)
 {
-    cstr   out  = 0, ptr;   int len = 5;
-    ejson  elem = obj->next;
-    int    numentries = 0, i = 0, num = 0;
+    cstr out, ptr; ejson elem; int numentries, i, num;
 
-    // -- How many entries in the array?
     numentries = _arrLen(obj);
 
     // -- Explicitly handle numentries == 0
@@ -2732,17 +2670,33 @@ static cstr wrap_ARR(ejson obj, int depth, int pretty, ejsw w)
 
     // -- Compose the output array.
     i   = w->len;
-    is0_ret(ptr = ensure(w, 1), 0); 	*ptr='[';	wlenPP(w);
+    is0_ret(ptr = ensure(w, 1), 0); *ptr='[';wlenPP(w);
 
     elem = _objHead(obj);
-    while (num++ < numentries)
+    num  = 0;
+    if(pretty)
     {
-        wrap_obj(elem, depth+1, pretty, w);
-        len=pretty?2:1;ptr=ensure(w,len+1);if (!ptr) return 0;*ptr++=',';if(pretty)*ptr++=' ';*ptr=0; wlenInc(w,len);
-        elem = _objNext(elem);
+        while (num++ < numentries)
+        {
+            wrap_obj(elem, depth, 1, w);
+            is0_ret(ptr = ensure(w, 3), 0); *ptr++=',';*ptr++=' ';*ptr=0; wlenInc(w,2);
+
+            elem = _objNext(elem);
+        }
+        *(ptr-2) = '0';  wlenDec(w,2);
     }
-    if (pretty)	{ *(ptr-2) = '0';  wlenDec(w,2); }
-    else        { *(ptr-1) = 0  ;  wlenMM (w);}
+    else
+    {
+        while (num++ < numentries)
+        {
+            wrap_obj(elem, depth, 0, w);
+            is0_ret(ptr = ensure(w, 2), 0); *ptr++=',';*ptr=0; wlenInc(w,1);
+
+            elem = _objNext(elem);
+        }
+        *(ptr-1) = 0  ;  wlenMM (w);
+    }
+
     ptr=ensure(w,2);if (!ptr) return 0;	*ptr++=']';*ptr=0;
     out=(w->s)+i;
     wlenPP(w);
@@ -2752,9 +2706,9 @@ static cstr wrap_ARR(ejson obj, int depth, int pretty, ejsw w)
 
 static cstr wrap_OBJ(ejson obj, int depth, int pretty, ejsw w)
 {
-    cstr  out     = 0, ptr; int len = 7, i = 0, j;
-    ejson child;
-    int   numentries = _objLen(obj), num = 0;
+    cstr  out, ptr; int i, j; ejson child; int numentries, num;
+
+    numentries = _objLen(obj);
 
     // -- Explicitly handle empty object case
     if (!numentries)
@@ -2768,44 +2722,72 @@ static cstr wrap_OBJ(ejson obj, int depth, int pretty, ejsw w)
     }
 
     // -- Compose the output
-    i   = w->len;
-    len = pretty?2:1;	ptr=ensure(w,len+1);	if (!ptr) return 0;
-    *ptr++='{';	if (pretty) *ptr++='\n';	*ptr=0; wlenInc(w, len);
-
-    child = _objHead(obj);
-    depth++;
-    while (num++ < numentries)
+    num = 0;
+    if(pretty)
     {
-        if (pretty)
+        i   = w->len;
+        is0_ret(ptr = ensure(w, 3), 0);
+        *ptr++='{';	*ptr++='\n'; *ptr=0; wlenInc(w, 2);
+
+        child = _objHead(obj);
+        depth++;
+        while (num++ < numentries)
         {
             is0_ret(ptr = ensure(w, depth), 0);
             for (j=0; j<depth; j++) *ptr++='\t';
             wlenInc(w, depth);
+
+            wrap_key(child, w);
+
+            is0_ret(ptr = ensure(w, 2), 0);
+            *ptr++=':'; *ptr++=' ';
+            wlenInc(w, 2);
+            wrap_obj(child, depth, 1, w);
+
+            is0_ret(ptr = ensure(w, 3), 0);
+            *ptr++=','; *ptr++='\n'; *ptr=0;
+            wlenInc(w, 2);
+
+            child=_objNext(child);
         }
-        wrap_key(child, w);
+        *(ptr-2) = '\n'; wlenMM(w);
 
-        len = pretty ? 2 : 1;
-        is0_ret(ptr = ensure(w, len), 0);
-        *ptr++=':';if (pretty) *ptr++='\t';
-        wlenInc(w, len);
-        wrap_obj(child, depth, pretty, w);
-
-        len=(pretty?1:0) + 1;
-        is0_ret(ptr = ensure(w, len + 1), 0);
-        *ptr++=',';
-        if (pretty) *ptr++='\n';
-        *ptr=0;
-        wlenInc(w, len);
-        child=_objNext(child);
+        is0_ret(ptr = ensure(w, depth + 1), 0);
+        for(i=0;i<depth-1;i++) *ptr++='\t';
+        *ptr++='}';*ptr=0;
+        out=(w->s)+i;
+        wlenInc(w, depth);
     }
-    if (pretty)	{ *(ptr-2) = '\n'; wlenMM(w);}
-    else        { *(ptr-1) = 0;    wlenMM(w);}
+    else
+    {
+        i   = w->len;
+        is0_ret(ptr = ensure(w,2), 0);
+        *ptr++='{'; *ptr=0; wlenInc(w, 1);
 
-    is0_ret(ptr = ensure(w, pretty?(depth+1):2), 0);
-    if (pretty)	for (i=0;i<depth-1;i++) *ptr++='\t';
-    *ptr++='}';*ptr=0;
-    out=(w->s)+i;
-    wlenInc(w, pretty?(depth):1);
+        child = _objHead(obj);
+        depth++;
+        while (num++ < numentries)
+        {
+            wrap_key(child, w);
+
+            is0_ret(ptr = ensure(w, 1), 0);
+            *ptr++=':';
+            wlenInc(w, 1);
+            wrap_obj(child, depth, 0, w);
+
+            is0_ret(ptr = ensure(w, 2), 0);
+            *ptr++=','; *ptr=0;
+            wlenInc(w, 1);
+
+            child=_objNext(child);
+        }
+        *(ptr-1) = 0; wlenMM(w);
+
+        is0_ret(ptr = ensure(w, 2), 0);
+        *ptr++='}';*ptr=0;
+        out=(w->s)+i;
+        wlenInc(w, 1);
+    }
 
     return out;
 }
@@ -2977,7 +2959,7 @@ static inline ejson  _edictRmO(ejson root, ejson obj)
 typedef struct { ejson o; uint  i;}* H;
 
 // -- add in tail
-static ejson _elistAdd(ejson root, ejson obj)
+static void _elistAdd(ejson root, ejson obj)
 {
     _isChild(obj) = 1;
 
@@ -2988,7 +2970,7 @@ static ejson _elistAdd(ejson root, ejson obj)
 
     _arrLen(root)++;
 
-    return obj;
+    //return obj;
 }
 
 // -- add in head
@@ -3102,7 +3084,7 @@ static ejson _elistRmO(ejson root, ejson obj)
 
     if((i = h->i))  {          for(              out =          h->o ; out && out != obj; out = _objNext(out), i++);
                       if(!out) for(i = h->i - 1, out = _objPrev(h->o); out && out != obj; out = _objPrev(out), i--); }
-    else            { for(i = 0, out = _objHead(root); out && out != obj; out = _objNext(out), i++);}
+    else            {          for(i = 0       , out = _objHead(root); out && out != obj; out = _objNext(out), i++); }
 
     is0_ret(out, 0);
 

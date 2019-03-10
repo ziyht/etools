@@ -17,7 +17,7 @@
 #ifndef __EB64_H__
 #define __EB64_H__
 
-#define EB64_VERSION "eb64 1.1.3"      // fix bug of eb64_decb
+#define EB64_VERSION "eb64 1.1.5"      // compat prev version of gcc
 
 #include "etype.h"
 #include "estr.h"

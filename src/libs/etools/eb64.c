@@ -30,6 +30,11 @@
 #define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
 #define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
 
+/// ------------------ win32 API setting -------------------
+#if (_WIN32)
+#define inline
+#endif
+
 /// ---------------------- encoder -------------------------
 
 estr eb64_encb  (conptr in, size inlen)

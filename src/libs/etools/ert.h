@@ -5,7 +5,7 @@
 ///    Description:  easy routine on threadpool, do not like routine, this is a threadpool
 ///                  actually
 ///
-///        Version:  1.0
+///        Version:  2.0
 ///        Created:  03/09/2017 08:51:34 PM
 ///       Revision:  none
 ///       Compiler:  gcc
@@ -18,7 +18,7 @@
 #ifndef __ERT_H__
 #define __ERT_H__
 
-#define ERT_VERSION     "1.0.0"         // new tool
+#define ERT_VERSION     "ert 2.0.3"         // return the num of running tasks when call ert_destroy()
 
 #include "etype.h"
 
@@ -26,6 +26,7 @@ typedef struct thread_pool_s* ert;
 
 typedef void (*ert_cb) (cptr arg);
 
+#define DEFAULT_ERT ((ert)0x1)
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,10 +60,10 @@ ert  ert_new(int max_thread_num);
 ///        if you not quit the whole process
 ///
 
-#define ERT_WAITING_TASKS 0x01
+#define ERT_WAITING_RUNNING_TASKS 0x01
 
-void ert_release(ert tp, int opt);
 void ert_join(ert tp);
+int  ert_destroy(ert tp, int opt);
 
 /// ---------------------- setting -------------------------
 ///
@@ -74,6 +75,8 @@ void ert_maxThread(ert tp, int num);
 /// ---------------------- tasks -------------------------
 ///
 ///     to running or query a task in routine threadpool
+///
+/// note: the len of tag should be limited in 31 character
 ///
 
 int  ert_run  (ert tp, constr tag, ert_cb oprt, ert_cb after_oprt, cptr arg);

@@ -4,7 +4,7 @@
 ///
 ///    Description:  an easier des encoder/decoder
 ///
-///        Version:  0.8
+///        Version:  1.0
 ///        Created:  03/03/2017 04:51:34 PM
 ///       Revision:  none
 ///       Compiler:  gcc
@@ -17,7 +17,7 @@
 #ifndef __EDES_H__
 #define __EDES_H__
 
-#define EDES_VERSION "edes 1.0.3"      // fix statement in c++
+#define EDES_VERSION "edes 1.0.4"      // compat win32
 
 #include "etype.h"
 #include "estr.h"
@@ -56,7 +56,9 @@ extern "C" {
 /// to encode data.
 ///
 /// @note:
-///     1. @param key requires at least 8 bytes
+///     1. @param key requires at least 8 bytes, and we always
+///        generate 8bytes, so be careful and set end to '\0'
+///        by youself if needed
 ///     2. set @param human can generate a human-readable key
 ///
 

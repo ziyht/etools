@@ -1,0 +1,131 @@
+/// =====================================================================================
+///
+///       Filename:  ecompat.h
+///
+///    Description:  a header file to compat different platform, especially between linux
+///                  and windows
+///
+///                  the thread compat are rebuild from libuv
+///
+///        Version:  1.0
+///        Created:  12/18/2016 08:51:34 PM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
+
+#ifndef __ECOMPAT_H__
+#define __ECOMPAT_H__
+
+#define ECOMPAT_VERSION  "ecompat 1.0.1"        // #include <fcntl.h> for all platform
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "eerrno.h"
+
+/// ---------------------- unistd.h ---------------------
+///
+///
+#ifndef __ECOMPAT_UNISTD_DECLARATION__
+#define __ECOMPAT_UNISTD_DECLARATION__
+
+#include <fcntl.h>
+
+#if defined(_WIN32)
+#include <stdint.h>
+#include <Windows.h>
+//void usleep(int64_t microsecond);
+//void sleep(int64_t second);
+
+#ifndef __IMPORT_KERNEL32_LIB
+#define __IMPORT_KERNEL32_LIB
+#pragma comment(lib, "Kernel32.lib")
+#endif
+
+#define sleep(s)	Sleep((s) * 1000)
+#define usleep(us)  Sleep((us) / 1000 + (us) % 1000 > 500 ? 1 : 0)
+
+#include <io.h>
+
+#define F_OK 0
+#define W_OK 2
+#define R_OK 4
+
+#define open        _open
+#define close       _close
+#define lseek       _lseek
+#define read        _read
+#define write       _write
+#define access      _access
+
+#define	STDIN_FILENO	0	/* Standard input.  */
+#define	STDOUT_FILENO	1	/* Standard output.  */
+#define	STDERR_FILENO	2	/* Standard error output.  */
+
+#else   // ------------- UNIX
+#include <unistd.h>
+#include <stdlib.h>
+#include <dirent.h>
+#endif  // _WIN32
+
+#endif  // !__ECOMPAT_UNISTD_DECLARATION__
+
+
+/// ---------------------- string.h ---------------------
+///
+///
+#if defined(_WIN32) && defined(_INC_STRING)
+
+#define memccpy  _memccpy
+#define strdup   _strdup
+
+#endif // _INC_STRING
+
+/// ---------------------- time.h ---------------------
+///
+///
+#if defined(_WIN32)
+#if defined(_MSC_VER) && defined(_INC_TIME)
+#define localtime_r(sec, time) localtime_s(time, sec);
+#elif defined(_TIME_H_)
+#define localtime_r(sec, time) localtime_s(time, sec);
+#endif
+#endif // _INC_TIME
+
+/// ---------------------- stdlib.h ---------------------
+///
+///
+#if defined(_WIN32) && defined(_INC_STDLIB)
+#ifndef _MSC_VER
+#define _In_
+#endif
+typedef _In_ int (__cdecl* __compar_fn_t)(void const*, void const*);
+
+#endif
+
+
+/// ---------------------- assert.h ---------------------
+///
+///
+
+#if defined(_WIN32)
+
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
+#include <assert.h>
+
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // ! __ECOMPAT_H__

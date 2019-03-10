@@ -17,7 +17,7 @@
 #ifndef __ECRYPT_H__
 #define __ECRYPT_H__
 
-#define ECRYPT_VERSION "ecrypt 1.0.0"      // new tool ecrypt
+#define ECRYPT_VERSION "ecrypt 1.0.2"      // compat win32 of lib crypt_blowfish
 
 #include "etype.h"
 #include "estr.h"
@@ -46,8 +46,8 @@ extern "C" {
 ///
 
 int  ecrypt_gensalt(uint   factor, char   salt[ECRYPT_SIZE]);
-estr ecrypt_hashs  (constr passwd, conchr salt[ECRYPT_SIZE]);
-int  ecrypt_hashs2s(constr passwd, conchr salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE]);
+estr ecrypt_hashs  (constr passwd, coni8 salt[ECRYPT_SIZE]);
+int  ecrypt_hashs2s(constr passwd, coni8 salt[ECRYPT_SIZE], char hash[ECRYPT_SIZE]);
 
 /// ----------------------- hash 2 -------------------------
 ///
@@ -74,7 +74,7 @@ int  ecrypt_encs2s(constr passwd, char   hash[ECRYPT_SIZE]);
 ///                0: check faild
 ///
 
-int  ecrypt_check (constr passwd, conchr hash[ECRYPT_SIZE]);
+int  ecrypt_check (constr passwd, coni8 hash[ECRYPT_SIZE]);
 
 /// ----------------------- utils --------------------------
 ///
