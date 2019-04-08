@@ -138,11 +138,11 @@ static ert __ert_new(int max_thread_num)
 
     tp->status        = _INITIALING;
 
-    tp->thrds         = ejso_new(_OBJ_);
-    tp->thrds_wait    = ejso_new(_ARR_);
-    tp->tasks         = ejso_new(_ARR_);
-    tp->tasks_tags    = ejso_new(_OBJ_);
-    tp->tasks_cache   = ejso_new(_ARR_);
+    tp->thrds         = ejson_new(EOBJ, 0);
+    tp->thrds_wait    = ejson_new(EARR, 0);
+    tp->tasks         = ejson_new(EARR, 0);
+    tp->tasks_tags    = ejson_new(EOBJ, 0);
+    tp->tasks_cache   = ejson_new(EARR, 0);
 
     if(!tp->thrds || !tp->tasks || !tp->thrds_wait || !tp->tasks_tags || !tp->tasks_cache)
         goto err_ret;
@@ -157,11 +157,11 @@ static ert __ert_new(int max_thread_num)
 
 err_ret:
 
-    ejso_free(tp->thrds);
-    ejso_free(tp->thrds_wait);
-    ejso_free(tp->tasks);
-    ejso_free(tp->tasks_tags);
-    ejso_free(tp->tasks_cache);
+    ejson_free(tp->thrds);
+    ejson_free(tp->thrds_wait);
+    ejson_free(tp->tasks);
+    ejson_free(tp->tasks_tags);
+    ejson_free(tp->tasks_cache);
 
     __ert_self_release(tp);
 
@@ -196,29 +196,29 @@ static inline void __ert_task_cache(ert tp, ejson te, TASK t)
     if(t->tag[0])
     {
 #if _TP_DEBUG_
-        if(ejso_len(tp->tasks_tag) == 0)   // this should not happen
+        if(ejson_len(tp->tasks_tag) == 0)   // this should not happen
         {
             llog("--------------- err ----------------");   // make a breakpoint here
         }
 
-        ejso_freeR(tp->tasks_tag, tag);
+        ejson_freeR(tp->tasks_tag, tag);
 
         cstr s;
         if(ejsr(tp->tasks_tag, tag))
-        {    llog("[thread%s]: rm %s failed, %d, %s", th->id, tag, ejso_len(tp->tasks_tag), s = ejso_toUStr(tp->tasks_tag));ejss_free(s);}
+        {    llog("[thread%s]: rm %s failed, %d, %s", th->id, tag, ejson_len(tp->tasks_tag), s = ejso_toUStr(tp->tasks_tag));ejss_free(s);}
         else
-        {    llog("[thread%s]: rm %s ok, %d, %s", th->id, tag, ejso_len(tp->tasks_tag), s = ejso_toUStr(tp->tasks_tag));ejss_free(s);}
+        {    llog("[thread%s]: rm %s ok, %d, %s", th->id, tag, ejson_len(tp->tasks_tag), s = ejso_toUStr(tp->tasks_tag));ejss_free(s);}
 #else
-        ejso_freeR(tp->tasks_tags, t->tag);
+        ejson_freeR(tp->tasks_tags, t->tag);
 #endif
     }
 
-    if(ejso_len(tp->tasks_cache) >= _DFT_TASKS_BUFF)
-        ejso_free(te);
+    if(ejson_len(tp->tasks_cache) >= _DFT_TASKS_BUFF)
+        ejson_free(te);
     else
     {
         memset(t, 0, sizeof(*t));
-        ejso_addO(tp->tasks_cache, 0, te);
+        ejson_addO(tp->tasks_cache, 0, te);
     }
 
     mutex_ulck(tp->thrds_mu);
@@ -233,29 +233,29 @@ static inline int __ert_task_add(ert tp, constr tag, ert_cb oprt, ert_cb after_o
 
     if(tag && *tag)
     {
-        rete = ejso_addT(tp->tasks_tags, tag, _TRUE_);
+        rete = ejson_addT(tp->tasks_tags, tag, ETRUE);
         if(0 == rete)
         {
-            llog("[threadpool]: have a task named \"%s\" already, %s, %d", tag, ejson_err(), ejso_len(tp->tasks_tags));
+            llog("[threadpool]: have a task named \"%s\" already, %s, %d", tag, ejson_err(), ejson_len(tp->tasks_tags));
             //mutex_ulck(tp->tasks_mu);
             mutex_ulck(tp->thrds_mu);
             return 0;
         }
     }
 
-    if(ejso_len(tp->tasks_cache)) te = ejso_pop(tp->tasks_cache);
-    else                          te = ejso_new(EJSON_TYPE(_RAW_, sizeof(task_t)));
+    if(ejson_len(tp->tasks_cache)) te = ejson_takeH(tp->tasks_cache);
+    else                           te = ejson_new(ERAW, sizeof(task_t));
 
-    t = ejso_valR(te);
+    t = EOBJ_VALR(te);
     t->oprt       = oprt;
     t->after_oprt = after_oprt;
     t->data       = arg;
 
     if(tag) strncpy(t->tag, tag, 16);
 
-    te = ejso_addO(tp->tasks, 0, te);
+    te = ejson_addO(tp->tasks, 0, te);
     assert(te);
-    llog("[threadpool]: add new task [%s] ok, %d tasks now", (tag && *tag) ? tag : "", ejso_len(tp->tasks));
+    llog("[threadpool]: add new task [%s] ok, %d tasks now", (tag && *tag) ? tag : "", ejson_len(tp->tasks));
 
     //mutex_ulck(tp->tasks_mu);
     mutex_ulck(tp->thrds_mu);
@@ -269,7 +269,7 @@ static inline ejson __ert_task_pop(ert tp)
 
     mutex_lock(tp->thrds_mu);
 
-    te = ejso_pop(tp->tasks);
+    te = ejson_takeH(tp->tasks);
 
     mutex_ulck(tp->thrds_mu);
 
@@ -284,19 +284,19 @@ static inline void __ert_task_release(ert tp)
 
     mutex_lock(tp->thrds_mu);
 
-    ejso_itr(tp->tasks, itr)
+    ejson_foreach(tp->tasks, itr)
     {
-        t = ejso_valP(itr);
+        t = EOBJ_VALP(itr);
         free(t);
     }
-    ejso_itr(tp->tasks_cache, itr)
+    ejson_foreach(tp->tasks_cache, itr)
     {
-        t = ejso_valP(itr);
+        t = EOBJ_VALP(itr);
         free(t);
     }
-    ejso_free(tp->tasks);      tp->tasks       = 0;
-    ejso_free(tp->tasks_tags); tp->tasks_tags  = 0;
-    ejso_free(tp->tasks_cache);tp->tasks_cache = 0;
+    ejson_free(tp->tasks);      tp->tasks       = 0;
+    ejson_free(tp->tasks_tags); tp->tasks_tags  = 0;
+    ejson_free(tp->tasks_cache);tp->tasks_cache = 0;
 
     mutex_lock(tp->thrds_mu);
 }
@@ -309,7 +309,7 @@ static inline void __ert_thread_run_task(ert tp, TH th)
 
     while(te)
     {
-        t = ejso_valR(te);
+        t = EOBJ_VALR(te);
 
         llog("[thread%s]: run %s.oprt", th->id, t->tag);
         t->oprt(t->data);
@@ -324,7 +324,7 @@ static inline void __ert_thread_run_task(ert tp, TH th)
 
         if(th->quit)
         {
-            ejso_free(te);
+            ejson_free(te);
             break;
         }
         else
@@ -332,7 +332,7 @@ static inline void __ert_thread_run_task(ert tp, TH th)
 
         te = __ert_task_pop(tp);
 #if _DEBUG_
-        if(te) llog("[thread%s]: continue task %s", th->id, ((TASK)ejso_valP(te))->tag);
+        if(te) llog("[thread%s]: continue task %s", th->id, ((TASK)EOBJ_VALP(te))->tag);
 #endif
     }
 }
@@ -345,7 +345,7 @@ static inline void __ert_thread_run_task2(ert tp, TH th)
 
     if(te)
     {
-        t = ejso_valR(te);
+        t = EOBJ_VALR(te);
 
         llog("[thread%s]: run %s.oprt", th->id, t->tag);
         t->oprt(t->data);
@@ -359,7 +359,7 @@ static inline void __ert_thread_run_task2(ert tp, TH th)
         llog("[thread%s]: run %s over", th->id, t->tag);
 
         if(th->quit)
-            ejso_free(te);
+            ejson_free(te);
         else
             __ert_task_cache(tp, te, t);
     }
@@ -386,7 +386,7 @@ static void _task_thread(void* _th)
         }
 
         // -- waiting signal
-        while(0 == ejso_len(tp->tasks))
+        while(0 == ejson_len(tp->tasks))
         {
             th->status = _WAITING;
             tp->thrds_idle++;
@@ -493,7 +493,7 @@ static inline void __ert_thread_create_if_need(ert tp)
         tp->thrds_num++;
         tp->thrds_idx++;
         snprintf(th->id, 16, "%d", tp->thrds_idx);
-        ejso_addP(tp->thrds, th->id, th);
+        ejson_addP(tp->thrds, th->id, th);
 
         llog("[threadpool]: create new thread%s", th->id);
     }
@@ -508,41 +508,41 @@ static inline void __ert_release_waiting_threads(ert tp)
 {
     ejson itr; TH th;
 
-    tp->quit_ths_run_num = ejso_len(tp->thrds);
+    tp->quit_ths_run_num = ejson_len(tp->thrds);
 
     // -- seperate waiting threads
-    ejso_itr(tp->thrds, itr)
+    ejson_foreach(tp->thrds, itr)
     {
-        th = ejso_valP(itr);
+        th = EOBJ_VALP(itr);
 
         if(th->status == _WAITING)
         {
             th->quit = _QUIT_WAITING_REQED;
-            assert(ejso_addO(tp->thrds_wait, th->id, ejso_rmR(tp->thrds, th->id)));
+            assert(ejson_addO(tp->thrds_wait, th->id, ejson_takeR(tp->thrds, th->id)));
         }
     }
 
     // -- release waiting threads
     llog("[threadpool]: %s", "releasing waiting threads");
     cond_all(tp->thrds_co);
-    ejso_itr(tp->thrds_wait, itr)
+    ejson_foreach(tp->thrds_wait, itr)
     {
-        th = ejso_valP(itr);
+        th = EOBJ_VALP(itr);
         thread_detach(th->th);
     }
 
-    ejso_free(tp->thrds_wait);    tp->thrds_wait = 0;
+    ejson_free(tp->thrds_wait);    tp->thrds_wait = 0;
 }
 
 static inline void __ert_release_running_threads(ert tp)
 {
     ejson itr; TH th;
 
-    if(tp->quit_ths_run_num && ejso_len(tp->thrds))
+    if(tp->quit_ths_run_num && ejson_len(tp->thrds))
     {
-        ejso_itr(tp->thrds, itr)
+        ejson_foreach(tp->thrds, itr)
         {
-            th = ejso_valP(itr);
+            th = EOBJ_VALP(itr);
 
             if(tp->quit_join_ths)
             {
@@ -557,14 +557,13 @@ static inline void __ert_release_running_threads(ert tp)
         }
 
         llog("[threadpool]: %s", "releasing running threads");
-        cond_all(tp->thrds_co);
-        if(tp->quit_join_ths)
+        cond_all(tp->thrds_co);        if(tp->quit_join_ths)
         {
             llog("[threadpool]: %s", "join running threads");
             mutex_ulck(tp->quit_mu);		// unlock so all the threads(including waiting threads) would quiting now
-            ejso_itr(tp->thrds, itr)
+            ejson_foreach(tp->thrds, itr)
             {
-                th = ejso_valP(itr);
+                th = EOBJ_VALP(itr);
                 thread_join(th->th);
                 free(th);
             }
@@ -574,7 +573,7 @@ static inline void __ert_release_running_threads(ert tp)
     else
         tp->quit_join_ths = 0;				// no running threads to join
 
-    ejso_free(tp->thrds); tp->thrds = 0;
+    ejson_free(tp->thrds); tp->thrds = 0;
 }
 
 static inline void __ert_releasing(ert tp)
@@ -677,7 +676,7 @@ int  ert_query(ert tp, constr tag)
 
     mutex_lock(tp->tasks_mu);
 
-    ret = ejsr(tp->tasks_tags, tag) ? 1 : 0;
+    ret = ejson_rval(tp->tasks_tags, tag) ? 1 : 0;
 
     mutex_ulck(tp->tasks_mu);
 

@@ -493,9 +493,14 @@ function(EBuildAddCopyForTarget i_target)
     if(_copy)
 
         set(COMMAND_INFO)
+
         foreach(_dest ${_dest_list})
-            list(APPEND COMMAND_INFO COMMAND ${CMAKE_COMMAND} -E make_directory    ${M_DEST}${_dest})                      # 先创建文件夹
-            list(APPEND COMMAND_INFO COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${_dest}_files} ${M_DEST}${_dest})    # 再拷贝文件
+
+            if(${_dest}_files)
+                list(APPEND COMMAND_INFO COMMAND ${CMAKE_COMMAND} -E make_directory    ${M_DEST}${_dest})                      # 先创建文件夹
+                list(APPEND COMMAND_INFO COMMAND ${CMAKE_COMMAND} -E copy_if_different ${${_dest}_files} ${M_DEST}${_dest})    # 再拷贝文件
+            endif()
+
             set(${_dest}_files)
 
         endforeach()

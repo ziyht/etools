@@ -433,7 +433,7 @@ static inline enats __enats_newHandle(constr urls, enats_opts e_opts)
     }
 
     mutex_init(e->sub_mu);
-    assert(e->sub_dic = ejso_new(_OBJ_));
+    assert(e->sub_dic = ejson_new(EOBJ, 0));
 
     e->conn.s = NATS_OK;
 
@@ -469,12 +469,12 @@ static inline ejson __enats_makeRoomForSubs(enats e, constr subj, enats_msgHandl
     ejson sroom; __subs subs;
 
     mutex_lock(e->sub_mu);
-    if(!e->sub_dic) e->sub_dic = ejso_new(_OBJ_);
-    subs = ejso_addR(e->sub_dic, subj, sizeof(*subs));
+    if(!e->sub_dic) e->sub_dic = ejson_new(EOBJ, 0);
+    subs = (__subs)ejson_addR(e->sub_dic, subj, sizeof(*subs));
     mutex_ulck(e->sub_mu);
     is0_exeret(subs, errfmt(e, "subs of \"%s\" already exist", subj), 0);
 
-    assert(sroom = ejsr(e->sub_dic, subj));
+    assert(sroom = ejson_valr(e->sub_dic, subj));
 
     subs->e           = e;
     subs->msg_handler = onMsg;
@@ -486,10 +486,10 @@ static inline ejson __enats_makeRoomForSubs(enats e, constr subj, enats_msgHandl
 static inline void __enats_freeSubsRoom(ejson sroom)
 {
     enats e;
-    e = ((__subs)ejso_valR(sroom))->e;
+    e = ((__subs)EOBJ_VALR(sroom))->e;
 
     mutex_lock(e->sub_mu);
-    ejso_freeO(e->sub_dic, sroom);
+    ejson_freeO(e->sub_dic, sroom);
     mutex_ulck(e->sub_mu);
 }
 
@@ -497,12 +497,12 @@ static inline int __enats_trySub(ejson sroom)
 {
     __subs subs; enats e;
 
-    subs = ejso_valR(sroom);
+    subs = EOBJ_VALR(sroom);
     e    = subs->e;
 
     is1_ret(subs->sub, 0);
 
-    e->conn.s = natsConnection_Subscribe(&subs->sub, e->conn.nc, ejso_keyS(sroom), __on_msg, subs);
+    e->conn.s = natsConnection_Subscribe(&subs->sub, e->conn.nc, eobj_keyS(sroom), __on_msg, subs);
 
     if(e->conn.s == NATS_OK)
         e->conn.s = natsSubscription_SetPendingLimits(subs->sub, -1, -1);
@@ -559,14 +559,14 @@ static inline void __enats_unSub(enats e, constr subj)
 
     mutex_lock(e->sub_mu);
 
-    if((sroom = ejso_rmR(e->sub_dic, subj)))
+    if((sroom = ejson_takeR(e->sub_dic, subj)))
     {
-        subs = ejso_valR(sroom);
+        subs = EOBJ_VALR(sroom);
 
         e->conn.s = natsSubscription_Unsubscribe(subs->sub);
         natsSubscription_Destroy(subs->sub);
 
-        ejso_free(sroom);
+        ejson_free(sroom);
     }
 
     mutex_ulck(e->sub_mu);
@@ -579,9 +579,9 @@ static inline void __enats_destroyAllNatsSubscription(enats e)
     is0_ret(e, )
 
     mutex_lock(e->sub_mu);
-    ejso_itr(e->sub_dic, itr)
+    ejson_foreach(e->sub_dic, itr)
     {
-        s = ejso_valR(itr);
+        s = EOBJ_VALR(itr);
 
         natsSubscription_Unsubscribe(s->sub);
         natsSubscription_Destroy(s->sub);
@@ -596,11 +596,11 @@ static void __enats_reSub(enats e)
 
     mutex_lock(e->sub_mu);
 
-    ejso_itr(e->sub_dic, itr)
+    ejson_foreach(e->sub_dic, itr)
     {
         if(!__enats_trySub(itr))
         {
-            ejso_freeO(e->sub_dic, itr);
+            ejson_freeO(e->sub_dic, itr);
         }
     }
 
@@ -614,7 +614,7 @@ static inline void __enats_destroySubDic(enats e)
     if(e)
     {
         mutex_free(e->sub_mu);
-        ejso_free(e->sub_dic);
+        ejson_free(e->sub_dic);
         e->sub_dic = 0;
     }
 
@@ -797,7 +797,7 @@ static inline void __enats_stats(enats trans, constr subj, enats_stats_t* stats,
     s = natsConnection_GetStats(trans->conn.nc, (natsStatistics*)stats);
 
     mutex_lock(trans->sub_mu);
-    ntSub = ejsr_valR(trans->sub_dic, subj);
+    ntSub = ejson_valrR(trans->sub_dic, subj);
     mutex_ulck(trans->sub_mu);
     if ((s == NATS_OK) && (ntSub != NULL))
     {
@@ -1109,15 +1109,15 @@ constr enats_err(enats trans)
 #define enatp_lock(p)           mutex_lock((p)->mutex)
 #define enatp_ulck(p)           mutex_ulck((p)->mutex)
 
-#define enatp_add_conntrans(p, add) ejso_addP(p->conn_transs, add->name, add)
-#define enatp_get_conntrans(p,name) ejsr_valP(p->conn_transs, name)
-#define enatp_del_conntrans(p, del) ejsr_free(p->conn_transs, del->name)
-#define enatp_cnt_conntrans(p     ) ejso_len (p->conn_transs)
+#define enatp_add_conntrans(p, add) ejson_addP(p->conn_transs, add->name, add)
+#define enatp_get_conntrans(p,name) ejson_valrP(p->conn_transs, name)
+#define enatp_del_conntrans(p, del) ejson_freeR(p->conn_transs, del->name)
+#define enatp_cnt_conntrans(p     ) eobj_len (p->conn_transs)
 
-#define enatp_add_lazytrans(p, add) ejso_addP(p->lazy_transs, add->name, add)
-#define enatp_get_lazytrans(p,name) ejsr_valP(p->lazy_transs, name)
-#define enatp_del_lazytrans(p, del) ejsr_free(p->lazy_transs, del->name)
-#define enatp_cnt_lazytrans(p     ) ejso_len (p->lazy_transs)
+#define enatp_add_lazytrans(p, add) ejson_addP(p->lazy_transs, add->name, add)
+#define enatp_get_lazytrans(p,name) ejson_valrP(p->lazy_transs, name)
+#define enatp_del_lazytrans(p, del) ejson_freeR(p->lazy_transs, del->name)
+#define enatp_cnt_lazytrans(p     ) ejson_len (p->lazy_transs)
 
 #define enatp_add_url(p,url,ntname) ejso_addS(p->urls, url, ntname)
 #define enatp_get_url(p,url       ) ejsr     (p->urls, url        )
@@ -1138,17 +1138,15 @@ static inline enatp __enatp_newHandle()
 
     is0_exeret(p, errset(G, "alloc for new enatp handle faild"), 0);
 
-    p->conn_transs = ejso_new(_OBJ_);
-    p->lazy_transs = ejso_new(_OBJ_);
-    p->name_groups = ejso_new(_OBJ_);
+    p->conn_transs = ejson_new(EOBJ, 0);
+    p->lazy_transs = ejson_new(EOBJ, 0);
+    p->name_groups = ejson_new(EOBJ, 0);
 
     if(!p->conn_transs || !p->lazy_transs || !p->name_groups)
     {
-        errfmt(G, "%s", ejson_err());
-
-        ejso_free(p->conn_transs);
-        ejso_free(p->lazy_transs);
-        ejso_free(p->name_groups);
+        ejson_free(p->conn_transs);
+        ejson_free(p->lazy_transs);
+        ejson_free(p->name_groups);
 
         return 0;
     }
@@ -1170,12 +1168,12 @@ static inline void __enatp_destroyLazy(enatp p)
 
     e = p->lazy_transs; p->lazy_transs = 0;
 
-    ejso_itr(e, itr)
+    ejson_foreach(e, itr)
     {
-        __enats_release((enats)ejso_valP(itr));
+        __enats_release(EOBJ_VALP(itr));
     }
 
-    ejso_free(e);
+    ejson_free(e);
 }
 
 static inline int __enatp_destroyConn(enatp p)
@@ -1192,12 +1190,12 @@ static inline int __enatp_destroyConn(enatp p)
 
     e = p->conn_transs; p->conn_transs = 0;
 
-    ejso_itr(e, itr)
+    ejson_foreach(e, itr)
     {
-        enats_destroy((enats)ejso_valP(itr));
+        enats_destroy(EOBJ_VALP(itr));
     }
 
-    ejso_free(e);
+    ejson_free(e);
 
     return can_free;
 }
@@ -1210,7 +1208,7 @@ static inline void __enatp_destroyName(enatp p)
 
     e = p->name_groups; p->name_groups = 0;
 
-    ejso_free(e);
+    ejson_free(e);
 }
 
 static inline void __enatp_freeHandle(enatp p)
@@ -1271,9 +1269,9 @@ static void  __enatp_pollingNext(enatp p, enats reject)
         if(p->polling_now != reject) return;
         else
         {
-            p->polling_itr = ejso_next(p->polling_itr);
-            if(!p->polling_itr) p->polling_itr = ejso_first(p->conn_transs);
-            p->polling_now = p->polling_itr ? ejso_valP(p->polling_itr)
+            p->polling_itr = ejson_next(p->polling_itr);
+            if(!p->polling_itr) p->polling_itr = ejson_first(p->conn_transs);
+            p->polling_now = p->polling_itr ? EOBJ_VALP(p->polling_itr)
                                             : 0;
 
             if(p->polling_now == reject)
@@ -1286,15 +1284,15 @@ static void  __enatp_pollingNext(enatp p, enats reject)
 
     if(!p->polling_itr)
     {
-        p->polling_itr = ejso_first(p->conn_transs);
+        p->polling_itr = ejson_first(p->conn_transs);
     }
     else
     {
-        p->polling_itr = ejso_next(p->polling_itr);
-        if(!p->polling_itr) p->polling_itr = ejso_first(p->conn_transs);
+        p->polling_itr = ejson_next(p->polling_itr);
+        if(!p->polling_itr) p->polling_itr = ejson_first(p->conn_transs);
     }
 
-    p->polling_now = p->polling_itr ? ejso_valP(p->polling_itr)
+    p->polling_now = p->polling_itr ? EOBJ_VALP(p->polling_itr)
                                     : 0;
 }
 
@@ -1308,9 +1306,9 @@ static void* __enatp_lazy_thread(void* _p)
     {
         sleep(1);
 
-        ejso_itr(p->lazy_transs, itr)
+        ejson_foreach(p->lazy_transs, itr)
         {
-            e = ejso_valP(itr);
+            e = EOBJ_VALP(itr);
 
             if(e->conn.nc)         // this should not happen
             {
@@ -1373,7 +1371,7 @@ static void __enatp_exeLazyThread(enatp p)
 
 static inline int __enatp_chkName(enatp p, constr name)
 {
-    return !ejsr(p->name_groups, name);
+    return !ejson_valr(p->name_groups, name);
 }
 
 static inline ejson __enatp_getGroup(enatp p, constr name)
@@ -1382,11 +1380,11 @@ static inline ejson __enatp_getGroup(enatp p, constr name)
 
     enatp_lock(p);
 
-    egroup = ejsr(p->name_groups, name);
+    egroup = ejson_valr(p->name_groups, name);
 
     if(!egroup)
     {
-        assert(egroup = ejso_addT(p->name_groups, name, _OBJ_));
+        assert(egroup = ejson_addT(p->name_groups, name, EOBJ));
     }
 
     enatp_ulck(p);
@@ -1398,12 +1396,12 @@ static inline int __enatp_getAvailNameIdForGroup(enatp p, ejson egroup, char ena
 {
     enatp_lock(p);
 
-    int id = ejso_len(egroup);
+    int id = ejson_len(egroup);
 
     do
     {
-        snprintf(ename, 64, "%s.%d", ejso_keyS(egroup),++id);
-    }while(ejsr(egroup, ename));
+        snprintf(ename, 64, "%s.%d", eobj_keyS(egroup),++id);
+    }while(ejson_valr(egroup, ename));
 
     enatp_ulck(p);
 
@@ -1416,7 +1414,7 @@ static inline void __enatp_addNameToGroup(enatp p, ejson egroup, constr id, enat
 
     if(!egroup) egroup = p->name_groups;
 
-    assert(ejso_addP(egroup, id, e));
+    assert(ejson_addP(egroup, id, e));
 
     enatp_ulck(p);
 }
@@ -1425,8 +1423,8 @@ static inline void __enatp_rmEmptyGroup(enatp p, ejson egroup)
 {
     enatp_lock(p);
 
-    if(ejso_len(egroup) == 0)
-        ejso_freeO(p->name_groups, egroup);
+    if(ejson_len(egroup) == 0)
+        ejson_freeO(p->name_groups, egroup);
 
     enatp_ulck(p);
 }
@@ -1534,7 +1532,7 @@ static inline ejson __enatp_getEnatsRooms(enatp p, constr name)
     else if(name == ENATP_ALL_TRANS)  eroom = p->name_groups;
     else {
         enatp_lock(p);
-        eroom = ejsr(p->name_groups, name);
+        eroom = ejson_valr(p->name_groups, name);
         enatp_ulck(p);
     }
 
@@ -1636,7 +1634,7 @@ void enatp_setConnectedCB(enatp p, constr name, enats_evtHandler cb, void* closu
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         e->conn.CBs.connected_cb      = cb;
         e->conn.CBs.connected_closure = closure;
@@ -1647,9 +1645,9 @@ void enatp_setConnectedCB(enatp p, constr name, enats_evtHandler cb, void* closu
         p->CBs.connected_cb      = cb;
         p->CBs.connected_closure = closure;
 
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 if(!e->conn.CBs.connected_setted)      // if not set, set it
@@ -1661,9 +1659,9 @@ void enatp_setConnectedCB(enatp p, constr name, enats_evtHandler cb, void* closu
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                e = ejso_valP(itr2);
+                e = EOBJ_VALP(itr2);
 
                 if(!e->conn.CBs.connected_setted)
                 {
@@ -1675,9 +1673,9 @@ void enatp_setConnectedCB(enatp p, constr name, enats_evtHandler cb, void* closu
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 e->conn.CBs.connected_cb      = cb;
@@ -1687,9 +1685,9 @@ void enatp_setConnectedCB(enatp p, constr name, enats_evtHandler cb, void* closu
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                e = ejso_valP(itr2);
+                e = EOBJ_VALP(itr2);
 
                 e->conn.CBs.connected_cb      = cb;
                 e->conn.CBs.connected_closure = closure;
@@ -1711,7 +1709,7 @@ void enatp_setClosedCB(enatp p, constr name, enats_evtHandler cb, void* closure)
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         enats_setClosedCB(e, cb, closure);
     }
@@ -1720,9 +1718,9 @@ void enatp_setClosedCB(enatp p, constr name, enats_evtHandler cb, void* closure)
         p->CBs.closed_cb      = cb;
         p->CBs.closed_closure = closure;
 
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 if(!e->conn.CBs.closed_setted)      // if not set, set it
@@ -1734,9 +1732,9 @@ void enatp_setClosedCB(enatp p, constr name, enats_evtHandler cb, void* closure)
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                e = ejso_valP(itr2);
+                e = EOBJ_VALP(itr2);
 
                 if(!e->conn.CBs.closed_setted)
                 {
@@ -1748,9 +1746,9 @@ void enatp_setClosedCB(enatp p, constr name, enats_evtHandler cb, void* closure)
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 enats_setClosedCB(e, cb, closure);
@@ -1758,9 +1756,9 @@ void enatp_setClosedCB(enatp p, constr name, enats_evtHandler cb, void* closure)
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                enats_setClosedCB(ejso_valP(itr2), cb, closure);
+                enats_setClosedCB(EOBJ_VALP(itr2), cb, closure);
             }
         }
     }
@@ -1778,7 +1776,7 @@ void enatp_setDisconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         enats_setDisconnectedCB(e, cb, closure);
     }
@@ -1787,9 +1785,9 @@ void enatp_setDisconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
         p->CBs.disconnected_cb      = cb;
         p->CBs.disconnected_closure = closure;
 
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 if(!e->conn.CBs.disconnected_setted)      // if not set, set it
@@ -1801,9 +1799,9 @@ void enatp_setDisconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                e = ejso_valP(itr2);
+                e = EOBJ_VALP(itr2);
 
                 if(!e->conn.CBs.disconnected_setted)
                 {
@@ -1815,9 +1813,9 @@ void enatp_setDisconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 enats_setDisconnectedCB(e, cb, closure);
@@ -1825,9 +1823,9 @@ void enatp_setDisconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                enats_setDisconnectedCB(ejso_valP(itr2), cb, closure);
+                enats_setDisconnectedCB(EOBJ_VALP(itr2), cb, closure);
             }
         }
     }
@@ -1845,7 +1843,7 @@ void  enatp_setReconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         enats_setReconnectedCB(e, cb, closure);
     }
@@ -1854,9 +1852,9 @@ void  enatp_setReconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
         p->CBs.reconnected_cb      = cb;
         p->CBs.reconnected_closure = closure;
 
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 if(!e->conn.CBs.reconnected_setted)      // if not set, set it
@@ -1868,9 +1866,9 @@ void  enatp_setReconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                e = ejso_valP(itr2);
+                e = EOBJ_VALP(itr2);
 
                 if(!e->conn.CBs.reconnected_setted)
                 {
@@ -1882,9 +1880,9 @@ void  enatp_setReconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 enats_setReconnectedCB(e, cb, closure);
@@ -1892,9 +1890,9 @@ void  enatp_setReconnectedCB(enatp p, constr name, enats_evtHandler cb, void* cl
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                enats_setReconnectedCB(ejso_valP(itr2), cb, closure);
+                enats_setReconnectedCB(EOBJ_VALP(itr2), cb, closure);
             }
         }
     }
@@ -1912,7 +1910,7 @@ void enatp_setErrHandler(enatp p, constr name, enats_errHandler cb, void* closur
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         enats_setErrHandler(e, cb, closure);
     }
@@ -1921,9 +1919,9 @@ void enatp_setErrHandler(enatp p, constr name, enats_errHandler cb, void* closur
         p->CBs.err_handler = cb;
         p->CBs.err_closure = closure;
 
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 if(!e->conn.CBs.err_setted)      // if not set, set it
@@ -1935,9 +1933,9 @@ void enatp_setErrHandler(enatp p, constr name, enats_errHandler cb, void* closur
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                e = ejso_valP(itr2);
+                e = EOBJ_VALP(itr2);
 
                 if(!e->conn.CBs.err_setted)
                 {
@@ -1949,9 +1947,9 @@ void enatp_setErrHandler(enatp p, constr name, enats_errHandler cb, void* closur
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 enats_setErrHandler(e, cb, closure);
@@ -1959,9 +1957,9 @@ void enatp_setErrHandler(enatp p, constr name, enats_errHandler cb, void* closur
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                enats_setErrHandler(ejso_valP(itr2), cb, closure);
+                enats_setErrHandler(EOBJ_VALP(itr2), cb, closure);
             }
         }
     }
@@ -1980,9 +1978,9 @@ inline natsStatus  enatp_pub(enatp p, constr subj, conptr data, int dataLen)
     is1_exeret(p->max && p->cnt >= p->max, enatp_ulck(p);, NATS_ERR);
 
     // -- traverse
-    ejso_itr(p->conn_transs, itr)
+    ejson_foreach(p->conn_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
 
         //s = enats_pub(e, subj, data, dataLen);
         s = natsConnection_Publish(e->conn.nc, subj, data, dataLen);
@@ -2007,9 +2005,9 @@ natsStatus  enatp_pubf(enatp p, constr subj, conptr data, int dataLen)
     enatp_lock(p);
 
     // -- traverse
-    ejso_itr(p->conn_transs, itr)
+    ejson_foreach(p->conn_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
 
         //s = enats_pub(e, subj, data, dataLen);
         s = natsConnection_Publish(e->conn.nc, subj, data, dataLen);
@@ -2036,9 +2034,9 @@ natsStatus  enatp_pubr(enatp p, constr subj, conptr data, int dataLen, constr re
     is1_exeret(p->max && p->cnt >= p->max, enatp_ulck(p);, NATS_ERR);
 
     // -- traverse
-    ejso_itr(p->conn_transs, itr)
+    ejson_foreach(p->conn_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
 
         // s = enats_pubr(e, subj, reply, data, dataLen);
         s = natsConnection_PublishRequest(e->conn.nc, subj, reply, data, dataLen);
@@ -2067,15 +2065,15 @@ natsStatus enatp_sub(enatp p, constr name, constr subj, enats_msgHandler onMsg, 
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         if(__enats_sub(e, subj, onMsg, closure)) subed++;
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 if(__enats_sub(e, subj, onMsg, closure)) subed++;
@@ -2083,9 +2081,9 @@ natsStatus enatp_sub(enatp p, constr name, constr subj, enats_msgHandler onMsg, 
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                if(__enats_sub(ejso_valP(itr2), subj, onMsg, closure)) subed++;
+                if(__enats_sub(EOBJ_VALP(itr2), subj, onMsg, closure)) subed++;
             }
         }
     }
@@ -2106,15 +2104,15 @@ natsStatus  enatp_unsub(enatp p, constr name, constr subj)
 
     enatp_lock(p);
 
-    if((e = ejso_valP(eroom)))
+    if((e = EOBJ_VALP(eroom)))
     {
         __enats_unSub(e, subj);
     }
     else
     {
-        ejso_itrl(eroom, 1)
+        ejson_foreach_s(eroom, itr1)
         {
-            e = ejso_valP(itr1);
+            e = EOBJ_VALP(itr1);
             if(e)
             {
                 __enats_unSub(e, subj);
@@ -2122,9 +2120,9 @@ natsStatus  enatp_unsub(enatp p, constr name, constr subj)
                 continue;
             }
 
-            ejso_itrl(itr1, 2)
+            ejson_foreach_s(itr1, itr2)
             {
-                __enats_unSub(ejso_valP(itr2), subj);
+                __enats_unSub(EOBJ_VALP(itr2), subj);
             }
         }
     }
@@ -2146,9 +2144,9 @@ natsStatus  enatp_req(enatp p, constr subj, conptr data, int dataLen, constr rep
 
     is1_exeret(p->max && p->cnt >= p->max, enatp_ulck(p);, NATS_ERR);
 
-    ejso_itr(p->conn_transs, itr)
+    ejson_foreach(p->conn_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
 
         if(natsConnection_Status(e->conn.nc) == CONNECTED)
         {
@@ -2237,18 +2235,18 @@ int    enatp_cntTrans(enatp p, constr name)
     enatp_lock(p);
 
     if(name == ENATP_CONN_TRANS || name == ENATP_LAZY_TRANS)
-        cnt = ejso_len(eroom);
+        cnt = ejson_len(eroom);
     else
     {
-        if((_PTR_ == ejso_type(eroom)))
+        if((EPTR == eobj_typeo(eroom)))
         {
             cnt = 1;
         }
         else
         {
-            ejso_itrl(eroom, 1)
+            ejson_foreach_s(eroom, itr1)
             {
-                cnt += (_PTR_ == ejso_type(itr1)) ? 1 : ejso_len(itr1);
+                cnt += (EPTR == eobj_typeo(itr1)) ? 1 : ejson_len(itr1);
             }
         }
     }
@@ -2264,15 +2262,15 @@ constr enatp_connurls(enatp p, int hidepass)
 
     // -- check args
     is0_exeret(p, errset(p, "invalid enatp (nullptr)"), NULL); estr_clear(p->connurls);
-    is0_ret(ejso_len(p->conn_transs), NULL);
+    is0_ret(ejson_len(p->conn_transs), NULL);
 
     // -- travles
     enatp_lock(p);
     p->s = NATS_OK;
 
-    ejso_itr(p->conn_transs, itr)
+    ejson_foreach(p->conn_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
 
         __enats_getConnUrls(e, hidepass);
 
@@ -2290,15 +2288,15 @@ constr enatp_lazyurls(enatp p, int hidepass)
 
     // -- check args
     is0_exeret(p, errset(p, "invalid enatp (nullptr)");, NULL); estr_clear(p->lazyurls);
-    is0_ret(ejso_len(p->lazy_transs), NULL);
+    is0_ret(ejson_len(p->lazy_transs), NULL);
 
     // -- travles
     enatp_lock(p);
     p->s = NATS_OK;
 
-    ejso_itr(p->lazy_transs, itr)
+    ejson_foreach(p->lazy_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
         opts = e->conn.opts;
 
         estr_catF(p->lazyurls, "[%s]", e->name);
@@ -2362,9 +2360,9 @@ static inline void __enatp_stats(enatp p, constr subj, enats_stats_t* _stats, in
     enatp_lock(p);
 
     p->s = NATS_OK;
-    ejso_itr(p->conn_transs, itr)
+    ejson_foreach(p->conn_transs, itr)
     {
-        e = ejso_valP(itr);
+        e = EOBJ_VALP(itr);
 
         __enats_stats(e, subj, &stats, 0);
 

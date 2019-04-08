@@ -30,15 +30,15 @@ function(ETestAdd i_name)
 
     CONFIGURING_BUILD_CHECK()
 
-    if(NOT PROJECT_NAME)
-        EMakeErrF("you must set a project name before adding a test")
-    endif()
+#    if(NOT PROJECT_NAME)
+#        EMakeErrF("you must set a project name before adding a test")
+#    endif()
 
-    if(KIT_NAME)
-        if(NOT "${PROJECT_NAME}" STREQUAL "${KIT_NAME}")
-            EMakeWrnF("current kit_name '${KIT_NAME}' is no match to the current project name '${PROJECT_NAME}'")
-        endif()
-    endif()
+#    if(KIT_NAME)
+#        if(NOT "${PROJECT_NAME}" STREQUAL "${KIT_NAME}")
+#            EMakeWrnF("current kit_name '${KIT_NAME}' is no match to the current project name '${PROJECT_NAME}'")
+#        endif()
+#    endif()
 
     set(_args ON OFF CREATE DEST)
 
@@ -80,7 +80,7 @@ function(ETestAdd i_name)
     endif()
 
     if(M_ON)
-        EMakeSetTargetPropertyM(${M_FULL} PROJECT_NAME VAR ${PROJECT_NAME} DEFAULT)
+        EMakeSetTargetPropertyM(${M_FULL} PROJECT_NAME VAR ${KIT_NAME} DEFAULT)
 
         add_subdirectory(${M_DEST})
     endif()

@@ -140,7 +140,7 @@ static ert __ert_new(int max_thread_num)
     tp->status        = _INITIALING;
 
     tp->tasks         = echan_new(ECHAN_LIST, INT_MAX);
-    tp->tasks_tags    = ejso_new(_OBJ_);
+    tp->tasks_tags    = ejson_new(EOBJ, 0);
     tp->tasks_cache   = ell_new();
 
     if(!tp->tasks || !tp->tasks_tags || !tp->tasks_cache)
@@ -156,7 +156,7 @@ static ert __ert_new(int max_thread_num)
 
 err_ret:
     echan_free(tp->tasks);
-    ejso_free(tp->tasks_tags);
+    ejson_free(tp->tasks_tags);
     ell_free(tp->tasks_cache);
 
     __ert_self_release(tp);
@@ -205,7 +205,7 @@ static inline void __ert_task_cache(ert tp, TASK t)
         else
         {    llog("[thread%s]: rm %s ok, %d, %s", th->id, tag, ejso_len(tp->tasks_tag), s = ejso_toUStr(tp->tasks_tag));ejss_free(s);}
 #else
-        ejso_freeR(tp->tasks_tags, t->tag);
+        ejson_freeR(tp->tasks_tags, t->tag);
 #endif
     }
 
@@ -228,7 +228,7 @@ static inline int __ert_task_add(ert tp, constr _tag, ert_cb oprt, ert_cb after_
     if(_tag && *_tag)
     {
         strncpy(tag, _tag, TAG_LEN);
-        rete = ejso_addT(tp->tasks_tags, tag, _TRUE_);
+        rete = ejson_addT(tp->tasks_tags, tag, ETRUE);
         if(0 == rete)
         {
             llog("[threadpool]: have a task named \"%s\" already, %s, %d", tag, ejson_err(), ejso_len(tp->tasks_tags));
@@ -268,7 +268,7 @@ static inline void __ert_task_release(ert tp)
 
     echan_free(tp->tasks);          tp->tasks       = 0;
     ell_free  (tp->tasks_cache);    tp->tasks_cache = 0;
-    ejso_free (tp->tasks_tags);     tp->tasks_tags  = 0;
+    ejson_free(tp->tasks_tags);     tp->tasks_tags  = 0;
 
     tasks_ulck();
 }
@@ -519,7 +519,7 @@ int  ert_query(ert tp, constr tag)
     is0_ret(tp->status == _INITED, 0);
 
     tasks_lock();
-    ret = ejsr(tp->tasks_tags, tag) ? 1 : 0;
+    ret = ejson_valr(tp->tasks_tags, tag) ? 1 : 0;
     tasks_ulck();
 
     return ret;

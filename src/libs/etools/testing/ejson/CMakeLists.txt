@@ -29,7 +29,11 @@ cmake_minimum_required(VERSION 2.8.1)
 #
 
 ETestAddTestSet(ejson
-    CASES   test_check.c
+    CASES   t1_basic.c
+            t2_parse.c
+            t3_check.c
+            t4_addJ.c
+            test_check.c
             test_eval.c
             test_obj_add.c
             test_obj_del.c

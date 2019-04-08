@@ -33,19 +33,19 @@ typedef union {
     struct {
         uint t_c    : 4;         // class type: ejson elist erb edict ...
         uint t_o    : 4;         // obj   type: FALSE TRUE NUM ...
-        uint t_n    : 1;         // num   type: int float
+        uint t_e    : 1;         // ex    type: NUM: float STR: ptr RAW: ptr
         uint t_k    : 2;         // key   type: key_s key_i no_key
     }__1;
 
     struct {
         uint t_c    :  4;
-        uint t_on   :  5;
+        uint t_oe   :  5;
         uint keys   :  1;       // is a str key ?
         uint hkey   :  1;       // have a key   ?
     }__2;
 
     uint     t_co   : 8;
-    uint     t_con  : 9;
+    uint     t_coe  : 9;
     uint     t_all  : 11;
 
     struct {
@@ -79,11 +79,11 @@ typedef union {
 
 #define _ehdt_type_c(t)     (t).__1.t_c
 #define _ehdt_type_o(t)     (t).__1.t_o
-#define _ehdt_type_n(t)     (t).__1.t_n
+#define _ehdt_type_e(t)     (t).__1.t_e
 #define _ehdt_type_k(t)     (t).__1.t_k
 #define _ehdt_type_co(t)    (t).t_co
-#define _ehdt_type_on(t)    (t).__2.t_on
-#define _ehdt_type_con(t)   (t).t_con
+#define _ehdt_type_oe(t)    (t).__2.t_oe
+#define _ehdt_type_coe(t)   (t).t_coe
 
 #define _ehdt_keys(t)       (t).__2.keys
 #define _ehdt_hkey(t)       (t).__2.hkey
@@ -107,11 +107,11 @@ typedef struct _eobj_header_s{
 
 #define _ehdr_type_c(h)    _ehdt_type_c(_ehdr_typ(h))
 #define _ehdr_type_o(h)    _ehdt_type_o(_ehdr_typ(h))
-#define _ehdr_type_n(h)    _ehdt_type_n(_ehdr_typ(h))
+#define _ehdr_type_e(h)    _ehdt_type_e(_ehdr_typ(h))
 #define _ehdr_type_k(h)    _ehdt_type_k(_ehdr_typ(h))
 #define _ehdr_type_co(h)   _ehdt_type_co(_ehdr_typ(h))
-#define _ehdr_type_on(h)   _ehdt_type_on(_ehdr_typ(h))
-#define _ehdr_type_con(h)  _ehdt_type_con(_ehdr_typ(h))
+#define _ehdr_type_oe(h)   _ehdt_type_oe(_ehdr_typ(h))
+#define _ehdr_type_coe(h)  _ehdt_type_coe(_ehdr_typ(h))
 
 #define _ehdr_keys(h)      _ehdt_keys(_ehdr_typ(h))
 #define _ehdr_hkey(h)      _ehdt_hkey(_ehdr_typ(h))
@@ -132,26 +132,34 @@ typedef struct _eobj_header_s{
     _ ## ectype ## _CO_STR    = ((ectype) | (ESTR   << _EHDT_TYPE_OFFSET_O)), \
     _ ## ectype ## _CO_RAW    = ((ectype) | (ERAW   << _EHDT_TYPE_OFFSET_O)), \
     _ ## ectype ## _CO_OBJ    = ((ectype) | (EOBJ   << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_FALSE = ((ectype) | (EFALSE << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_TRUE  = ((ectype) | (ETRUE  << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_NULL  = ((ectype) | (ENULL  << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_NUM_I = ((ectype) | (ENUM   << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_NUM_F = ((ectype) | (ENUM   << _EHDT_TYPE_OFFSET_O) | (1 << _EHDT_TYPE_OFFSET_N_F)), \
-    _ ## ectype ## _CON_PTR   = ((ectype) | (EPTR   << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_STR   = ((ectype) | (ESTR   << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_RAW   = ((ectype) | (ERAW   << _EHDT_TYPE_OFFSET_O)), \
-    _ ## ectype ## _CON_OBJ   = ((ectype) | (EOBJ   << _EHDT_TYPE_OFFSET_O))  \
+    _ ## ectype ## _CO_ARR    = ((ectype) | (EARR   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _CO_UNKNOWN= ((ectype) | (EOBJ_UNKNOWN   << _EHDT_TYPE_OFFSET_O)),   \
+    _ ## ectype ## _COE_FALSE = ((ectype) | (EFALSE << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_TRUE  = ((ectype) | (ETRUE  << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_NULL  = ((ectype) | (ENULL  << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_NUM_I = ((ectype) | (ENUM   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_NUM_F = ((ectype) | (ENUM   << _EHDT_TYPE_OFFSET_O) | (1 << _EHDT_TYPE_OFFSET_N_F)), \
+    _ ## ectype ## _COE_PTR   = ((ectype) | (EPTR   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_STR   = ((ectype) | (ESTR   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_STR_P = ((ectype) | (ESTR   << _EHDT_TYPE_OFFSET_O) | (1 << _EHDT_TYPE_OFFSET_N_F)), \
+    _ ## ectype ## _COE_RAW   = ((ectype) | (ERAW   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_RAW_P = ((ectype) | (ERAW   << _EHDT_TYPE_OFFSET_O) | (1 << _EHDT_TYPE_OFFSET_N_F)), \
+    _ ## ectype ## _COE_OBJ   = ((ectype) | (EOBJ   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_ARR   = ((ectype) | (EARR   << _EHDT_TYPE_OFFSET_O)), \
+    _ ## ectype ## _COE_UNKNOWN=((ectype) | (EOBJ_UNKNOWN   << _EHDT_TYPE_OFFSET_O))    \
+
 
 typedef enum _eo_type_map{
 
-    _EFALSE = EFALSE ,         // 0
-    _ETRUE  = ETRUE,           // 1
-    _ENULL  = ENULL,           // 2
-    _ENUM   = ENUM,            // 3
-    _EPTR   = EPTR,            // 4
-    _ESTR   = ESTR,            // 5
-    _ERAW   = ERAW,            // 6
-    _EOBJ   = EOBJ,            // 7
+    _EFALSE = EFALSE ,          // 0
+    _ETRUE  = ETRUE,            // 1
+    _ENULL  = ENULL,            // 2
+    _ENUM   = ENUM,             // 3
+    _ESTR   = ESTR,             // 4
+    _EPTR   = EPTR,             // 5
+    _ERAW   = ERAW,             // 6
+    _EOBJ   = EOBJ,             // 7
+    _EARR   = EARR,             // 8
 
     _ENUM_I = _EHDT_NUMI,
     _ENUM_F = _EHDT_NUMF,
@@ -160,6 +168,7 @@ typedef enum _eo_type_map{
     _EO_KEYI  = _EHDT_KEYI,
     _EO_KEYS  = _EHDT_KEYS,
 
+    _XX(EJSON),
     _XX(ELL),
     _XX(EDICT),
     _XX(ERB),
@@ -197,9 +206,11 @@ typedef struct _enode_s{
 #define _k_keyS(k)          (k).s
 #define _k_keyU(k)          (k).u
 #define _k_keyI(k)          (k).i
+#define _k_keyF(k)          (k).f
 #define _k_lenS(k)          sizeof(_k_keyS(k))
 #define _k_lenU(k)          sizeof(_k_keyU(k))
 #define _k_lenI(k)          sizeof(_k_keyI(k))
+#define _k_lenF(K)          sizeof(_k_keyF(k))
 
 //! -- root node macros --
 //!
@@ -208,6 +219,9 @@ typedef struct _enode_s{
 
 #define _r_o(r)            &(r)->_RNODE_OBJ_FIELD
 #define _r_h(r)             (r)->hdr
+#define _r_len(r)           _ehdr_len(_r_h(r))
+#define _r_typec(r)         _ehdr_type_c(_r_h(r))
+#define _r_typeo(r)         _ehdr_type_o(_r_h(r))
 #define _r_typeco(r)        _ehdr_type_co(_r_h(r))
 #define _r_typeco_set(r)    _ehdr_type_co(_r_h(r)) = _cur_type(_CUR_C_TYPE, CO_OBJ)
 #define _r_keys(r)          _ehdr_keys(_r_h(r))
@@ -218,36 +232,67 @@ typedef struct _enode_s{
 #define _n_newc(l)          _eobj_newc(   sizeof(_DNODE_TYPE) - sizeof(eobj_t) + l)
 #define _n_newr(n, l)       _eobj_newr(n, sizeof(_DNODE_TYPE) - sizeof(eobj_t) + l)
 #define _n_init(n)          memset(n,  0, sizeof(_DNODE_TYPE) - sizeof(eobj_t));
-#define _n_newT(n)          n = _n_newc((0));
-#define _n_newNm(n)         n = _n_newm(8);             _n_init(n);
-#define _n_newNc(n)         n = _n_newc(8);
 
-#define _n_newTF(n)         _n_newT(n);                                            _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_FALSE);
-#define _n_newTT(n)         _n_newT(n);                                            _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_TRUE );
-#define _n_newTN(n)         _n_newT(n);                                            _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_NULL );
-#define _n_newIc(n)         _n_newNc(n);                                           _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_NUM_I);
-#define _n_newFc(n)         _n_newNc(n);                                           _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_NUM_F);
-#define _n_newPc(n)         n = _n_newc(sizeof(void*));                            _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_PTR  );
-#define _n_newSc(n, l)      n = _n_newc((l) + 1);                   _n_len(n) = l; _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_STR  );
-#define _n_newRc(n, l)      n = _n_newc((l) + 1);                   _n_len(n) = l; _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_RAW  );
-#define _n_newOc(n)         n = _n_newc(sizeof(_RNODE_TYPE));                      _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_OBJ  );
+#define _n_newT(n)          do{ n = _n_newc((0));                       }while(0)
+#define _n_newNm(n)         do{ n = _n_newm(8);             _n_init(n); }while(0)
+#define _n_newNc(n)         do{ n = _n_newc(8);                         }while(0)
 
-#define _n_newN(n, v, t)    n = _n_newm(8);             _n_init(n);                _n_typecon(n) = t;              _n_setV(n, v);
-#define _n_newI(n, v)       n = _n_newm(8);             _n_init(n);                _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_NUM_I); _n_setI(n, v);
-#define _n_newF(n, v)       n = _n_newm(8);             _n_init(n);                _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_NUM_F); _n_setF(n, v);
-#define _n_newP(n, p)       n = _n_newm(sizeof(void*)); _n_init(n);                _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_PTR  ); _n_setP(n, p);
-#define _n_newS(n, s)       do{ int l = s ? strlen(s) : 0; n = _n_newm((l) + 1);   _n_init(n); _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_STR); _n_setS(n, s, l); }while(0)
-#define _n_newR(n, r, l)    n = _n_newm((l) + 1);       _n_init(n); _n_len(n) = l; _n_typecon(n) = _cur_type(_CUR_C_TYPE, CON_RAW  ); _n_setR(n, r, l); _n_valR(n)[l] = '\0';
+#define _n_newTF(n)         do{ _n_newT(n);                              _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_FALSE);                 }while(0)
+#define _n_newTT(n)         do{ _n_newT(n);                              _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_TRUE );                 }while(0)
+#define _n_newTN(n)         do{ _n_newT(n);                              _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NULL );                 }while(0)
+#define _n_newIc(n)         do{ _n_newNc(n);                             _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NUM_I);                 }while(0)
+#define _n_newFc(n)         do{ _n_newNc(n);                             _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NUM_F);                 }while(0)
+#define _n_newPc(n)         do{ n = _n_newc(sizeof(void*));              _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_PTR  );                 }while(0)
+#define _n_newSc(n, l)      do{ n = _n_newc((l) + 1);                    _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_STR  ); _n_len(n) = l;  }while(0)
+#define _n_newRc(n, l)      do{ n = _n_newc((l) + 1);                    _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_RAW  ); _n_len(n) = l;  }while(0)
+#define _n_newOc(n)         do{ n = _n_newc(sizeof(_RNODE_TYPE));        _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_OBJ  );                 }while(0)
+
+#define _n_newN(n, v, t)    do{ n = _n_newm(8);             _n_init(n);  _n_typecoe(n) = t;                                 _n_setV(n, v);                          }while(0)
+#define _n_newI(n, v)       do{ n = _n_newm(8);             _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NUM_I); _n_setI(n, v);                          }while(0)
+#define _n_newF(n, v)       do{ n = _n_newm(8);             _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NUM_F); _n_setF(n, v);                          }while(0)
+#define _n_newP(n, p)       do{ n = _n_newm(sizeof(void*)); _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_PTR  ); _n_setP(n, p);                          }while(0)
+#define _n_newSl(n,s, l)    do{ n = _n_newm((l) + 1);       _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_STR  ); _n_setS(n, s, l);                       }while(0)
+#define _n_newR(n, r, l)    do{ n = _n_newm((l) + 1);       _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_RAW  ); _n_setR(n, r, l); _n_valR(n)[l] = '\0'; }while(0)
+#define _n_newS(n, s)       do{ int l = s ? strlen(s) : 0; _n_newSl(n, s, l); }while(0)
 
 #define _n_free(n)          _eobj_free(n)
 #define _n_freeK(n)         _cur_freekeyS(_n_keyS(n))
 
 #define _n_l(n)             (n)->_DNODE_LNK_FIELD
-
 #define _n_key(n)           (n)->_DNODE_KEY_FIELD
+#define _n_h(n)             (n)->_DNODE_HDR_FIELD
+
+#define _n_typec(n)         _ehdr_type_c(_n_h(n))
+#define _n_typeo(n)         _ehdr_type_o(_n_h(n))
+#define _n_typee(n)         _ehdr_type_e(_n_h(n))
+#define _n_typeco(n)        _ehdr_type_co(_n_h(n))
+#define _n_typeoe(n)        _ehdr_type_oe(_n_h(n))
+#define _n_typecoe(n)       _ehdr_type_coe(_n_h(n))
+#define _n_len(n)           _ehdr_len(_n_h(n))
+#define _n_linked(n)        _ehdr_linked(_n_h(n))
+
 #define _n_keyS(n)          _k_keyS(_n_key(n))
 #define _n_keyI(n)          _k_keyI(_n_key(n))
 #define _n_keyU(n)          _k_keyU(_n_key(n))
+#define _n_keyF(n)          _k_keyF(_n_key(n))
+
+#define _n_o(n)            &(n)->_DNODE_OBJ_FIELD
+#define _n_valI(n)          (n)->_DNODE_OBJ_FIELD.i
+#define _n_valF(n)          (n)->_DNODE_OBJ_FIELD.f
+#define _n_valS(n)          (n)->_DNODE_OBJ_FIELD.r
+#define _n_valR(n)          (n)->_DNODE_OBJ_FIELD.r
+#define _n_valP(n)          (n)->_DNODE_OBJ_FIELD.p
+#define _n_valV(n)          (n)->_DNODE_OBJ_FIELD.v
+
+#define _n_setV(n, v)       _n_valV(n) = v
+#define _n_setN(n, v)       _n_setV(n, *(eval*)&v)
+#define _n_setI(n, v)       _n_setV(n, *(eval*)&v)
+#define _n_setF(n, v)       _n_setV(n, *(eval*)&v)
+#define _n_setP(n, v)       _n_setV(n, *(eval*)&v)
+#define _n_setS(n, s, l)    _n_setR(n, s, l); _n_valS(n)[l] = '\0'
+#define _n_setR(n, r, l)    memcpy(_n_o(n), r, l); _n_len(n) = l
+
+#define _n_wipeR(n, l)      memset(_n_o(n), 0, l)
 
 //! -- link filed macros --
 //!
@@ -255,11 +300,13 @@ typedef struct _enode_s{
 #define _l_o(l)             _n_o(_l_n(l))
 #define _l_type(l)          _n_type(_l_n(l))
 #define _l_typeo(l)         _n_typeo(_l_n(l))
-#define _l_typeon(l)        _n_typeon(_l_n(l))
+#define _l_typeoe(l)        _n_typeoe(_l_n(l))
 
 #define _l_len(l)           _n_len(_l_n(l))
 
 #define _l_keyI(l)          _n_keyI(_l_n(l))
+#define _l_keyU(l)          _n_keyU(_l_n(l))
+#define _l_keyF(l)          _n_keyF(_l_n(l))
 #define _l_keyS(l)          _n_keyS(_l_n(l))
 #define _l_valI(l)          _eo_valI(_l_o(l))
 #define _l_valF(l)          _eo_valF(_l_o(l))
@@ -286,8 +333,8 @@ typedef struct _enode_s{
 #define _eo_typen(o)        _ehdt_type_n(_eo_t(o))      // num   type
 #define _eo_typek(o)        _ehdt_type_k(_eo_t(o))      // key   type
 #define _eo_typeco(o)       _ehdt_type_co(_eo_t(o))     // class and obj
-#define _eo_typeon(o)       _ehdt_type_on(_eo_t(o))
-#define _eo_typecon(n)      _ehdt_type_con(_eo_t(n))
+#define _eo_typeoe(o)       _ehdt_type_oe(_eo_t(o))
+#define _eo_typecoe(n)      _ehdt_type_coe(_eo_t(n))
 
 #define _eo_keys(n)         _ehdt_keys(_eo_t(n))
 #define _eo_hkey(n)         _ehdt_hkey(_eo_t(n))
@@ -296,7 +343,10 @@ typedef struct _enode_s{
 
 #define _eo_len(n)          _ehdr_len(_eo_h(n))
 
+#define _eo_key(o)          ( (ekey*)(o))[-2]
 #define _eo_keyI(o)         ( (i64* )(o))[-2]
+#define _eo_keyU(o)         ( (u64* )(o))[-2]
+#define _eo_keyF(o)         ( (f64* )(o))[-2]
 #define _eo_keyS(o)         ( (cstr*)(o))[-2]
 #define _eo_valI(o)         (*(i64* )(o))
 #define _eo_valF(o)         (*(f64* )(o))
@@ -316,42 +366,16 @@ typedef struct _enode_s{
 #define _eo_wipeR(o, l)      memset((o), 0, l); _eo_len(o) = l
 
 #define _eo_retT(o)         return o ? _eo_typeo(o) : EOBJ_UNKNOWN
-#define _eo_retI(o)         if(o){ switch(_eo_typeon(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); }} return   0
-#define _eo_retF(o)         if(o){ switch(_eo_typeon(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); }} return 0.0
+#define _eo_retI(o)         if(o){ switch(_eo_typeoe(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); }} return   0
+#define _eo_retF(o)         if(o){ switch(_eo_typeoe(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); }} return 0.0
 #define _eo_retP(o)         if(o && EPTR == _eo_typeo(o)) return _eo_valP(o); return 0
 #define _eo_retS(o)         if(o && ESTR == _eo_typeo(o)) return _eo_valS(o); return 0
 #define _eo_retR(o)         if(o && ERAW == _eo_typeo(o)) return _eo_valR(o); return 0
 
-#define _eo_retL(o)         if(o){ switch(_eo_typeo(o)){ case _ESTR: case _ERAW: return _eo_len(o); }} return 0
+#define _eo_retL(o)         if(o){ return _eo_len(o); } return 0
 
-#define _n_h(n)             (n)->_DNODE_HDR_FIELD
-#define _n_type(n)          _ehdr_type_co(_n_h(n))
-#define _n_typec(n)         _ehdr_type_c(_n_h(n))
-#define _n_typeo(n)         _ehdr_type_o(_n_h(n))
-#define _n_typen(n)         _ehdr_type_n(_n_h(n))
-#define _n_typeon(n)        _ehdr_type_on(_n_h(n))
-#define _n_typecon(n)       _ehdr_type_con(_n_h(n))
-#define _n_len(n)           _ehdr_len(_n_h(n))
-#define _n_linked(n)        _ehdr_linked(_n_h(n))
-
-#define _n_o(n)            &(n)->_DNODE_OBJ_FIELD
-#define _n_valI(n)          (n)->_DNODE_OBJ_FIELD.i
-#define _n_valF(n)          (n)->_DNODE_OBJ_FIELD.f
-#define _n_valS(n)          (n)->_DNODE_OBJ_FIELD.r
-#define _n_valR(n)          (n)->_DNODE_OBJ_FIELD.r
-#define _n_valP(n)          (n)->_DNODE_OBJ_FIELD.p
-#define _n_valV(n)          (n)->_DNODE_OBJ_FIELD.v
-
-#define _n_setV(n, v)       _n_valV(n) = v
-#define _n_setN(n, v)       _n_setV(n, *(eval*)&v)
-#define _n_setI(n, v)       _n_setV(n, *(eval*)&v)
-#define _n_setF(n, v)       _n_setV(n, *(eval*)&v)
-#define _n_setP(n, v)       _n_setV(n, *(eval*)&v)
-#define _n_setS(n, s, l)    _n_setR(n, s, l); _n_valS(n)[l] = '\0'
-#define _n_setR(n, r, l)    memcpy(_n_o(n), r, l); _n_len(n) = l
-
-#define _n_wipeR(n, l)      memset(_n_o(n), 0, l)
-
+#define _ec_retL(o)         if(o){ return _eo_typeo(o) >= EOBJ ? _eo_len(o) : 0;} return 0
+#define _ec_isEmpty(o)      ((o && _eo_typeo(o) >= EOBJ) ? !_eo_len(o) : 0);
 
 static __always_inline bool __eobj_isTrue(eobj o)
 {
@@ -369,6 +393,23 @@ static __always_inline bool __eobj_isTrue(eobj o)
     return false;
 }
 
+static __always_inline i64 __eobj_valI(eobj o) { switch(_eo_typeoe(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); } return 0;}
+static __always_inline i64 __eobj_valF(eobj o) { switch(_eo_typeoe(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); } return 0;}
 
+constr __eobj_typeS(eobj o, bool beauty);
+
+
+#endif
+
+#ifdef _cur_cmpkeyS
+
+static inline i64 __eobj_key_cmp_i64_asc(eobj o1, eobj o2) { return _eo_keyI(o1) - _eo_keyI(o2);  }
+static inline i64 __eobj_key_cmp_i64_des(eobj o1, eobj o2) { return _eo_keyI(o2) - _eo_keyI(o1);  }
+static inline i64 __eobj_key_cmp_u64_asc(eobj o1, eobj o2) { return _eo_keyU(o1) - _eo_keyU(o2);  }
+static inline i64 __eobj_key_cmp_u64_des(eobj o1, eobj o2) { return _eo_keyU(o2) - _eo_keyU(o1);  }
+static inline i64 __eobj_key_cmp_f64_asc(eobj o1, eobj o2) { return _eo_keyF(o1) - _eo_keyF(o2);  }
+static inline i64 __eobj_key_cmp_f64_des(eobj o1, eobj o2) { return _eo_keyF(o2) - _eo_keyF(o1);  }
+static inline i64 __eobj_key_cmp_str_asc(eobj o1, eobj o2) { return _cur_cmpkeyS(_eo_keyS(o1), _eo_keyS(o2));  }
+static inline i64 __eobj_key_cmp_str_des(eobj o1, eobj o2) { return _cur_cmpkeyS(_eo_keyS(o2), _eo_keyS(o1));  }
 
 #endif

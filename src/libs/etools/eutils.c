@@ -139,16 +139,78 @@ static inline u64 __hrtime_ns(clocktype_t type)
 i64  eutils_nowns() { return __hrtime_ns(_CLOCK_PRECISE)          ; }
 i64  eutils_nowms() { return __hrtime_ns(_CLOCK_FAST   ) / 1000000; }
 
+int ll2str(i64 value, char *s)
+{
+    char *p, aux;
+    unsigned long long v;
+    size_t l;
+
+    /* Generate the string representation, this method produces
+     * an reversed string. */
+    v = (value < 0) ? -value : value;
+    p = s;
+    do {
+        *p++ = '0'+(v%10);
+        v /= 10;
+    } while(v);
+    if (value < 0) *p++ = '-';
+
+    /* Compute length and add null term. */
+    l = p-s;
+    *p = '\0';
+
+    /* Reverse the string. */
+    p--;
+    while(s < p) {
+        aux = *s;
+        *s = *p;
+        *p = aux;
+        s++;
+        p--;
+    }
+    return l;
+}
+
+int ull2str(u64 v, char *s)
+{
+    char *p, aux;
+    size_t l;
+
+    /* Generate the string representation, this method produces
+     * an reversed string. */
+    p = s;
+    do {
+        *p++ = '0'+(v%10);
+        v /= 10;
+    } while(v);
+
+    /* Compute length and add null term. */
+    l = p-s;
+    *p = '\0';
+
+    /* Reverse the string. */
+    p--;
+    while(s < p) {
+        aux = *s;
+        *s = *p;
+        *p = aux;
+        s++;
+        p--;
+    }
+    return l;
+}
+
 int eutils_rand()
 {
     static uint _seed;
 
-    if(!_seed) _seed = (unsigned)time(0);
+    if(!_seed)
+    {
+        _seed = (unsigned)time(0);
+        srand(_seed);
+    }
 
-    srand(_seed);
-    _seed += rand();
-
-    return _seed;
+    return rand();
 }
 
 int  eutils_nprocs()

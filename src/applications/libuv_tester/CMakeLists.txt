@@ -108,7 +108,7 @@ EBuildAssignTargetDestF(
 #       Qt5::Core|LINUX      将只在 LINUX 平台上依赖 Qt5::Core
 #       Qt5::Core|WIN32      将只在 WIN32 平台上依赖 Qt5::Core
 #
-set(KIT_DEPENDS libuv::static -lpthread|LINUX -ldl|LINUX -lutil|LINUX)
+set(KIT_DEPENDS libuv::static -lpthread|LINUX -ldl|LINUX -lutil|LINUX )
 
 # ==================================================
 # \! emake 外部库项目其它操作项配置

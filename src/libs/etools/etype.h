@@ -17,9 +17,13 @@
 #ifndef __ETYPE_H__
 #define __ETYPE_H__
 
-#define ETYPE_VERSION "etype 1.0.1"   // s64 -> i64
+#define ETYPE_VERSION "etype 1.1.0"
+
+#pragma pack(1)
 
 #include <stdbool.h>
+
+#include "ealloc.h"
 
 #ifndef __DEF_PTR__
 #define __DEF_PTR__
@@ -97,20 +101,49 @@ typedef size_t size;
 #endif
 
 typedef union eval_s{
-    __i8      i8,  i8_[8];
-    __u8      u8,  u8_[8];
-    __i16    i16, i16_[4];
-    __u16    u16, u16_[4];
-    __i32    i32, i32_[2];
-    __u32    u32, u32_[2];
-    __i64    i64, i64_[1], i;
-    __u64    u64, u64_[1], u;
-    __f32    f32, f32_[2];
-    __f64    f64, f64_[1], f;
+    __i8      i8,  i8a[8], *i8p;
+    __u8      u8,  u8a[8], *u8p;
+    __i16    i16, i16a[4], *i16p;
+    __u16    u16, u16a[4], *u16p;
+    __i32    i32, i32a[2], *i32p;
+    __u32    u32, u32a[2], *u32p;
+    __i64    i64, i64a[1], *i64p, i;
+    __u64    u64, u64a[1], *u64p, u;
+    __f32    f32, f32a[2], *f32p;
+    __f64    f64, f64a[1], *f64p, f;
 
-    cptr     p, p_[1];
-    cstr     s, s_[1];
-    char     r[1];
+    cptr     p, pa[1], * pp;
+    cstr     s, sa[1], * sp;
+    char     c, ca[1], * cp;        // same as i8
+    char        r [1], * rp;        // same as i8, but define a new type to handle raw data
+
+    conptr   C_p, C_pa[1], * C_pp;  // const ver
+    constr   C_s, C_sa[1], * C_sp;  // const ver
 }eval_t, eval, * evalp;
+
+#define eval_mk(_v, v)   (eval_t){._v = v}
+
+#define EVAL_ZORE       eval_mk(p, 0)
+
+#define EVAL_I8( v)     eval_mk(i8  = v);
+#define EVAL_I16(v)     eval_mk(i16 = v);
+#define EVAL_I32(v)     eval_mk(i32 = v);
+#define EVAL_I64(v)     eval_mk(i64 = v);
+
+#define EVAL_U8( v)     eval_mk(u8  = v);
+#define EVAL_U16(v)     eval_mk(i16 = v);
+#define EVAL_U32(v)     eval_mk(i32 = v);
+#define EVAL_U64(v)     eval_mk(i64 = v);
+
+#define EVAL_F32(v)     eval_mk(f32 = v);
+#define EVAL_F64(v)     eval_mk(f64 = v);
+
+#define EVAL_S(  v)     eval_mk(s = v);
+#define EVAL_P(  v)     eval_mk(p = v);
+
+#define EVAL_CS( v)     eval_mk(C_s = v);
+#define EVAL_CP( v)     eval_mk(C_p = v);
+
+#pragma pack()
 
 #endif

@@ -326,7 +326,7 @@ static int ell_take_test()
         {
             eobj o = ell_appdR(l, sizeof(eobj_t));
 
-            o->v.i32_[0] = i;
+            o->v.i32a[0] = i;
         }
 
         int i, idx;
@@ -348,10 +348,10 @@ static int ell_take_test()
                 i++;
             }
 
-            o->v.i32_[1] = 1;
+            o->v.i32a[1] = 1;
 
             o = ell_first(l);
-            while(o && o->v.i32_[1])
+            while(o && o->v.i32a[1])
             {
                 o = ell_takeH(l);
                 ell_freeO(0, o);
@@ -367,7 +367,7 @@ static int ell_take_test()
         {
             eobj o = ell_appdR(l, sizeof(eobj_t));
 
-            o->v.i32_[0] = i;
+            o->v.i32a[0] = i;
         }
 
         int i, idx;
@@ -389,10 +389,10 @@ static int ell_take_test()
                 i++;
             }
 
-            o->v.i32_[1] = 1;
+            o->v.i32a[1] = 1;
 
             o = ell_last(l);
-            while(o && o->v.i32_[1])
+            while(o && o->v.i32a[1])
             {
                 o = ell_takeT(l);
                 ell_freeO(0, o);
@@ -408,7 +408,7 @@ static int ell_take_test()
         {
             eobj o = ell_appdR(l, sizeof(eobj_t));
 
-            o->v.i32_[0] = i;
+            o->v.i32a[0] = i;
         }
 
         int i, idx;
@@ -430,12 +430,12 @@ static int ell_take_test()
                 i++;
             }
 
-            o->v.i32_[1] = 1;
+            o->v.i32a[1] = 1;
 
             if(ell_len(l) % 2 == 0)
             {
                 o = ell_first(l);
-                while(o && o->v.i32_[1])
+                while(o && o->v.i32a[1])
                 {
                     o = ell_takeH(l);
                     ell_freeO(0, o);
@@ -446,7 +446,7 @@ static int ell_take_test()
             else
             {
                 o = ell_last(l);
-                while(o && o->v.i32_[1])
+                while(o && o->v.i32a[1])
                 {
                     o = ell_takeT(l);
                     ell_freeO(0, o);
@@ -504,7 +504,7 @@ static int ell_free_test()
         {
             eobj o = ell_appdR(l, sizeof(eobj_t));
 
-            o->v.i32_[0] = i;
+            o->v.i32a[0] = i;
         }
 
         int i, idx;
@@ -526,10 +526,10 @@ static int ell_free_test()
                 i++;
             }
 
-            o->v.i32_[1] = 1;
+            o->v.i32a[1] = 1;
 
             o = ell_first(l);
-            while(o && o->v.i32_[1])
+            while(o && o->v.i32a[1])
             {
                 ell_freeH(l);
 
@@ -545,7 +545,7 @@ static int ell_free_test()
         {
             eobj o = ell_appdR(l, sizeof(eobj_t));
 
-            o->v.i32_[0] = i;
+            o->v.i32a[0] = i;
         }
 
         int i, idx;
@@ -567,10 +567,10 @@ static int ell_free_test()
                 i++;
             }
 
-            o->v.i32_[1] = 1;
+            o->v.i32a[1] = 1;
 
             o = ell_last(l);
-            while(o && o->v.i32_[1])
+            while(o && o->v.i32a[1])
             {
                 ell_freeT(l);
 

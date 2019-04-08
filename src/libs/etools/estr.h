@@ -62,7 +62,7 @@ typedef char* estr;
 estr estr_new(size cap);
 estr estr_newLen(conptr ptr, size len);
 
-estr estr_fromS64(i64 val);
+estr estr_fromI64(i64 val);
 estr estr_fromU64(u64 val);
 
 estr estr_fromInput(constr tag, int hide);          // if hide = 1, the character you type in will be hidden, note: no multi thread lock
@@ -70,6 +70,9 @@ estr estr_fromFile(constr path, int mlen);          // mlen is the max len you w
 
 estr estr_dup (estr   s);
 estr estr_dupS(constr s);
+
+void estr_clear(estr s);
+void estr_wipe (estr s);
 
 void estr_free(estr s);
 
@@ -92,6 +95,7 @@ void estr_free(estr s);
 #define estr_wrtL(s, line)      __estr_wrtL(&(s), (line))           // line, not include '\n'
 #define estr_wrtT(s, src, end)  __estr_wrtT(&(s), (src), end)       // to  , not include end char
 #define estr_wrtB(s, ptr, len)  __estr_wrtB(&(s), (ptr), (len))     // bin
+#define estr_wrtC(s, c  , len)  __estr_wrtC(&(s), (c  ), (len))     // char
 #define estr_wrtA(s, fmt, ap)   __estr_wrtA(&(s), fmt, ap)          // args
 #define estr_wrtP(s, ...)       __estr_wrtP(&(s), ##__VA_ARGS__)    // format: like sprintf
 #define estr_wrtF(s, ...)       __estr_wrtF(&(s), ##__VA_ARGS__)    // format: only support %s(cstr) %S(estr) %i(i32) %I(i64) %u(u32) %U(u64) %%(%)
@@ -102,6 +106,7 @@ void estr_free(estr s);
 #define estr_catL(s, line)      __estr_catL(&(s), (line))
 #define estr_catT(s, src, end)  __estr_catT(&(s), (src), end)
 #define estr_catB(s, ptr, len)  __estr_catB(&(s), (ptr), (len))
+#define estr_catC(s, c  , len)  __estr_catC(&(s), (c  ), (len))     // char
 #define estr_catA(s, fmt, ap)   __estr_catA(&(s), fmt, ap)
 #define estr_catP(s, ...)       __estr_catP(&(s), ##__VA_ARGS__)
 #define estr_catF(s, ...)       __estr_catF(&(s), ##__VA_ARGS__)
@@ -109,8 +114,7 @@ void estr_free(estr s);
 estr estr_setB(estr s, int  start, conptr ptr, size len);   // todo
 int  estr_setT(estr s, char c);                  // set the last char of s, if c == '\0', the len of s will decrease 1 automaticlly
 
-void estr_clear(estr s);
-void estr_wipe (estr s);
+
 
 /// -- estr getter ---------------------------------------
 size estr_len (estr s);
@@ -246,7 +250,7 @@ sstr sstr_subs (sstr s, constr from, constr to);
 void sstr_decrLen(sstr s, size_t decr);
 
 
-/// -- estr help declarition ----------------------------
+/// -- estr real declarition ----------------------------
 ///
 
 i64 __estr_wrtE(estr*s, estr   s2);
@@ -255,6 +259,7 @@ i64 __estr_wrtW(estr*s, constr word);
 i64 __estr_wrtL(estr*s, constr line);
 i64 __estr_wrtT(estr*s, constr src, char    end);
 i64 __estr_wrtB(estr*s, conptr ptr, size    len);
+i64 __estr_wrtC(estr*s, char   c  , size    len);
 i64 __estr_wrtA(estr*s, constr fmt, va_list ap);
 i64 __estr_wrtP(estr*s, constr fmt, ...);
 i64 __estr_wrtF(estr*s, constr fmt, ...);
@@ -265,6 +270,7 @@ i64 __estr_catW(estr*s, constr word);
 i64 __estr_catL(estr*s, constr line);
 i64 __estr_catT(estr*s, constr src, char    end);
 i64 __estr_catB(estr*s, conptr ptr, size    len);
+i64 __estr_catC(estr*s, char   c  , size    len);
 i64 __estr_catA(estr*s, constr fmt, va_list ap );
 i64 __estr_catP(estr*s, constr fmt, ...) __format_printf;
 i64 __estr_catF(estr*s, constr fmt, ...);

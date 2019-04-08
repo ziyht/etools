@@ -81,7 +81,7 @@ int erb_set_r_test(erb rb, int cnt)
 
 int erb_set_types_test(int cnt)
 {
-    erb rb = erb_new(ERB_KEYI, 0);
+    erb rb = erb_new(EKEY_I);
 
     ETEST_RUN(erb_set_i_test(rb, cnt));
     ETEST_RUN(erb_set_f_test(rb, cnt));

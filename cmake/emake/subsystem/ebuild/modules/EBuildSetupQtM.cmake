@@ -73,7 +73,7 @@ macro(EBuildSetupQtM)
 
     set(PACKAGES_NOT_FOUND)
 
-    emakeGetGlobalPropertyM(KNOWN_QT_PACKEGES _known_packages NO_CHECK)
+    EMakeGetGlobalPropertyM(KNOWN_QT_PACKEGES _known_packages NO_CHECK)
 
     foreach(package ${ARGN})
 
@@ -85,18 +85,55 @@ macro(EBuildSetupQtM)
             _configuring_qt_core()
 
             # try find qt package
-            #set(QT5_COMPONENTS Core Gui Xml XmlPatterns Concurrent Sql Test Widgets OpenGL UiTools)
+            # set(QT5_COMPONENTS Core Gui Xml XmlPatterns Concurrent Sql Test Widgets OpenGL UiTools)
             string(REGEX REPLACE "^(Q|q)(T|t)(4|5)::"  "" component ${package})
+
             find_package(Qt5 COMPONENTS ${component} QUIET)
+
             if(NOT Qt5_FOUND)
                 set(${package}_FOUND)
                 list(APPEND PACKAGES_NOT_FOUND ${package})
             else()
-                emakeSetGlobalPropertyM(KNOWN_QT_PACKEGES LIST_VAR ${package} APPEND_NO_DUP)
+                EMakeSetGlobalPropertyM(KNOWN_QT_PACKEGES LIST_VAR ${package} APPEND_NO_DUP)
             endif()
 
         endif()
 
     endforeach()
+
+#    foreach(_dep_qt ${_deps_qt})
+#        list(FIND KNOWN_QT_PACKEGES ${_dep_qt} _o_index)
+
+#        if(_o_index EQUAL -1)
+#            find_package(${_dep_qt} QUIET)
+
+#            set(_found)
+
+#            if(NOT ${_dep_qt}_FOUND)
+#                find_library(lib NAMES ${_dep_qt} PATHS ${paths})
+
+#                if(${lib} STREQUAL "lib-NOTFOUND")
+
+#                    if(TARGET ${_dep_qt})
+
+#                        get_target_property(_my_PROPERTIES ${_dep_qt} IMPORTED_LOCATION_DEBUG)  # only check DEBUG now
+
+#                        if(_my_PROPERTIES)
+#                            list(APPEND KNOWN_QT_PACKEGES ${_dep_qt})
+#                        else()
+#                            ParaErrF("the kit '${i_kit}' depends on a QT package/library [${_dep_qt}] which can not be found, please check you 'setupManifist.cmake' file")
+#                        endif()
+
+#                    else()
+
+#                        ParaErrF("the kit '${i_kit}' depends on a QT package/library [${_dep_qt}] which can not be found, please check you 'setupManifist.cmake' file")
+
+#                    endif()
+#                else()
+#                    list(APPEND KNOWN_QT_PACKEGES ${_dep_qt})
+#                endif()
+#            endif()
+#        endif()
+#    endforeach()
 
 endmacro()

@@ -40,6 +40,7 @@ include(${_}/EMakeSetBuildTypeM.cmake)      # 设置项目编译类型，Debug�
 
 unset(_)
 
-EMakeInfF("\n------------------------------------\n-- EMake Version: ${EMAKE_FRAMEWORK_VERSION}")
+EMakeInfF("------------------------------------------")
+EMakeInfF("EMake Version: ${EMAKE_FRAMEWORK_VERSION}")
 
 EMakeSetupConfigInternalM()

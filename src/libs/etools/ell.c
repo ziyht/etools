@@ -261,6 +261,91 @@ eobj ell_newO(etypeo type, uint len)
     return _n_o(n);
 }
 
+inline uint  ell_len    (ell  l) { return l ?  _c_len(l) :  0 ; }
+inline uint  ell_size   (ell  l) { return l ?  _c_len(l) :  0 ; }
+inline bool  ell_isEmpty(ell  l) { return l ? !_c_len(l) :  0 ; }
+
+ell ell_clear  (ell l) { return ell_clearEx(l, 0);}
+ell ell_clearEx(ell l, eobj_rls_cb rls)
+{
+    _elln n, itr;
+
+    is0_ret(l  , 0);
+
+    if(rls)
+    {
+        for(n = _c_head(l); (itr = n); )
+        {
+            n = _n_next(n);
+
+            switch (_n_typeo(itr))
+            {
+                case EPTR:
+                case ERAW: rls(_n_o(itr));
+                           break;
+
+                case EOBJ: ell_freeEx((ell)_n_o(itr), rls);
+                           continue;
+            }
+
+            _n_free(itr);
+        }
+    }
+    else
+    {
+        for(n = _c_head(l); (itr = n); )
+        {
+            n = _n_next(n);
+
+            if(_n_typeo(itr) == EOBJ)
+                ell_free((ell)_n_o(itr));
+            else
+                _n_free(itr);
+        }
+    }
+
+    _ell_init(l);
+
+    return l;
+}
+
+int ell_free(ell l)
+{
+    _elln n, itr;
+
+    is0_ret(l, 0);
+
+    for(n = _c_head(l); (itr = n); )
+    {
+        n = _n_next(n);
+        _n_free(itr);
+    }
+
+    _c_free(l);
+
+    return 1;
+}
+
+int ell_freeEx(ell l, eobj_rls_cb rls)
+{
+    _elln n, itr;
+
+    is0_ret(rls, ell_free(l));
+    is0_ret(l  , 0);
+
+    for(n = _c_head(l); (itr = n); )
+    {
+        n = _n_next(n);
+
+        rls(_n_o(itr));
+        _n_free(itr);
+    }
+
+    _c_free(l);
+
+    return 1;
+}
+
 eobj  ell_pushI(ell l, i64    val){ _elln n; is0_ret(l, 0);     _n_newI (n, val); _elist_push(l, n); return _n_o(n);}
 eobj  ell_pushF(ell l, f64    val){ _elln n; is0_ret(l, 0);     _n_newF (n, val); _elist_push(l, n); return _n_o(n);}
 eobj  ell_pushS(ell l, constr str){ _elln n; is0_ret(l, 0);     _n_newS (n, str); _elist_push(l, n); return _n_o(n);}
@@ -316,27 +401,24 @@ static eobj _ell_setRaw(ell l, int idx, eval v, uint need_len, _eotype type)
 
     switch((int)type)
     {
-        case _ELL_CON_NUM_I:
-        case _ELL_CON_NUM_F:
-        case _ELL_CON_PTR  : _n_setV (n, v            ); break;
-        case _ELL_CON_STR  : _n_setS (n, v.s, need_len); break;
-        case _ELL_CON_RAW  : _n_wipeR(n,      need_len); _n_len(n) = need_len; break;
+        case _ELL_COE_NUM_I:
+        case _ELL_COE_NUM_F:
+        case _ELL_COE_PTR  : _n_setV (n, v            ); break;
+        case _ELL_COE_STR  : _n_setS (n, v.s, need_len); break;
+        case _ELL_COE_RAW  : _n_wipeR(n,      need_len); _n_len(n) = need_len; break;
     }
 
-    _n_typecon(n) = type;
+    _n_typecoe(n) = type;
 
     return _n_o(n);
 }
 
-eobj ell_setI(ell l, int idx, i64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_CON_NUM_I); }
-eobj ell_setF(ell l, int idx, f64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_CON_NUM_F); }
-eobj ell_setP(ell l, int idx, conptr val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_CON_PTR  ); }
-eobj ell_setS(ell l, int idx, constr str) { return _ell_setRaw(l, idx, *(eval*)&str, str ? strlen(str) : 0, _ELL_CON_STR  ); }
-eobj ell_setR(ell l, int idx, size_t len) { return _ell_setRaw(l, idx, *(eval*)&len,                   len, _ELL_CON_RAW  ); }
+eobj ell_setI(ell l, int idx, i64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_NUM_I); }
+eobj ell_setF(ell l, int idx, f64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_NUM_F); }
+eobj ell_setP(ell l, int idx, conptr val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_PTR  ); }
+eobj ell_setS(ell l, int idx, constr str) { return _ell_setRaw(l, idx, *(eval*)&str, str ? strlen(str) : 0, _ELL_COE_STR  ); }
+eobj ell_setR(ell l, int idx, size_t len) { return _ell_setRaw(l, idx, *(eval*)&len,                   len, _ELL_COE_RAW  ); }
 
-inline bool  ell_isEmpty(ell  l) { return l ? !_c_len(l) : -1 ; }
-inline uint  ell_len    (ell  l) { return l ?  _c_len(l) :  0 ; }
-inline uint  ell_size   (ell  l) { return l ?  _c_len(l) :  0 ; }
 
 inline eobj  ell_first(ell    l) { return _c_head(l)           ? _n_o(_c_head(l))           : 0; }
 inline eobj  ell_last (ell    l) { return _c_tail(l)           ? _n_o(_c_tail(l))           : 0; }
@@ -376,84 +458,6 @@ int   ell_freeO(ell l, eobj obj)
     is1_exeret(obj = ell_takeO(l, obj), _eo_free(obj), 1);
 
     return 0;
-}
-
-ell ell_clear(ell l)
-{
-    _elln n, itr;
-
-    is0_ret(l, 0);
-
-    for(n = _c_head(l); (itr = n); )
-    {
-        n = _n_next(n);
-
-        if(_n_typeo(itr) == EOBJ)
-            ell_free((ell)_n_o(itr));
-        else
-            _n_free(itr);
-    }
-
-    _ell_init(l);
-
-    return l;
-}
-
-ell ell_clearEx(ell l, eobj_rls_cb rls)
-{
-    _elln n, itr;
-
-    is0_ret(rls, ell_clear(l));
-    is0_ret(l  , 0);
-
-    for(n = _c_head(l); (itr = n); )
-    {
-        n = _n_next(n);
-
-        rls(_n_o(itr));
-        _n_free(itr);
-    }
-
-    _ell_init(l);
-
-    return l;
-}
-
-int ell_free(ell l)
-{
-    _elln n, itr;
-
-    is0_ret(l, 0);
-
-    for(n = _c_head(l); (itr = n); )
-    {
-        n = _n_next(n);
-        _n_free(itr);
-    }
-
-    _c_free(l);
-
-    return 1;
-}
-
-int ell_freeEx(ell l, eobj_rls_cb rls)
-{
-    _elln n, itr;
-
-    is0_ret(rls, ell_free(l));
-    is0_ret(l  , 0);
-
-    for(n = _c_head(l); (itr = n); )
-    {
-        n = _n_next(n);
-
-        rls(_n_o(itr));
-        _n_free(itr);
-    }
-
-    _c_free(l);
-
-    return 1;
 }
 
 constr ell_version()

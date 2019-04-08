@@ -24,10 +24,12 @@
 extern "C" {
 #endif
 
-/// ---------------------- llog -------------------------
-///
-///     for debug using
-///
+/** =====================================================
+ *
+ *  llog tools
+ *
+ * ------------------------------------------------------
+ */
 #ifdef  EUTILS_LLOG
 #define EUTILS_LLOG_DBG 0
 #define EUTILS_LLOG_INF 1
@@ -131,10 +133,12 @@ static constr _llog_basename(constr path){static constr slash; if (slash) {retur
 #endif
 
 
-/// ------------------ macro helper ---------------------
-///
-///     short judge macros
-///
+/** =====================================================
+ *
+ *  some macro helpers
+ *
+ * ------------------------------------------------------
+ */
 
 #define exe_ret(expr, ret ) { expr;      return ret;}
 #define is0_ret(cond, ret ) if(!(cond)){ return ret;}
@@ -152,9 +156,43 @@ static constr _llog_basename(constr path){static constr slash; if (slash) {retur
 #define container_of(ptr, type, member) ((type *)( (char *)ptr - offsetof(type,member) ))   // hava a operation, minimize related operations
 #define offsetof(TYPE, MEMBER)          ((size_t) &((TYPE *)0)->MEMBER)
 
-/// ------------------ utils tools ---------------------
-///
-///
+#define is_eq(a, b) ((a) == (b))
+#define un_eq(a, b) ((a) != (b))
+
+#define E_UNUSED(p) (void)p
+
+/** =====================================================
+ *
+ *  math tools
+ *
+ * ------------------------------------------------------
+ */
+static __always_inline int pow2gt(int x)	{	--x;	x|=x>>1;	x|=x>>2;	x|=x>>4;	x|=x>>8;	x|=x>>16;	return x+1;	}
+
+/** =====================================================
+ *
+ *  string tools
+ *
+ * ------------------------------------------------------
+ */
+
+/**
+ * doing the actual number -> string conversion. 's' must point
+ * to a string with room for at least 21 bytes.
+ *
+ * The function returns the length of the null-terminated string
+ * representation stored at 's'.
+*/
+int  ll2str(i64 v, char *s);
+int ull2str(u64 v, char *s);
+
+
+/** =====================================================
+ *
+ *  string tools
+ *
+ * ------------------------------------------------------
+ */
 
 i64  eutils_nowns();
 i64  eutils_nowms();

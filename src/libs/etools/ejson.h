@@ -6,8 +6,7 @@
 ///
 ///             1. we using list and dict to handle items in list and obj
 ///             2. we recorded the item which you accessed last time in list, we'll search
-///                from the recorded item in next time, so it has a very high perfermance
-///                when traverse a list obj
+///                from the recorded item in next time
 ///
 ///        Version:  0.8
 ///        Created:  12/18/2016 08:51:34 PM
@@ -22,264 +21,256 @@
 #ifndef __EJSON_H__
 #define __EJSON_H__
 
-#define EJSON_VERSION "ejson 0.9.0"      // add support of ",]" and ",}" syntax
-
 #include "etype.h"
-
-/// -- pre def ---
-typedef struct ejson_s* ejson, ** ejson_p;
-
-#define MAX_KEY_LEN         512     // max len of keys
-
-/// -- ejson types --
-enum{
-    EJSON_FALSE = 0x00u ,
-    EJSON_TRUE  ,
-    EJSON_NULL  ,
-    EJSON_NUM   ,
-    EJSON_STR   ,
-    EJSON_PTR   ,
-    EJSON_RAW   ,
-    EJSON_ARR   = 0x0Eu ,
-    EJSON_OBJ   ,
-
-// -- short name of [ejson types] used for ejs_new(), close it if it conflict with other micors
-#if 1
-    _FALSE_ = EJSON_FALSE ,
-    _TRUE_  ,
-    _NULL_  ,
-    _NUM_   ,
-    _STR_   ,
-    _PTR_   ,
-    _RAW_   ,
-    _ARR_   = EJSON_ARR ,
-    _OBJ_   ,
-#endif
-};
-
-typedef enum {
-    ALL_ON      =  0xFF,
-    ENDCHK_ON   =  0x01,     // requre null-terminated check in parse end
-    CMMT_ON     =  0x02,     // requre comment supported
-    ENDCHK_OFF  = ~0x01,
-    CMMT_OFF    = ~0x02,
-    ALL_OFF     =  0x00,
-}opts;
+#include "eobj.h"
+#include "estr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define EJSON_TYPE(t, len) (t | len << 8)
+/** -----------------------------------------------------
+ *
+ *  ejson basic
+ *
+ *  -----------------------------------------------------
+ */
 
-/// -- ejson new object --
-/// @param src     - json string to parse to ejson
-/// @param err_pos - point to the err position if parse err
-/// @param opt     - opitions of parsing
-/// @param file    - file to parse to ejson
-/// @return ejson  - [ejson object] if parse ok
-///                  [NULL] if parse err
-///         constr - [constr] point to err position if check err
-///                  [NULL] if check ok
-///
-ejson  ejso_new(uint type_len);           // create a ejson obj
+eobj ejson_new(etypeo type, uint len);                        // create a ejson obj
 
-ejson  ejss_eval(constr src);         // parse a str  to ejson obj, can have key before of a obj, not support comment in default
-int    ejss_check(constr src);        // only check the str, not alloc any memory, return 1 if the str ok, else return 0, using ejson_epos() to get err position int src
-void   ejss_evalSet(opts opt);        // set comment support of eval APIs, effect on ejss_eval(), ejss_check(), ejs*_add*eval()
-ejson  ejss_evalOpts (constr src , constr* err_pos, opts opt);
-int    ejss_checkOpts(constr src , constr* err_pos, opts opt);
+eobj ejson_parseS  (constr json);                             // parse str to ejson obj
+eobj ejson_parseSEx(constr json, constr* err, eopts opts);    // parse str to ejson obj
 
-ejson  ejsf_eval(constr file);        // parse a file to ejson obj, support comment like: //, /**/, # in default
-void   ejsf_evalSet(opts opt);        // set comment support of eval APIs, effect on ejsf_eval()
-ejson  ejsf_evalOpts (constr file, constr* err_pos, opts opt);
+eobj ejson_parseF  (constr path);                             // parse file to ejson obj
+eobj ejson_parseFEx(constr path, constr* err, eopts opts);    // parse file to ejson obj
 
-/// -- ejson error --
-constr ejson_err();                   // get the err          last recured, is not thread safe
-constr ejson_errp();                  // get the err_position last recured, is not thread safe
+bool ejson_checkS  (constr json);                             // check if json format is correct in str
+bool ejson_checkSEx(constr json, constr* err, eopts opts);    // check if json format is correct in str
 
-/// -- ejson obj add
-/// @param root - ejson object to be added to
-/// @param obj  - ejson object to add to, the obj must not in another ejson, or add operation will faild
-/// @param str  - json str, can have a key before, like: "key":{}, but
-/// @param key  - str to be set as key to the ejson object to be added
-/// @param keys - str to locate the specific ejson object in root, like: "key1.key2[0].key3"
-/// @param val  - value to be set to the ejson object to be added
-/// @return ejson - [ejson object] which is added if add ok
-///               - [NULL] if add faild, use ejson_err() to get err info
-///         void* - [void*] the ptr point to new alloced space
-///               - [NULL] if add faild
-///
-/// @note: 1. if root obj to add to is a ARR obj, the key from param or obj/src will never check, use the exist key in obj or src
-///        2. if root obj to add to is a OBJ obj, must have a key from param or obj/src, if key is set in param, the key in obj/src will always be replaced by it
-///
+bool ejson_checkF  (constr path);                             // check if json format is correct in file
+bool ejson_checkFEx(constr path, constr* err, eopts opts);    // check if json format is correct in filr
 
-ejson  ejso_addO(ejson root, constr key, ejson  obj);               // add an exist obj to root
-ejson  ejso_addE(ejson root, constr key, constr src);               // add an eval  obj to root
-ejson  ejso_addT(ejson root, constr key, int   type);               // add an type  obj to root, only support FLASE,TURE,NULL,ARR,OBJ
-ejson  ejso_addN(ejson root, constr key, double val);               // add an NUM   obj to root
-ejson  ejso_addS(ejson root, constr key, constr val);               // add a  STR   obj to root
-ejson  ejso_addP(ejson root, constr key, void*  ptr);               // add a  PTR   obj to root, the ptr will output like NUM obj when use all ejs_toStr()
-void*  ejso_addR(ejson root, constr key, int    len);               // add a  RAW   obj to root, alloc a new space(len) for data, this obj will output with str value "RAW" when use all ejs_toStr()
+int  ejson_clear  (eobj r);                                   // clear a ejson obj, only effect on EOBJ and EARR
+int  ejson_clearEx(eobj r, eobj_rls_ex_cb rls, eval prvt);    // clear a ejson obj, only effect on EOBJ and EARR
 
-ejson  ejsk_addO(ejson root, constr keys, constr key, ejson  obj);  // add an exist obj to specific obj in root via keys
-ejson  ejsk_addE(ejson root, constr keys, constr key, constr src);  // add an eval  obj to specific obj in root via keys
-ejson  ejsk_addT(ejson root, constr keys, constr key, int   type);  // add an type  obj to specific obj in root via keys, only support FLASE,TURE,NULL,ARR,OBJ
-ejson  ejsk_addN(ejson root, constr keys, constr key, double val);  // add an NUM   obj to specific obj in root via keys
-ejson  ejsk_addS(ejson root, constr keys, constr key, constr val);  // add a  STR   obj to specific obj in root via keys
-ejson  ejsk_addP(ejson root, constr keys, constr key, void*  ptr);  // add a  PTR   obj to specific obj in root via keys, the ptr will output like NUM obj when use all ejs_toStr()
-void*  ejsk_addR(ejson root, constr keys, constr key, int    len);  // add a  RAW   obj to root, alloc a new space(len) for data, this obj will output with str value "RAW" when use all ejs_toStr()
+int  ejson_free  (eobj o);                                    // release a ejson obj, including all children
+int  ejson_freeEx(eobj o, eobj_rls_ex_cb rls, eval prvt);     // release a ejson obj, including all children
 
-ejson  ejsr_addO(ejson root, constr rawk, constr key, ejson  obj);  // add an exist obj to specific obj in root via keys
-ejson  ejsr_addE(ejson root, constr rawk, constr key, constr src);  // add an eval  obj to specific obj in root via keys
-ejson  ejsr_addT(ejson root, constr rawk, constr key, int   type);  // add an type  obj to specific obj in root via keys, only support FLASE,TURE,NULL,ARR,OBJ
-ejson  ejsr_addN(ejson root, constr rawk, constr key, double val);  // add an NUM   obj to specific obj in root via keys
-ejson  ejsr_addS(ejson root, constr rawk, constr key, constr val);  // add a  STR   obj to specific obj in root via keys
-ejson  ejsr_addP(ejson root, constr rawk, constr key, void*  ptr);  // add a  PTR   obj to specific obj in root via keys, the ptr will output like NUM obj when use all ejs_toStr()
-void*  ejsr_addR(ejson root, constr rawk, constr key, int    len);  // add a  RAW   obj to root, alloc a new space(len) for data, this obj will output with str value "RAW" when use all ejs_toStr()
+etypeo ejson_type   (eobj o);
+uint   ejson_len    (eobj o);         // Returns the len of ESTR or ERAW or number of items of EOBJ or EARR, else return 0
+bool   ejson_isEmpty(eobj o);         // Returns false if ejson contains items, otherwise return true
 
-/// -- ejson del and free  --
-void   ejso_free (ejson obj );                  // release all the resources of obj, there is no check whether the obj is in another ejson object, be careful
-void   ejsk_free (ejson root, constr keys);     // remove and release all the resources of specific obj in root via keys
-void   ejsr_free (ejson root, constr rawk);     // remove and release all the resources of specific obj in root via raw key
+constr ejson_errp();
+constr ejson_err ();
 
-void   ejso_freeO(ejson root, ejson  obj );     // remove and release all the resources of specific obj in root
-void   ejso_freeK(ejson root, constr keys);     // remove and release all the resources of specific obj in root via keys, same as ejsk_free()
-void   ejso_freeR(ejson root, constr rawk);     // remove and release all the resources of specific obj in root via raw key, same as ejsr_free()
+/** -----------------------------------------------------
+ *
+ *  ejson add
+ *
+ *  @note
+ *      1. if root obj to add to is a ARR obj, the key from
+ *  param of obj/src will never check, use the exist key in
+ *  obj or src.
+ *
+ *      2. if root obj to add to is a OBJ obj, must have a
+ *  key from param or obj/src, if key is set in param, the
+ *  key in obj/src will always be replaced by it
+ *
+ *      3. see 'ejson val's note to get the meaning of 'r',
+ *  'k' APIs.
+ *
+ *  -----------------------------------------------------
+ */
+eobj ejson_addJ(eobj r, constr key, constr json);                 // parse a json to obj and add it to root
+eobj ejson_addT(eobj r, constr key, etypeo type);                 // add an obj to root, the obj can be defined as EFLASE, ETURE, ENULL, EARR, EOBJ
+eobj ejson_addI(eobj r, constr key, i64    val );                 // add an NUM obj to root
+eobj ejson_addF(eobj r, constr key, f64    val );                 // add an NUM obj to root
+eobj ejson_addP(eobj r, constr key, conptr ptr );                 // add a  PTR obj to root
+eobj ejson_addS(eobj r, constr key, constr str );                 // add a  STR obj to root
+eobj ejson_addR(eobj r, constr key, uint   len );                 // add a  RAW obj to root, alloc a new space(len) for data
+eobj ejson_addO(eobj r, constr key, eobj   o   );                 // add an exist obj to obj
 
-ejson  ejso_rmO(ejson root, ejson  obj );       // remove obj in root, return the del obj if del in root, else return NULL
-ejson  ejso_rmK(ejson root, constr keys);       // remove the specific obj in root via keys   , return the del obj if del in root, else return NULL
-ejson  ejso_rmR(ejson root, constr rawk);       // remove the specific obj in root via raw key, return the del obj if del in root, else return NULL
+eobj ejson_addrJ(eobj r, constr rawk, constr key, constr json);   // add an json  obj to specific obj in root via rawk
+eobj ejson_addrT(eobj r, constr rawk, constr key, etypeo type);   // add an type  obj to specific obj in root via rawk, only support EFLASE, ETURE, ENULL, EARR, EOBJ
+eobj ejson_addrI(eobj r, constr rawk, constr key, i64    val );   // add an NUM   obj to specific obj in root via rawk
+eobj ejson_addrF(eobj r, constr rawk, constr key, f64    val );   // add an NUM   obj to specific obj in root via rawk
+eobj ejson_addrP(eobj r, constr rawk, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via rawk
+eobj ejson_addrS(eobj r, constr rawk, constr key, constr str );   // add a  STR   obj to specific obj in root via rawk
+eobj ejson_addrR(eobj r, constr rawk, constr key, uint   len );   // add a  RAW   obj to specific obj in root via rawk, alloc a new space(len) for data
+eobj ejson_addrO(eobj r, constr rawk, constr key, eobj   o   );   // add an exist obj to specific obj in root via rawk
 
-ejson  ejsk_rmO(ejson root, constr keys, ejson obj); // remove obj in the specific obj in root, return the del obj if del in specific obj, else return NULL
-ejson  ejsr_rmO(ejson root, constr rawk, ejson obj); // remove obj in the specific obj in root, return the del obj if del in specific obj, else return NULL
+eobj ejson_addkJ(eobj r, constr keys, constr key, constr json);   // add an json  obj to specific obj in root via path
+eobj ejson_addkT(eobj r, constr keys, constr key, etypeo type);   // add an type  obj to specific obj in root via path, only support EFLASE, ETURE, ENULL, EARR, EOBJ
+eobj ejson_addkI(eobj r, constr keys, constr key, i64    val );   // add an NUM   obj to specific obj in root via path
+eobj ejson_addkF(eobj r, constr keys, constr key, f64    val );   // add an NUM   obj to specific obj in root via path
+eobj ejson_addkP(eobj r, constr keys, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via path
+eobj ejson_addkS(eobj r, constr keys, constr key, constr str );   // add a  STR   obj to specific obj in root via path
+eobj ejson_addkR(eobj r, constr keys, constr key, uint   len );   // add a  RAW   obj to specific obj in root via path, alloc a new space(len) for data
+eobj ejson_addkO(eobj r, constr keys, constr key, eobj   o   );   // add an exist obj to specific obj in root via path
 
-ejson  ejso_pop(ejson root);                    // remove the first child in root                 and return it if root is ARR/OBJ type, else return NULL
-ejson  ejsk_pop(ejson root, constr keys);       // remove the first child in specific obj in root and return it if root is ARR/OBJ type, else return NULL
-ejson  ejsr_pop(ejson root, constr rawk);       // remove the first child in specific obj in root and return it if root is ARR/OBJ type, else return NULL
+/** -----------------------------------------------------
+ *
+ *  ejson val
+ *
+ *  @note
+ *      1. for r APIs, we consider rawk as a whole key and
+ *  can not be splited
+ *
+ *      2. for k APIs, we consider keys as a continues key
+ *  chan like "fruits[0].name", then we will found the first
+ *  obj in arr 'fruits' and the the obj 'name' of it.
+ *
+ *     {
+ *          "fruits[0].name" : "tomato",
+ *          ---------------------------
+ *                      ^-------------------------------------- r found this
+ *
+ *          "fruits": [ {"name":"apple"}, {"name":"pear"} ]
+ *                       --------------
+ *                          ^---------------------------------- k found this
+ *     }
+ *
+ *  -----------------------------------------------------
+ */
+eobj   ejson_valr (eobj r, constr rawk);        // Returns the eobj with the specific rawk
+i64    ejson_valrI(eobj r, constr rawk);        // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    ejson_valrF(eobj r, constr rawk);        // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+constr ejson_valrS(eobj r, constr rawk);        // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
+cptr   ejson_valrP(eobj r, constr rawk);        // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
+cptr   ejson_valrR(eobj r, constr rawk);        // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
 
-ejson  ejso_popT(ejson root);                   // remove the last  child in root                 and return it if root is ARR/OBJ type, else return NULL
-ejson  ejsk_popT(ejson root, constr keys);      // remove the last  child in specific obj in root and return it if root is ARR/OBJ type, else return NULL
-ejson  ejsr_popT(ejson root, constr rawk);      // remove the last  child in specific obj in root and return it if root is ARR/OBJ type, else return NULL
+etypeo ejson_valrType  (eobj r, constr rawk);   // Returns eobj's type if exist, else return EOBJ_UNKNOWN
+constr ejson_valrTypeS (eobj r, constr rawk);   // Returns eobj's type in string type
+uint   ejson_valrLen   (eobj r, constr rawk);   // Returns eobj's len  if found and type matchs ESTR, ERAW, EOBJ, EARR else return 0
+bool   ejson_valrIsTrue(eobj r, constr rawk);   // Returns true if the val in eobj is likely true:
+                                                    //  1. the type of obj is ETRUE
+                                                    //  2. the val of i64 or f64 is not 0
+                                                    //  3. the ptr val is not 0
+                                                    //  4. the str val is not empty
+                                                    //  5. the len of raw is not 0
 
-ejson  ejso_clear(ejson root);                  // remove and release all the children of obj, return obj itself if obj is OBJ or ARR, else return 0
-ejson  ejsk_clear(ejson root, constr keys);     // remove and release all the children of specific obj in root via keys   , return specific obj if it is OBJ or ARR, else return 0
-ejson  ejsr_clear(ejson root, constr rawk);     // remove and release all the children of specific obj in root via raw key, return specific obj if it is OBJ or ARR, else return 0
+eobj   ejson_valk (eobj r, constr keys);        // Returns the eobj with the specific keys
+i64    ejson_valkI(eobj r, constr keys);        // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    ejson_valkF(eobj r, constr keys);        // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+constr ejson_valkS(eobj r, constr keys);        // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
+cptr   ejson_valkP(eobj r, constr keys);        // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
+cptr   ejson_valkR(eobj r, constr keys);        // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
 
-/// -- ejson obj formating --
-/// @param obj  - ejson object to be formated to json str
-/// @param outS - a str buff that created bt those following APIs, if is 0, will create a new one internal, else, reusing it
-/// @param root - ejson object that looks like a root obj
-/// @param keys - str to locate the specific ejson object in root, like: "key1.key2[0].key3"
-/// @param rawk - str to locate the specific ejson object in root, do not parse it, using it derectely
-/// @param s    - str return by those following APIs
-/// @return cstr  - [!NULL] the formated json str
-///               - [NULL]  formated err
-///
-cstr   ejso_toFStr(ejson obj , cstr outS);              // wrap the ejson obj to a pretty format string
-cstr   ejso_toUStr(ejson obj , cstr outS);              // wrap the ejson obj to a unformated string, take less space
-cstr   ejsk_toFStr(ejson root, constr keys, cstr outS); // wrap the specific ejson object in root to a pretty format string
-cstr   ejsk_toUStr(ejson root, constr keys, cstr outS); // wrap the specific ejson object in root to unformated string
-cstr   ejsr_toFStr(ejson root, constr rawk, cstr outS); // wrap the specific ejson object in root to a pretty format string
-cstr   ejsr_toUStr(ejson root, constr rawk, cstr outS); // wrap the specific ejson object in root to unformated string
 
-void   ejss_show  (constr s);                           // print the str  detail to stdout
-uint   ejss_len   (constr s);                           // only support the strs and constrs returned by ejson API
-void   ejss_free  (cstr   s);                           // free the strs returned by ejson API, not do it on constr returned or other allocted buffers
+etypeo ejson_valkType  (eobj r, constr keys);   // Returns eobj's type if exist, else return EOBJ_UNKNOWN
+constr ejson_valkTypeS (eobj r, constr keys);   // Returns eobj's type in string type
+uint   ejson_valkLen   (eobj r, constr keys);   // Returns eobj's len  if exist and type matchs ESTR, ERAW, EOBJ, EARR else return 0
+bool   ejson_valIksTrue(eobj r, constr keys);   // Returns true if the val in eobj is likely true:
+                                                    //  1. the type of obj is ETRUE
+                                                    //  2. the val of i64 or f64 is not 0
+                                                    //  3. the ptr val is not 0
+                                                    //  4. the str val is not empty
+                                                    //  5. the len of raw is not 0
 
-/// -- ejson get --
-constr ejso_keyS (ejson obj);                   // return "(nil)" if obj is NULL, else retuen key      of obj, do not free it
-uint   ejso_type (ejson obj);                   // return   -1    if obj is NULL, else return type     of obj, see ejson type macros
-constr ejso_typeS(ejson obj);                   // return "(nil)" if obj is NULL, else return type_str of obj, do not free it, type_strs: "false" "true" "null" "number" "string" "array" "obj"
-int    ejso_is   (ejson obj , int type);
+/** -----------------------------------------------------
+ *
+ *  ejson format
+ *
+ *  @note
+ *      if passed in 'out' is 0, create and returned a new
+ *  buf, else write to it;
+ *
+ *  -----------------------------------------------------
+ */
+estr ejson_toS (eobj o,              estr* out, eopts opts);
+estr ejson_toSr(eobj o, constr rawk, estr* out, eopts opts);
+estr ejson_toSk(eobj o, constr keys, estr* out, eopts opts);
 
-ejson  ejsk      (ejson root, constr keys);     // return NULL if obj is NULL or not ARR/OBJ obj or keys is NULL or keys not found, else return the specific ejson obj
-uint   ejsk_type (ejson root, constr keys);     // return   -1    if obj is NULL or the specified obj is not exist, else return type     of obj, see ejson type macros
-constr ejsk_typeS(ejson root, constr keys);     // return "(nil)" if obj is NULL or the specified obj is not exist, else return type_str of obj, do not free it, type_strs: "false" "true" "null" "number" "string" "array" "ejson object"
-int    ejsk_is   (ejson root, constr keys, int type);
+/** -----------------------------------------------------
+ *
+ *  ejson take and free
+ *
+ *  -----------------------------------------------------
+ */
+eobj ejson_takeH(eobj r);               // for EOBJ, EARR
+eobj ejson_takeT(eobj r);               // for EOBJ, EARR
+eobj ejson_takeO(eobj r, eobj      o);  // for EOBJ, EARR
+eobj ejson_takeK(eobj r, constr keys);  // for EOBJ, EARR
+eobj ejson_takeR(eobj r, constr rawk);  // for EOBJ
+eobj ejson_takeI(eobj r, int     idx);  // for EARR
 
-ejson  ejsr      (ejson root, constr rawk);     // return NULL if obj is NULL or not ARR/OBJ obj or keys is NULL or keys not found, else return the specific ejson obj
-uint   ejsr_type (ejson root, constr rawk);     // return   -1    if obj is NULL or the specified obj is not exist, else return type     of obj, see ejson type macros
-constr ejsr_typeS(ejson root, constr rawk);     // return "(nil)" if obj is NULL or the specified obj is not exist, else return type_str of obj, do not free it, type_strs: "false" "true" "null" "number" "string" "array" "ejson object"
-int    ejsr_is   (ejson root, constr rawk, int type);
 
-/// -- ejson value --
-int    ejso_valB(ejson obj);                    // return 0    if obj is NULL or the value is likely false, else return 1, not support ARR/OBJ obj(always return 0), and return 1 if str in STR obj is not empty
-i64    ejso_valI(ejson obj);                    // return 0    if obj is NULL or not NUM     obj, else return int    value
-double ejso_valF(ejson obj);                    // return 0.0  if obj is NULL or not NUM     obj, else return double value
-constr ejso_valS(ejson obj);                    // return NULL if obj is NULL or not STR     obj, else return str    value
-void*  ejso_valP(ejson obj);                    // return 0    if obj is NULL or not PTR     obj, else return ptr    value
-void*  ejso_valR(ejson obj);                    // return NULL if obj is NULL or not RAW     obj, else return raw    ptr
+int  ejson_freeH(eobj r);               // for EOBJ, EARR
+int  ejson_freeT(eobj r);               // for EOBJ, EARR
+int  ejson_freeO(eobj r, eobj    obj);  // for EOBJ, EARR
+int  ejson_freeK(eobj r, constr keys);  // for EOBJ, EARR
+int  ejson_freeR(eobj r, constr rawk);  // for EOBJ
+int  ejson_freeI(eobj r, int     idx);  // for EARR
 
-int    ejsk_valB(ejson root, constr keys);      // return 0    if specific ejson obj is NULL or the value is likely false, else return 1, not support ARR/OBJ obj(always return 0), and always return 1 case STR obj
-i64    ejsk_valI(ejson root, constr keys);      // return 0    if specific ejson obj is NULL or not NUM     obj, else return int    value of keys
-double ejsk_valF(ejson root, constr keys);      // return 0.0  if specific ejson obj is NULL or not NUM     obj, else return double value of keys
-constr ejsk_valS(ejson root, constr keys);      // return NULL if specific ejson obj is NULL or not STR     obj, else return str    value of keys
-void*  ejsk_valP(ejson root, constr keys);      // return NULL if specific ejson obj is NULL or not PTR     obj or not add inside a ptr value, else return ptr    value of keys
-void*  ejsk_valR(ejson root, constr keys);      // return NULL if specific ejson obj is NULL or not RAW     obj, else return raw    ptr   of keys
+int  ejson_freeHEx(eobj r,              eobj_rls_ex_cb rls, eval prvt);
+int  ejson_freeTEx(eobj r,              eobj_rls_ex_cb rls, eval prvt);
+int  ejson_freeOEx(eobj r, eobj    obj, eobj_rls_ex_cb rls, eval prvt);
+int  ejson_freeKEx(eobj r, constr keys, eobj_rls_ex_cb rls, eval prvt);
+int  ejson_freeREx(eobj r, constr rawk, eobj_rls_ex_cb rls, eval prvt);
+int  ejson_freeIEx(eobj r, int     idx, eobj_rls_ex_cb rls, eval prvt);
 
-int    ejsr_valB(ejson root, constr rawk);      // return 0    if obj is NULL or the value is likely false, else return 1, not support ARR/OBJ obj(always return 0), and always return 1 case STR obj
-i64    ejsr_valI(ejson root, constr rawk);      // return 0    if obj is NULL or not NUM     obj, else return int    value of raw key
-double ejsr_valF(ejson root, constr rawk);      // return 0.0  if obj is NULL or not NUM     obj, else return double value of raw key
-constr ejsr_valS(ejson root, constr rawk);      // return NULL if obj is NULL or not STR     obj, else return str    value of raw key
-void*  ejsr_valP(ejson root, constr rawk);      // return 0    if obj is NULL or not PTR     obj, else return ptr    value of raw key
-void*  ejsr_valR(ejson root, constr rawk);      // return NULL if obj is NULL or not RAW     obj, else return raw    ptr   of raw key
 
-/// -- ejson len --
-uint   ejso_len (ejson obj);                    // return the count of child in obj if it is ARR/OBJ obj, else return 0
-uint   ejso_lenS(ejson obj);
-uint   ejso_lenR(ejson obj);
+/** -----------------------------------------------------
+ *
+ *  ejson comparing
+ *
+ *  @return
+ *       1: obj >  val
+ *       0: obj == val
+ *      -1: obj <  val
+ *      -2: obj is NULL
+ *      -3: type not match
+ *      -4: val of cstr is null
+ *  -----------------------------------------------------
+ */
+int  ejson_cmpI(eobj o, int    val);
+int  ejson_cmpF(eobj o, double val);
+int  ejson_cmpS(eobj o, constr str);
 
-uint   ejsk_len (ejson root, constr keys);      // return the count of child in the specified obj if it is "array" and "ejson object", else return 0
-uint   ejsk_lenR(ejson root, constr keys);
-uint   ejsk_lenS(ejson root, constr keys);
+int  ejson_cmpIr(eobj r, constr rawk, int    val);
+int  ejson_cmpFr(eobj r, constr rawk, double val);
+int  ejson_cmpSr(eobj r, constr rawk, constr str);
 
-uint   ejsr_len (ejson root, constr rawk);      // return the count of child in the specified obj if it is "array" and "ejson object", else return 0
-uint   ejsr_lenS(ejson root, constr rawk);
-uint   ejsr_lenR(ejson root, constr rawk);
+int  ejson_cmpIk(eobj r, constr keys, int    val);
+int  ejson_cmpFk(eobj r, constr keys, double val);
+int  ejson_cmpSk(eobj r, constr keys, constr str);
 
-/// -- ejson iterating --
-ejson  ejso_first(ejson obj);                   // return the first child of a obj if have, only support ARR/OBJ obj
-ejson  ejso_last (ejson obj);                   // return the last  child of a obj if have, only support ARR/OBJ obj
-ejson  ejso_next (ejson obj);                   // return the next  child of this obj in the same level if have, else return NULL
-ejson  ejso_prev (ejson obj);                   // return the prev  child of this obj in the same level if have, else return NULL
+/** -----------------------------------------------------
+ *
+ *  ejson iterationg
+ *
+ *  @note
+ *      for perfomance, we do not check type of o in
+ *  ejson_next() and ejson_prev()
+ *
+ *  -----------------------------------------------------
+ */
+eobj  ejson_first(eobj r);
+eobj  ejson_last (eobj r);
+eobj  ejson_next (eobj o);
+eobj  ejson_prev (eobj o);
 
-ejson  ejsk_first(ejson obj, constr keys);      // return the first child of the specified obj if have, only support ARR/OBJ obj
-ejson  ejsk_last (ejson obj, constr keys);      // return the last  child of the specified obj if have, only support ARR/OBJ obj
+eobj  ejson_rfirst(eobj r, constr rawk);
+eobj  ejspn_rlast (eobj r, constr rawk);
 
-ejson  ejsr_first(ejson obj, constr rawk);      // return the first child of the specified obj if have, only support ARR/OBJ obj
-ejson  ejsr_last (ejson obj, constr rawk);      // return the last  child of the specified obj if have, only support ARR/OBJ obj
+eobj  ejson_kfirst(eobj r, constr keys);
+eobj  ejson_klast (eobj r, constr keys);
 
-#define ejso_itr(obj, itr)       for(ejson _INNER_ = ejso_first(obj)      ; (itr = _INNER_, _INNER_ = ejso_next(_INNER_), itr); )
-#define ejsk_itr(obj, keys, itr) for(ejson _INNER_ = ejsk_first(obj, keys); (itr = _INNER_, _INNER_ = ejso_next(_INNER_), itr); )
-#define ejsr_itr(obj, rawk, itr) for(ejson _INNER_ = ejsr_first(obj, rawk); (itr = _INNER_, _INNER_ = ejso_next(_INNER_), itr); )
+#define ejson_foreach( r,     itr)   for(itr = ejson_first (r    ); (itr); itr = ejson_next(itr))
+#define ejson_rforeach(r, rk, itr)   for(itr = ejson_rfirst(r, rk); (itr); itr = ejson_next(itr))
+#define ejson_kforeach(r, ks, itr)   for(itr = ejson_kfirst(r, ks); (itr); itr = ejson_next(itr))
 
-#define ejso_itrl(obj, layer)       for(ejson _INNER_ = ejso_first(obj)      , itr##layer = 0; (itr##layer = _INNER_, _INNER_ = ejso_next(_INNER_), itr##layer); )
-#define ejsk_itrl(obj, keys, layer) for(ejson _INNER_ = ejsk_first(obj, keys), itr##layer = 0; (itr##layer = _INNER_, _INNER_ = ejso_next(_INNER_), itr##layer); )
-#define ejsr_itrl(obj, rawk, layer) for(ejson _INNER_ = ejsr_first(obj, rawk), itr##layer = 0; (itr##layer = _INNER_, _INNER_ = ejso_next(_INNER_), itr##layer); )
+#define ejson_foreach_s( r,     itr) for(eobj _INNER_ = ejson_first (r    ), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
+#define ejson_rforeach_s(r, rk, itr) for(eobj _INNER_ = ejson_rfirst(r, rk), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
+#define ejson_kforeach_s(r, ks, itr) for(eobj _INNER_ = ejson_kfirst(r, ks), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
 
-/// -- ejson compare --
-int    ejso_cmpi(ejson obj, int    val);       // return -2 if obj is NULL, return -3 if type not match, return -1 if obj.i < val, return 1 if obj.i > val, else return 0
-int    ejso_cmpf(ejson obj, double val);       // return -2 if obj is NULL, return -3 if type not match, return -1 if obj.i < val, return 1 if obj.i > val, else return 0
-int    ejso_cmps(ejson obj, cstr   val);       // return -2 if obj is NULL, return -3 if type not match, return -4 if val is NULL, else return strcmp(obj.s, val)
 
-int    ejsk_cmpi(ejson obj, constr keys, int    val);   // compare specified obj, return value is the same as ejson_cmpi()
-int    ejsk_cmpf(ejson obj, constr keys, double val);   // compare specified obj, return value is the same as ejson_cmpf()
-int    ejsk_cmps(ejson obj, constr keys, cstr   val);   // compare specified obj, return value is the same as ejson_cmps()
-
-/// -- ejson set key --
-///
-/// @return - ejson: [NULL] set failed
-///                  [obj] set ok
-///
-
-ejson ejso_setk(ejson obj, constr key);
-
-/// -- ejson set val --
-///
-/// @return - ejson: [NULL] set failed
-///                  [obj] set ok
-///
+/** -----------------------------------------------------
+ *
+ *  ejson update
+ *
+ *  -----------------------------------------------------
+ */
 ejson ejso_setT(ejson obj, uint  type);     // only support FALSE/TRUE/NULL obj
 ejson ejso_setF(ejson obj, double val);     // only support NUM obj
 ejson ejso_setS(ejson obj, constr val);     // only support STR obj

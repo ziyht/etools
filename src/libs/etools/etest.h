@@ -110,12 +110,15 @@ do{                                                                 \
 
 #define __etest_equal_ptr(a, b, f, l)                               \
 do{                                                                 \
-    if((void*)a != (void*)b)                                        \
+    const void* p1, * p2;                                           \
+    p1 = a; p2 = b;                                                 \
+                                                                    \
+    if(p1 != p2)                                                    \
     {                                                               \
         printf("etest check ptr equal faild: %s(%d)\n"              \
             "    %s: %p\n"                                          \
             "    %s: %p\n",                                         \
-            f, l, #a, (void*)a, #b, (void*)b);                      \
+            f, l, #a, p1, #b, p2);                                  \
         fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \
@@ -123,12 +126,15 @@ do{                                                                 \
 
 #define __etest_unequ_ptr(a, b, f, l)                               \
 do{                                                                 \
-    if((void*)a == (void*)b)                                        \
+    const void* p1, * p2;                                           \
+    p1 = a; p2 = b;                                                 \
+                                                                    \
+    if(p1 == p2)                                                    \
     {                                                               \
         printf("etest check ptr unequ faild: %s(%d)\n"              \
             "    %s: %p\n"                                          \
             "    %s: %p\n",                                         \
-            f, l, #a, (void*)a, #b, (void*)b);                      \
+            f, l, #a, p1, #b, p2);                                  \
         fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \
@@ -136,12 +142,15 @@ do{                                                                 \
 
 #define __etest_equal_str(a, b, f, l)                               \
 do{                                                                 \
-    if(0 != strcmp(a, b))                                           \
+    const char* s1, * s2;                                           \
+    s1 = a; s2 = b;                                                 \
+                                                                    \
+    if(0 != strcmp(s1, s2))                                         \
     {                                                               \
         printf("etest check str equal faild: %s(%d)\n"              \
             "    %s: %s\n"                                          \
             "    %s: %s\n",                                         \
-            f, l, #a, (char*)a, #b, (char*)b);                      \
+            f, l, #a, s1, #b, s2);                                  \
         fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \
@@ -149,12 +158,15 @@ do{                                                                 \
 
 #define __etest_unequ_str(a, b, f, l)                               \
 do{                                                                 \
-    if(0 == strcmp(a, b))                                           \
+    const char* s1, * s2;                                           \
+    s1 = a; s2 = b;                                                 \
+                                                                    \
+    if(0 == strcmp(s1, s2))                                         \
     {                                                               \
         printf("etest check str unequ faild: %s(%d)\n"              \
             "    %s: %s\n"                                          \
             "    %s: %s\n",                                         \
-            f, l, #a, (char*)a, #b, (char*)b);                      \
+            f, l, #a, s1, #b, s2);                                  \
         fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \
@@ -162,12 +174,15 @@ do{                                                                 \
 
 #define __etest_equal_raw(a, b, f, l, L)                            \
 do{                                                                 \
-    if(0 != memcmp(a, b, L))                                        \
+    const char* s1, * s2; int len;                                  \
+    s1 = a; s2 = b; len = L;                                        \
+                                                                    \
+    if(0 != memcmp(s1, s2, len))                                    \
     {                                                               \
         printf("etest check raw equal faild: %s(%d)\n"              \
             "    %s: %s\n"                                          \
             "    %s: %s\n",                                         \
-            f, l, #a, (char*)a, #b, (char*)b);                      \
+            f, l, #a, s1, #b, s2);                                  \
         fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \
@@ -175,12 +190,15 @@ do{                                                                 \
 
 #define __etest_unequ_raw(a, b, f, l, L)                            \
 do{                                                                 \
-    if(0 == memcmp(a, b, L))                                        \
+    const char* s1, * s2; uint len;                                 \
+    s1 = a; s2 = b; len = L;                                        \
+                                                                    \
+    if(0 == memcmp(s1, s2, len))                                    \
     {                                                               \
         printf("etest check str unequ faild: %s(%d)\n"              \
             "    %s: %s\n"                                          \
             "    %s: %s\n",                                         \
-            f, l, #a, (char*)a, #b, (char*)b);                      \
+            f, l, #a, s1, #b, s2);                                  \
         fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \

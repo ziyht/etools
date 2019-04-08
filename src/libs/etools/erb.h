@@ -20,43 +20,44 @@
 #include "etype.h"
 #include "eobj.h"
 
-#define ERB_VERSION     "erb 1.1.2"     // fix build in old gcc
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct erb_type_s{
-    eval            prvt;       // private data
-    eobj_cmp_ex_cb  cmp;        // compare func
-    eobj_rls_ex_cb  rls;        // release func, only ERAW and EPTR type will call
-}erb_type_t, * erb_type;
-
-typedef enum{
-    ERB_KEYI = 0x00,            // using key as a integer
-    ERB_KEYS = 0x01,            // using key as a str
-}erb_opts;
-
 /// ---------------------- creator -------------------------
 ///
-///     create a new erb_tree handle
+///     create a new rbtree handle
 ///
-/// @note:
-///     1.
+erb  erb_new (etypek type);             // lg: EKEY_I, EKEY_I | EKEY_DES
+
+/// ---------------------- setting -------------------------
 ///
+///     set options for rbtree
+///
+bool erb_setType(erb t, etypek type);
+bool erb_setPrvt(erb t, eval   prvt);
+bool erb_setCmp (erb t, eobj_cmp_ex_cb cmp);    // it will set failed if rbtree is not empty
+bool erb_setRls (erb t, eobj_rls_ex_cb rls);    // release func, only have effect on ERAW and EPTR type of obj
 
-erb  erb_new (int opts, erb_type type);
+/// ---------------------- basic -------------------------
+///
+///     basic utils for rbtree
+///
+int  erb_clear  (erb t);
+int  erb_clearEx(erb t, eobj_rls_ex_cb rls);    // passed in rls have higher priority
 
-erb  erb_setPrvt(erb t, eval prvt);
-erb  erb_setCmp (erb t, eobj_cmp_ex_cb cmp);    // if rbtree is not empty, will set failed
-erb  erb_setRls (erb t, eobj_rls_ex_cb cmp);
+int  erb_free   (erb t);
+int  erb_freeEx (erb t, eobj_rls_ex_cb rls);    // passed in rls have higher priority
+
+uint erb_len (erb r);               // Returns the number of items in the rbtree.
+
+void erb_show(erb root, uint len);  // print out the elements
 
 /// ---------------------- adder -------------------------
 ///
-///     creat add add eobj to our erb tree
+///     creat add add eobj to erb tree
 ///
 ///
-
 eobj   erb_newO(etypeo type, uint len);    // create new eobj by type
 
 eobj   erb_addI(erb r, ekey key, i64    val);               // EOBJ_NUM i64
@@ -83,7 +84,8 @@ eobj   erb_addMO(erb r, ekey key, eobj   obj);              // EOBJ_OBJ
 ///  3. set operation is likely be successful always,
 ///     and the val will be seted to what wanted
 ///  4. it may do realloc opearation, be careful by
-///     using it
+///     using the returned eobj ptr when you want
+///     to cache it
 ///
 ///
 eobj   erb_setI(erb t, ekey key, i64    val);
@@ -103,19 +105,14 @@ eobj   erb_setMO();         // todo
 
 /// -- erb get operation --
 ///
-///     get the obj or value in rbtree
+///     get the obj or value from erb tree
 ///
-///
-///
-///
-eobj   erb_find(erb r, ekey key);   // Returns the first found eobj by key if exist, else return 0
-
-eobj   erb_val (erb r, ekey key);   // Returns the first found eobj by key, see erb_find()
+eobj   erb_val (erb r, ekey key);   // Returns the first found eobj by key
 i64    erb_valI(erb r, ekey key);   // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
 f64    erb_valF(erb r, ekey key);   // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
 cstr   erb_valS(erb r, ekey key);   // Returns the cstr       of eobj if exist and type matchs ESTR, else return 0
-cptr   erb_valR(erb r, ekey key);   // Returns the ptr        of eobj if exist and type matchs EPTR, else return 0
-cptr   erb_valP(erb r, ekey key);   // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
+cptr   erb_valR(erb r, ekey key);   // Returns the ptr        of eobj if exist and type matchs ERAW, else return 0
+cptr   erb_valP(erb r, ekey key);   // Returns the ptr of raw in eobj if exist and type matchs EPTR, else return 0
 
 
 etypeo erb_valType(erb r, ekey key);    // Returns eobj's type if exist, else return EOBJ_UNKNOWN
@@ -142,41 +139,36 @@ eobj   erb_atLast();
 eobj   erb_valFuz (erb r, ekey key, int drct);   // todo
 
 
-uint   erb_len (erb r);         // Returns the number of items in the rbtree.
 
-//! travese
-#define erb_foreach(root, itr) for(cptr _INNER_ = erb_first(root); (itr = _INNER_, _INNER_ = erb_next(_INNER_), itr); )
+
+
+/// -- erb travese --
+///
+///
+#define erb_foreach(t, itr)     for(eobj itr = erb_first(t); itr; itr = erb_next(itr))
+#define erb_foreach_s(t, itr)   for(eobj _INNER_ = erb_first(t), itr; (itr = _INNER_, _INNER_ = erb_next(_INNER_), itr); )
 
 eobj   erb_first(erb   rb);            // Returns the first item of rbtree if have; otherwise returns 0.
 eobj   erb_last (erb   rb);            // Returns the last  item of rbtree if have; otherwise returns 0.
 eobj   erb_next (eobj obj);            // Returns the next  item of eobj if have; otherwise returns 0. For performance, we do not check the obj type, be careful.
 eobj   erb_prev (eobj obj);            // Returns the prev  item of eobj if have; otherwise returns 0. For performance, we do not check the obj type, be careful.
 
-//! take and free
-eobj   erb_takeH(erb t);                    // Takes the first element
-eobj   erb_takeT(erb t);                    // Takes the last  element
-eobj   erb_takeO(erb t, eobj obj);
-
+/// -- erb take --
+///
+///
+eobj   erb_takeH  (erb t);                    // Takes the first element
+eobj   erb_takeT  (erb t);                    // Takes the last  element
+eobj   erb_takeO  (erb t, eobj obj);
 eobj   erb_takeOne(erb t, ekey key);
-int    erb_takeAll(erb t, ekey key);
+int    erb_takeAll(erb t, ekey key);        // todo
 
-int    erb_freeH(erb t);
-int    erb_freeT(erb t);
-int    erb_freeO(erb t, eobj obj);
-
+int    erb_freeH  (erb t);
+int    erb_freeT  (erb t);
+int    erb_freeO  (erb t, eobj obj);
 int    erb_freeOne(erb t, ekey key);
 int    erb_freeAll(erb t, ekey key);
 
-int    erb_clear(erb t);
-int    erb_clearEx(erb t);
-
-int    erb_free (erb t);
-int    erb_freeEx(erb t, eobj_rls_cb rls);
-
-//! utils
-void   erb_show(erb root, uint len);
-
-
+//! ver
 constr erb_version();
 
 #ifdef __cplusplus

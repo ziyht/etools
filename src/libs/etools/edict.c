@@ -4,7 +4,7 @@
 ///
 ///    Description:  an easier dict
 ///
-///        Version:  1.0
+///        Version:  1.1
 ///        Created:  2017-05-03 10:00:18 PM
 ///       Revision:  none
 ///       Compiler:  gcc
@@ -14,13 +14,12 @@
 ///
 /// =====================================================================================
 
+#define _VERSION      "1.1.0"
+#define EDICT_VERSION "edict " _VERSION
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
-#define _VERSION      "1.0.13"
-#define EDICT_VERSION "edict " _VERSION     // fix bug of edict_addR()
-
 
 #include "edict.h"
 #include "ecompat.h"
@@ -47,7 +46,9 @@ typedef struct _edict_s{
     _edictht_t      ht[2];
     long            rehashidx;
     int             iterators;
-    eval            privdata;
+
+    eobj_rls_ex_cb  rls;
+    eval            prvt;
 
 }_edict_t;
 
@@ -109,6 +110,9 @@ typedef struct _editr_s {
 #define _c_isRehashing(d)   (_c_rehashIdx(d) != -1)
 #define _c_free(d)          _r_free(_c_r(d))
 
+#define _c_rls(d)           (d)->rls
+#define _c_prvt(d)          (d)->prvt
+
 #define _dict_hashKeyS(key, len) __djbHashS(key)
 #define _dict_hashKeyU(key, len) (ulong)key
 
@@ -117,6 +121,7 @@ typedef struct _editr_s {
 #define _n_lenS(n)          strlen(_n_keyS(n))
 
 #define _cur_freekeyS       efree
+#define _cur_cmpkeyS        strcmp
 
 static inline int __edict_init(edict d)
 {
@@ -359,7 +364,7 @@ static inline int __edict_expandIfNeeded(edict d)
     return DICT_OK;
 }
 
-static inline int __edict_keyIndex(edict d, ekey_t key)
+static inline int __edict_keyIndex(edict d, ekey_t key, int multi)
 {
     uint h, idx, table; _edictn he;
 
@@ -370,6 +375,9 @@ static inline int __edict_keyIndex(edict d, ekey_t key)
         is0_ret(_k_keyS(key), -1);
 
         h = _dict_hashKeyS(_k_keyS(key), _k_lenS(key));
+
+        if(multi)
+            return h & _c_ht0(d).sizemask;
 
         for (table = 0; table <= 1; table++)
         {
@@ -388,6 +396,9 @@ static inline int __edict_keyIndex(edict d, ekey_t key)
     {
         h = _dict_hashKeyU(_k_keyU(key), _k_lenU(key));
 
+        if(multi)
+            return h & _c_ht0(d).sizemask;
+
         for (table = 0; table <= 1; table++)
         {
             idx = h & _c_ht(d)[table].sizemask;
@@ -402,11 +413,10 @@ static inline int __edict_keyIndex(edict d, ekey_t key)
         }
     }
 
-
     return idx;
 }
 
-edict edict_new(int opts)
+edict edict_new(etypek type)
 {
     _edictr r = _r_new();
 
@@ -414,149 +424,152 @@ edict edict_new(int opts)
 
     _r_typeco_set(r);
 
-    _r_keys(r) = (opts & EDICT_KEYS) > 0 ? _EHDT_KEYS : _EHDT_KEYI;
+    _r_keys(r) = (type & EKEY_S) > 0;
 
     return _r_o(r);
 }
 
-edict edict_newKeyS()
+bool edict_setType(edict d, etypek type)
 {
-    return edict_new(EDICT_KEYS);
+    is1_ret(!d || 0 == _c_len(d), false);
+
+    _c_keys(l)      = (type & EKEY_S) > 0;
+
+    return true;
 }
 
-edict edict_newKeyI()
-{
-    return edict_new(EDICT_KEYI);
-}
+bool edict_setPrvt(edict d, eval          prvt) { is0_ret(d, false); _c_prvt(d) = prvt; return 1; }
+bool edict_setRls (edict d, eobj_rls_ex_cb rls) { is0_ret(d, false); _c_rls (d) = rls ; return 1; }
 
-static inline void __edict_releaseHt_I(_edictht ht)
+static void __edict_clearHt(edict d, _edictht ht, eobj_rls_ex_cb rls, bool release)
 {
     ulong i; _edictn he, nextHe;
-
-    for (i = 0; i < ht->size && ht->used > 0; i++)
-    {
-        if ((he = ht->table[i]) == NULL) continue;
-        while(he) {
-            nextHe = he->next;
-
-            _n_free(he);
-
-            ht->used--;
-            he = nextHe;
-        }
-    }
-
-    efree(ht->table);
-
-    _ht_reset(ht);
-}
-
-static inline void __edict_releaseHt_S(_edictht ht)
-{
-    ulong i; _edictn he, nextHe;
-
-    for (i = 0; i < ht->size && ht->used > 0; i++)
-    {
-        if ((he = ht->table[i]) == NULL) continue;
-        while(he) {
-            nextHe = he->next;
-
-            _n_freeK(he);
-            _n_free(he);
-
-            ht->used--;
-            he = nextHe;
-        }
-    }
-
-    efree(ht->table);
-
-    _ht_reset(ht);
-}
-
-int edict_free(edict d)
-{
-    is0_ret(d, 0);
 
     if(_c_keys(d))
     {
-        __edict_releaseHt_S(&_c_ht0(d));
-        __edict_releaseHt_S(&_c_ht1(d));
+        if(rls)
+        {
+            for (i = 0; i < ht->size && ht->used > 0; i++)
+            {
+                if ((he = ht->table[i]) == NULL) continue;
+                while(he) {
+                    nextHe = he->next;
+
+                    rls(_n_o(he), _c_prvt(d));
+                    _n_freeK(he);
+                    _n_free(he);
+
+                    ht->used--;
+                    he = nextHe;
+                }
+            }
+        }
+        else
+        {
+            for (i = 0; i < ht->size && ht->used > 0; i++)
+            {
+                if ((he = ht->table[i]) == NULL) continue;
+                while(he) {
+                    nextHe = he->next;
+
+                    _n_freeK(he);
+                    _n_free(he);
+
+                    ht->used--;
+                    he = nextHe;
+                }
+            }
+        }
     }
     else
     {
-        __edict_releaseHt_I(&_c_ht0(d));
-        __edict_releaseHt_I(&_c_ht1(d));
-    }
+        if(rls)
+        {
+            for (i = 0; i < ht->size && ht->used > 0; i++)
+            {
+                if ((he = ht->table[i]) == NULL) continue;
+                while(he) {
+                    nextHe = he->next;
 
-    _c_free(d);
+                    rls(_n_o(he), _c_prvt(d));
+                    _n_free(he);
 
-    return 1;
-}
+                    ht->used--;
+                    he = nextHe;
+                }
+            }
+        }
+        else
+        {
+            for (i = 0; i < ht->size && ht->used > 0; i++)
+            {
+                if ((he = ht->table[i]) == NULL) continue;
+                while(he) {
+                    nextHe = he->next;
 
-static inline void __edict_clearHt_I(_edictht ht)
-{
-    ulong i; _edictn he, nextHe;
+                    _n_free(he);
 
-    for (i = 0; i < ht->size && ht->used > 0; i++)
-    {
-        if ((he = ht->table[i]) == NULL) continue;
-        while(he) {
-            nextHe = he->next;
-
-            _n_free(he);
-
-            ht->used--;
-            he = nextHe;
+                    ht->used--;
+                    he = nextHe;
+                }
+            }
         }
     }
 
-    memset(ht->table, 0, ht->size * sizeof(_edictn*));
-}
-
-static inline void __edict_clearHt_S(_edictht ht)
-{
-    ulong i; _edictn he, nextHe;
-
-    for (i = 0; i < ht->size && ht->used > 0; i++)
+    if(release)
     {
-        if ((he = ht->table[i]) == NULL) continue;
-        while(he) {
-            nextHe = he->next;
-
-            _n_freeK(he);
-            _n_free(he);
-
-            ht->used--;
-            he = nextHe;
-        }
+        efree(ht->table);
+        _ht_reset(ht);
     }
-
-    memset(ht->table, 0, ht->size * sizeof(_edictn*));
+    else
+    {
+        memset(ht->table, 0, ht->size * sizeof(_edictn*));
+    }
 }
 
 int   edict_clear(edict d)
 {
+    return edict_clearEx(d, 0);
+}
+
+int   edict_clearEx(edict d, eobj_rls_ex_cb rls)
+{
     is0_ret(d, 0);
+
+    is0_exe(rls, rls = _c_rls(d));
 
     if(_c_ht1(d).size > 0)
     {
-        if(_c_keys(d))    __edict_releaseHt_S(&_c_ht1(d));
-        else              __edict_releaseHt_I(&_c_ht1(d));
+        __edict_clearHt(d, &_c_ht1(d), rls, true);    // relese ht1
     }
 
-    if(_c_keys(d))    __edict_clearHt_S(&_c_ht0(d));
-    else                    __edict_clearHt_I(&_c_ht0(d));
+    __edict_clearHt(d, &_c_ht0(d), rls, false);    // clear ht0
 
     _c_rehashIdx(d) = -1;
 
     return 1;
 }
 
-void  edict_privSet(edict d, eval priv) { is1_exe(d,        _c_privdata(d) = priv);  }
-eval  edict_privGet(edict d           ) { is1_exe(d, return _c_privdata(d)       ); return (eval){0}; }
+int edict_free(edict d)
+{
+    return edict_freeEx(d, 0);
+}
 
-static eobj __edict_makeRoom(edict d, ekey key, uint len)
+int edict_freeEx(edict d, eobj_rls_ex_cb rls)
+{
+    is0_ret(d, 0);
+
+    is0_exe(rls, rls = _c_rls(d));
+
+    __edict_clearHt(d, &_c_ht1(d), rls, true);    // relese ht1
+    __edict_clearHt(d, &_c_ht0(d), rls, true);    // relese ht0
+
+    _c_free(d);
+
+    return 1;
+}
+
+static eobj __edict_makeRoom(edict d, ekey key, uint len, int multi)
 {
     int idx; _edictht_t* ht; _edictn n;
 
@@ -564,7 +577,7 @@ static eobj __edict_makeRoom(edict d, ekey key, uint len)
 
     if(_c_isRehashing(d)) __edict_rehashPtrStep(d);
 
-    is1_ret((idx = __edict_keyIndex(d, key)) == -1, NULL); // already exist
+    is1_ret((idx = __edict_keyIndex(d, key, multi)) == -1, NULL); // already exist
 
     n = _n_newm(len); _n_init(n);
 
@@ -579,18 +592,34 @@ static eobj __edict_makeRoom(edict d, ekey key, uint len)
     return _n_o(n);
 }
 
-eobj  edict_addI(edict d, ekey key, i64    val) { eobj o = __edict_makeRoom(d, key, sizeof(i64) ); if(o){ _eo_setI (o, val); _eo_typecon(o) = _EDICT_CON_NUM_I; } return o; }
-eobj  edict_addF(edict d, ekey key, f64    val) { eobj o = __edict_makeRoom(d, key, sizeof(f64) ); if(o){ _eo_setF (o, val); _eo_typecon(o) = _EDICT_CON_NUM_F; } return o; }
-eobj  edict_addP(edict d, ekey key, conptr ptr) { eobj o = __edict_makeRoom(d, key, sizeof(cptr)); if(o){ _eo_setP (o, ptr); _eo_typeco(o)  = _EDICT_CO_PTR   ; } return o; }
-eobj  edict_addR(edict d, ekey key, uint   len) { eobj o = __edict_makeRoom(d, key, len + 1     ); if(o){ _eo_wipeR(o, len); _eo_typeco(o)  = _EDICT_CO_RAW   ; } return o; }
-
+eobj  edict_addI(edict d, ekey key, i64    val) { eobj o = __edict_makeRoom(d, key, sizeof(i64) , 0); if(o){ _eo_setI (o, val); _eo_typecoe(o) = _EDICT_COE_NUM_I; } return o; }
+eobj  edict_addF(edict d, ekey key, f64    val) { eobj o = __edict_makeRoom(d, key, sizeof(f64) , 0); if(o){ _eo_setF (o, val); _eo_typecoe(o) = _EDICT_COE_NUM_F; } return o; }
+eobj  edict_addP(edict d, ekey key, conptr ptr) { eobj o = __edict_makeRoom(d, key, sizeof(cptr), 0); if(o){ _eo_setP (o, ptr); _eo_typeco(o)  = _EDICT_CO_PTR   ; } return o; }
+eobj  edict_addR(edict d, ekey key, uint   len) { eobj o = __edict_makeRoom(d, key, len + 1     , 0); if(o){ _eo_wipeR(o, len); _eo_typeco(o)  = _EDICT_CO_RAW   ; } return o; }
 eobj  edict_addS(edict d, ekey key, constr str)
 {
     eobj o; size len;
 
     len = str ? strlen(str) : 0;
 
-    o = __edict_makeRoom(d, key, len + 1);
+    o = __edict_makeRoom(d, key, len + 1, 0);
+
+    if(o) { _eo_setS(o, str, len); _eo_typeco(o) = _EDICT_CO_STR; }
+
+    return o;
+}
+
+eobj  edict_addMI(edict d, ekey key, i64    val) { eobj o = __edict_makeRoom(d, key, sizeof(i64) , 1); if(o){ _eo_setI (o, val); _eo_typecoe(o) = _EDICT_COE_NUM_I; } return o; }
+eobj  edict_addMF(edict d, ekey key, f64    val) { eobj o = __edict_makeRoom(d, key, sizeof(f64) , 1); if(o){ _eo_setF (o, val); _eo_typecoe(o) = _EDICT_COE_NUM_F; } return o; }
+eobj  edict_addMP(edict d, ekey key, conptr ptr) { eobj o = __edict_makeRoom(d, key, sizeof(cptr), 1); if(o){ _eo_setP (o, ptr); _eo_typeco(o)  = _EDICT_CO_PTR   ; } return o; }
+eobj  edict_addMR(edict d, ekey key, uint   len) { eobj o = __edict_makeRoom(d, key, len + 1     , 1); if(o){ _eo_wipeR(o, len); _eo_typeco(o)  = _EDICT_CO_RAW   ; } return o; }
+eobj  edict_addMS(edict d, ekey key, constr str)
+{
+    eobj o; size len;
+
+    len = str ? strlen(str) : 0;
+
+    o = __edict_makeRoom(d, key, len + 1, 1);
 
     if(o) { _eo_setS(o, str, len); _eo_typeco(o) = _EDICT_CO_STR; }
 

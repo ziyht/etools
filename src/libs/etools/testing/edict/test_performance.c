@@ -7,20 +7,20 @@
 
 static void performance_keyI_test(uint scale)
 {
-    edict d = edict_new(EDICT_KEYI);  u64 t, tn; uint j, len; i64 i;
+    edict h = edict_new(EKEY_I);  u64 t, tn; uint j, len; i64 i;
 
     t = eutils_nowms();
     tn = eutils_nowns(); i = 0;
-    edict_addR(d, (ekey){i}, 0);
+    edict_addR(h, (ekey){i}, 0);
     printf("add   1   \telem: %6"PRIu64"ns\n", eutils_nowns() - tn); fflush(stdout);
     for(i = 1; i < scale; i++)
     {
-        edict_addR(d, (ekey){i}, 0);
+        edict_addR(h, (ekey){i}, 0);
     }
 
-    if(edict_len(d) != scale)
+    if(edict_len(h) != scale)
     {
-        printf("error: add %d elements, but only have %d elements in e\n", scale, edict_len(d)); fflush(stdout);
+        printf("error: add %d elements, but only have %d elements in e\n", scale, edict_len(h)); fflush(stdout);
         exit(1);
     }
 
@@ -29,31 +29,31 @@ static void performance_keyI_test(uint scale)
     t = eutils_nowms();
     j = 0; scale ++;
     tn = eutils_nowns(); i = 0;
-    if(edict_find(d, (ekey){i})) j++;
+    if(edict_find(h, (ekey){i})) j++;
     printf("find  1   \telem: %6"PRIu64"ns\n", eutils_nowns() - tn); fflush(stdout);
     for(i = 1; i < scale; i++)
     {
-        if(edict_find(d, (ekey){i})) j++;
+        if(edict_find(h, (ekey){i})) j++;
     }
 
-    if(edict_len(d) != j)
+    if(edict_len(h) != j)
     {
-        printf("error: e have %d elements, but only found %d elements in e\n", edict_len(d), j); fflush(stdout);
+        printf("error: e have %d elements, but only found %d elements in e\n", edict_len(h), j); fflush(stdout);
         exit(1);
     }
 
     printf("found %d \telem: %6"PRIu64"ms\n", j, eutils_nowms() - t); fflush(stdout);
 
     t = eutils_nowms();
-    len = edict_len(d); j = 0; scale ++;
+    len = edict_len(h); j = 0; scale ++;
 
     tn = eutils_nowns(); i = 0;
-    if(edict_freeOne(d, (ekey){i})) j++;
+    if(edict_freeOne(h, (ekey){i})) j++;
     printf("del   1   \telem: %6"PRIu64"ns\n", eutils_nowns() - tn); fflush(stdout);
 
     for(i = 1; i < scale; i++)
     {
-        if(edict_freeOne(d, (ekey){i})) j++;
+        if(edict_freeOne(h, (ekey){i})) j++;
     }
 
     if(len != j)
@@ -64,23 +64,23 @@ static void performance_keyI_test(uint scale)
 
     printf("del   %d \telem: %6"PRIu64"ms\n\n", j, eutils_nowms() - t); fflush(stdout);
 
-    edict_free(d);
+    edict_free(h);
 }
 
 static void performance_keyS_test(uint scale)
 {
-    edict d = edict_new(EDICT_KEYS);  char keyS[16]; u64 t; uint j, len;
+    edict h = edict_new(EKEY_S);  char keyS[16]; u64 t; uint j, len;
 
     t = eutils_nowms();
     for(i64 i = 0; i < scale; i++)
     {
         sprintf(keyS, "%"PRIi64"", i);
-        edict_addR(d, ekey_s(keyS), 0);
+        edict_addR(h, ekey_s(keyS), 0);
     }
 
-    if(edict_len(d) != scale)
+    if(edict_len(h) != scale)
     {
-        printf("error: add %d elements, but only have %d elements in e\n", scale, edict_len(d)); fflush(stdout);
+        printf("error: add %d elements, but only have %d elements in e\n", scale, edict_len(h)); fflush(stdout);
         exit(1);
     }
 
@@ -92,12 +92,12 @@ static void performance_keyS_test(uint scale)
     for(i64 i = 0; i < scale; i++)
     {
         sprintf(keyS, "%"PRIi64"", i);
-        if(edict_find(d, ekey_s(keyS))) j++;
+        if(edict_find(h, ekey_s(keyS))) j++;
     }
 
-    if(edict_len(d) != j)
+    if(edict_len(h) != j)
     {
-        printf("error: e have %d elements, but only found %d elements in e\n", edict_len(d), j); fflush(stdout);
+        printf("error: e have %d elements, but only found %d elements in e\n", edict_len(h), j); fflush(stdout);
         exit(1);
     }
 
@@ -105,11 +105,11 @@ static void performance_keyS_test(uint scale)
 #endif
 
     t = eutils_nowms();
-    len = edict_len(d); j = 0; scale ++;
+    len = edict_len(h); j = 0; scale ++;
     for(i64 i = 0; i < scale; i++)
     {
         sprintf(keyS, "%"PRIi64"", i);
-        if(edict_freeOne(d, ekey_s(keyS))) j++;
+        if(edict_freeOne(h, ekey_s(keyS))) j++;
     }
 
     if(len != j)
@@ -120,25 +120,26 @@ static void performance_keyS_test(uint scale)
 
     printf("del   %d \telem: %6"PRIu64"ms\n\n", j, eutils_nowms() - t); fflush(stdout);
 
-    edict_free(d);
+    edict_free(h);
 }
 
 void performance_keyI_rand_test(int scale)
 {
-    edict d = edict_new(EDICT_KEYI);  uint j; i64 i;
+    edict h = edict_new(EKEY_I);  int j; i64 i;
     u64 tn1, tn, tn_total, tn_min, tn_max; int key, key_min, key_max;
 
     for(i = 0; i < scale; i++)
     {
-        edict_addR(d, (ekey){i}, 0);
+        edict_addR(h, (ekey){i}, 0);
     }
 
+    scale = scale / 10;
     j = 0; tn_total = 0; tn_min = ULLONG_MAX; tn_max = 0;
-    for(int i = 0; i < 10; i++)
+    for(int i = 0; i < scale; i++)
     {
-        key = eutils_rand() % scale;
+        key = (uint)eutils_rand() % scale;
         tn1 = eutils_nowns();
-        if(edict_find(d, (ekey){key}))j++;
+        if(edict_find(h, (ekey){key}))j++;
         tn  = eutils_nowns() - tn1;
 
         tn_total += tn;
@@ -155,30 +156,34 @@ void performance_keyI_rand_test(int scale)
         }
     }
 
-    if(10 != j)
+    if(scale != j)
     {
         printf("error: e have %d times, but only found %d elements in e\n", 10, j); fflush(stdout);
         exit(1);
     }
-    printf("found %d  \telem: %6"PRIu64"ns\n", j, tn_total); fflush(stdout);
-    printf("found %d \t    : %6"PRIu64"ns\n", key_min, tn_min); fflush(stdout);
-    printf("found %d \t    : %6"PRIu64"ns\n", key_max, tn_max); fflush(stdout);
+    printf("-- %7d scale\n", scale * 10);
+    printf("found %d  \telem: %6"PRIu64"ms\n", j, tn_total/1000); fflush(stdout);
+    printf("found %d \t    : %6"PRIu64"ns (min)\n", key_min, tn_min); fflush(stdout);
+    printf("found %d \t    : %6"PRIu64"ns (max)\n", key_max, tn_max); fflush(stdout);
+    puts("");
+
+    edict_free(h);
 }
 
-#define calgrind 0
+#define calgrind 1
 
-void edict_performance_test()
+int test_performance(int argc, char* argv[])
 {
 #if 1
     printf("-- performance_keyS_test --\n"); fflush(stdout);
-    performance_keyS_test(10000);
-    performance_keyS_test(20000);
+    performance_keyS_test(  10000);
+    performance_keyS_test(  20000);
 
 #if !calgrind
-    performance_keyS_test(50000);
-    performance_keyS_test(100000);
-    performance_keyS_test(200000);
-    performance_keyS_test(500000);
+    performance_keyS_test(  50000);
+    performance_keyS_test( 100000);
+    performance_keyS_test( 200000);
+    performance_keyS_test( 500000);
     performance_keyS_test(1000000);
     performance_keyS_test(2000000);
 
@@ -187,26 +192,34 @@ void edict_performance_test()
 
 #if 1
     printf("-- performance_keyI_test --\n"); fflush(stdout);
-    performance_keyI_test(10000);
-    performance_keyI_test(20000);
+    performance_keyI_test(  10000);
+    performance_keyI_test(  20000);
 
 #if !calgrind
-    performance_keyI_test(50000);
-    performance_keyI_test(100000);
-    performance_keyI_test(200000);
-    performance_keyI_test(500000);
+    performance_keyI_test(  50000);
+    performance_keyI_test( 100000);
+    performance_keyI_test( 200000);
+    performance_keyI_test( 500000);
     performance_keyI_test(1000000);
     performance_keyI_test(2000000);
 #endif
 #endif
 
+#if 1
     printf("-- performance_keyI_rand_test --\n"); fflush(stdout);
-    performance_keyI_rand_test(10000);
-}
+    performance_keyI_rand_test(  10000);
+    performance_keyI_rand_test(  20000);
 
-int test_performance(int argc, char* argv[])
-{
-    edict_performance_test();
+#if !calgrind
+    performance_keyI_rand_test(  50000);
+    performance_keyI_rand_test( 100000);
+    performance_keyI_rand_test( 200000);
+    performance_keyI_rand_test( 500000);
+    performance_keyI_rand_test(1000000);
+    performance_keyI_rand_test(2000000);
+#endif
+
+#endif
 
     return ETEST_OK;
 }

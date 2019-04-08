@@ -3,7 +3,7 @@
 
 void edict_clearI_test()
 {
-    edict d = edict_new(EDICT_KEYI);
+    edict d = edict_new(EKEY_I);
     ekey  k;
 
     for(int i = 0; i < 1000; i++)
@@ -25,7 +25,7 @@ void edict_clearI_test()
 
 void edict_clearS_test()
 {
-    edict d = edict_new(EDICT_KEYS);
+    edict d = edict_new(EKEY_S);
     ekey  k;
 
     char key[16];

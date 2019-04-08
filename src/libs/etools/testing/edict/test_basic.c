@@ -12,13 +12,13 @@ edict ds;
 
 int edict_new_test()
 {
-    di = edict_newKeyI();
+    di = edict_new(EKEY_I);
     eunexpc_ptr(di, 0);
     eexpect_num(eobj_typec((eobj)di), EDICT);
     eexpect_num(eobj_typeo((eobj)di), EOBJ);
     eexpect_num(edict_len(di), 0);
 
-    ds = edict_newKeyS();
+    ds = edict_new(EKEY_S);
     eunexpc_ptr(ds, 0);
     eexpect_num(eobj_typec((eobj)ds), EDICT);
     eexpect_num(eobj_typeo((eobj)ds), EOBJ);
@@ -267,7 +267,7 @@ int edict_itr_test()
     char buf[32], key[32]; int i; editr ditr;
 
     {
-        edict h = di = edict_new(EDICT_KEYI);
+        edict h = di = edict_new(EKEY_I);
 
         for(i = 0; i < 200; i++)
         {
@@ -287,7 +287,7 @@ int edict_itr_test()
     }
 
     {
-        edict h = ds = edict_new(EDICT_KEYS);
+        edict h = ds = edict_new(EKEY_S);
 
         for(i = 0; i < 200; i++)
         {
@@ -314,32 +314,34 @@ int edict_itr_test()
     return ETEST_OK;
 }
 
-#if 0
-int erb_take_test()
+int edict_take_test()
 {
-    int i; char key[32];
+    int i; char key[32];  editr ditr;
 
     {
-        edict h = di = edict_new(EDICT_KEYI);
+        edict h = di = edict_new(EKEY_I);
 
         for(i = 0; i < 100; i++)
             edict_addI(h, ekey_i(i), i);
 
+        ditr = edict_getItr(h, 1);
         while(edict_len(h))
         {
             i = random() % 100;
 
             edict_freeOne(h, ekey_i(i));
 
-            edict_foreach(h, itr)
+            edict_resetItr(ditr, 0, 1);
+            edict_foreach(ditr, itr)
             {
                 eexpect_ptr(edict_val(h, eobj_key(itr)), itr);
             }
         }
+        edict_freeItr(ditr);
     }
 
     {
-        edict h = ds = edict_new(EDICT_KEYS);
+        edict h = ds = edict_new(EKEY_S);
 
         for(i = 0; i < 100; i++)
         {
@@ -347,6 +349,7 @@ int erb_take_test()
             edict_addI(h, ekey_s(key), i);
         }
 
+        ditr = edict_getItr(h, 1);
         while(edict_len(h))
         {
             i = random() % 100;
@@ -355,10 +358,102 @@ int erb_take_test()
 
             edict_freeOne(h, ekey_s(key));
 
-            edict_foreach(h, itr)
+            edict_resetItr(ditr, 0, 1);
+            edict_foreach(ditr, itr)
             {
                 eexpect_ptr(edict_val(h, eobj_key(itr)), itr);
             }
+        }
+        edict_freeItr(ditr);
+    }
+
+    ETEST_RUN(edict_free_test());
+
+    return ETEST_OK;
+}
+
+int edict_addM_test()
+{
+    int i; editr ditr; char key[16];
+
+    {
+        char arr[100] = {0};
+
+        edict h = di = edict_new(EKEY_I);
+
+        for(i = 0; i < 100; i++)
+        {
+            edict_addI(h, ekey_i(i), i);
+        }
+
+        eexpect_num(edict_len(h), 100);
+
+        for(i = 0; i < 100; i++)
+        {
+            edict_addI(h, ekey_i(i), i);
+        }
+
+        eexpect_num(edict_len(h), 100);
+
+        for(i = 0; i < 100; i++)
+        {
+            edict_addMI(h, ekey_i(i), i);
+        }
+
+        eexpect_num(edict_len(h), 200);
+
+        ditr = edict_getItr(h, 1);
+        edict_foreach(ditr, itr)
+        {
+            arr[eobj_valI(itr)] ++;
+        }
+        edict_freeItr(ditr);
+
+        for(int i = 0; i < 100; i++)
+        {
+            eexpect_num(arr[i], 2);
+        }
+    }
+
+    {
+        char arr[200] = {0};
+
+        edict h = ds = edict_new(EKEY_S);
+
+        for(i = 0; i < 100; i++)
+        {
+            sprintf(key, "%d", i);
+            edict_addI(h, ekey_s(key), i);
+        }
+
+        eexpect_num(edict_len(h), 100);
+
+        for(i = 0; i < 100; i++)
+        {
+            sprintf(key, "%d", i);
+            edict_addI(h, ekey_s(key), i);
+        }
+
+        eexpect_num(edict_len(h), 100);
+
+        for(i = 0; i < 100; i++)
+        {
+            sprintf(key, "%d", i);
+            edict_addMI(h, ekey_s(key), i);
+        }
+
+        eexpect_num(edict_len(h), 200);
+
+        ditr = edict_getItr(h, 1);
+        edict_foreach(ditr, itr)
+        {
+            arr[eobj_valI(itr)] ++;
+        }
+        edict_freeItr(ditr);
+
+        for(int i = 0; i < 100; i++)
+        {
+            eexpect_num(arr[i], 2);
         }
     }
 
@@ -366,7 +461,6 @@ int erb_take_test()
 
     return ETEST_OK;
 }
-#endif
 
 
 int test_basic(int argc, char* argv[])
@@ -377,8 +471,8 @@ int test_basic(int argc, char* argv[])
     ETEST_RUN(edict_val_test());
     ETEST_RUN(edict_free_test());
     ETEST_RUN(edict_itr_test());
-    //ETEST_RUN(edict_take_test());
-    //ETEST_RUN(edict_addM_test());
+    ETEST_RUN(edict_take_test());
+    ETEST_RUN(edict_addM_test());
 
     return ETEST_OK;
 }

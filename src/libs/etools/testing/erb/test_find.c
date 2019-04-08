@@ -10,7 +10,7 @@
 
 int erb_find_test()
 {
-    erb root = erb_new(0, 0); eobj s; char buf[32];
+    erb root = erb_new(EKEY_I); eobj s; char buf[32];
 
 
     for(i64 i = 0; i < 200; i++)

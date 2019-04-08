@@ -29,6 +29,18 @@ extern "C" {
 
 #include "eerrno.h"
 
+/// ---------------------- inline ---------------------
+///
+///
+#if defined(WIN32) && !defined(__cplusplus)
+#define inline
+#else
+#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+#if GCC_VERSION < 40300
+#define inline
+#endif
+#endif
+
 /// ---------------------- unistd.h ---------------------
 ///
 ///

@@ -523,9 +523,9 @@ int  elog_setTimeFmt(elog e, constr fmt)
 static int __elog_file_cleanup(_elogh h, i64 nows)
 {
     struct stat _stat_;
-    char logpath[1024], * c;
-    int  pathlen;
-    ejson files;
+    char    logpath[1024], * c;
+    int     pathlen;
+    ejson   files;
 
 #ifndef _WIN32
     DIR* logdirfs; struct dirent* logfile;
@@ -533,7 +533,7 @@ static int __elog_file_cleanup(_elogh h, i64 nows)
     int  namelen;
     i64  whole_period;
 
-    files    = ejso_new(_OBJ_);
+    files = ejson_new(EOBJ, 0);
 
     memccpy(logpath, h->path, '\0', 1024);
     if((c = strrchr(logpath, '/')))
@@ -580,7 +580,7 @@ static int __elog_file_cleanup(_elogh h, i64 nows)
                     }
                     else
                     {
-                        ejso_addN(files, logpath, _stat_.st_ctim.tv_sec);
+                        ejson_addI(files, logpath, _stat_.st_ctim.tv_sec);
                     }
                 }
             }
@@ -649,25 +649,25 @@ static int __elog_file_cleanup(_elogh h, i64 nows)
 #endif
 
     // -- delete files if rotations file more then g.logrtt_files
-    int need_deleted = ejso_len(files) - h->rtt.files;
-    if(need_deleted > 0)
-    {
-        ejson itr; int i = 0;
+//    int need_deleted = eobj_len(files) - h->rtt.files;
+//    if(need_deleted > 0)
+//    {
+//        ejson itr; int i = 0;
 
-        // -- sort
-        ejso_sort(files, __VALI_ACS);
+//        // -- sort
+//        ejso_sort(files, __VALI_ACS);
 
-        // -- delete redundant files
-        ejso_itr(files, itr)
-        {
-            if(-1 == remove(ejso_keyS(itr))){_elog_err("[err] cleanup logfile: %s [err: %s]", ejso_keyS(itr), strerror(errno));}
-            else                            {_elog_err("[ok ] cleanup logfile: %s", ejso_keyS(itr));}
+//        // -- delete redundant files
+//        ejson_foreach_s(files, itr)
+//        {
+//            if(-1 == remove(eobj_keyS(itr))){_elog_err("[err] cleanup logfile: %s [err: %s]", eobj_keyS(itr), strerror(errno));}
+//            else                            {_elog_err("[ok ] cleanup logfile: %s", eobj_keyS(itr));}
 
-            if(++i == need_deleted)
-                break;
-        }
-    }
-    ejso_free(files);
+//            if(++i == need_deleted)
+//                break;
+//        }
+//    }
+//    ejson_free(files);
 
     return 0;
 }

@@ -96,6 +96,9 @@ function(ETestEngineAddTest i_target)
     # 生成 ctest 主函数(main)文件
     create_test_sourcelist(_src_list ${_main_cxx} ${M_CASES} EXTRA_INCLUDE ${_head_h})
 
+    # 自动创建 用例 文件（如果不存在）
+    ETestGenCaseFiles(${CMAKE_CURRENT_LIST_DIR} M_CASES)
+
     # 添加测试可执行文件生成
     project(${i_target})
     add_executable(${i_target} ${_src_list} ${M_SRCS})
@@ -120,7 +123,7 @@ function(ETestEngineAddTest i_target)
             set(_is_gcc 1)
         endif()
 
-        string(REGEX REPLACE ".[cpp|c]$" "" _case ${_case})
+        string(REGEX REPLACE ".[cpp|cxx|c]$" "" _case ${_case})
 
         if(_is_gcc)
             list(APPEND _gcc_cases ${_case})
@@ -134,22 +137,7 @@ function(ETestEngineAddTest i_target)
     # 为 gcc 的 case 创建头文件
     if(_gcc_cases)
 
-        set(_lines)
-
-        list(APPEND _lines
-"/**
-* this file is create by etest of emake
-*/
-
-extern \"C\" { \n\n")
-
-        foreach(_case ${_gcc_cases})
-            list(APPEND _lines "    int ${_case}(int, char*[])\;\n")
-        endforeach()
-
-        list(APPEND _lines "\n}\n")
-
-        file(WRITE ${PROJECT_BINARY_DIR}/${_head_h} ${_lines} )
+        ETestGenHeadFile(${PROJECT_BINARY_DIR}/${_head_h} _gcc_cases)
 
     endif()
 

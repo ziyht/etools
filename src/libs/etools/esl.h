@@ -17,9 +17,8 @@
 #ifndef __ESL_H__
 #define __ESL_H__
 
-#define ESL_VERSION "esl 1.0.9"     // adjust return val of esl_free*()
-
 #include "etype.h"
+#include "eobj.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,44 +27,110 @@ extern "C" {
 #define ESL_MAXLEVEL 16       // Should be enough for 2^16 elements
 #define ESL_P        0.25     // Skiplist P = 1/4
 
-enum {
-    ESL_ASC = 0x00,    // Ascending
-    ESL_DES = 0x01,    // Descending
-};
+/// ---------------------- creator -------------------------
+///
+///     create a new skiplist handle
+///
+esl  esl_new(etypek type);      // lg: EKEY_I, EKEY_I | EKEY_DES
 
-typedef struct eskiplist_s* esl;
+/// ---------------------- setting -------------------------
+///
+///     set options for skiplist
+///
+bool esl_setType(esl l, etypek type);           // will set failed if skiplist is not empty
+bool esl_setPrvt(esl l, eval   prvt);           // will never failed
+bool esl_setCmp (esl l, eobj_cmp_ex_cb cmp);    // will set failed if skiplist is not empty
+bool esl_setRls (esl l, eobj_rls_ex_cb rls);    // release func, only have effect on ERAW and EPTR type of obj,
+                                                //  you can set it at any time, but be careful when you want to free a node
+/// ---------------------- basic -------------------------
+///
+///     basic utils for skiplist
+///
+int  esl_clear  (esl l);
+int  esl_clearEx(esl l, eobj_rls_ex_cb rls);    // passed in rls have higher priority
 
-typedef struct eskiplist_node_s{
-    i64   score;
-    cptr  obj;
-}* esln;
+int  esl_free   (esl l);
+int  esl_freeEx (esl l, eobj_rls_ex_cb rls);    // passed in rls have higher priority
 
-esl  esl_new(int opts);
+uint esl_len    (esl l);
+uint esl_isEmpty(esl l);
 
-void esl_free (esl sl);                       // free the esl  list
-cptr esl_freeP(esl sl, i64 key, cptr obj );   // free the esl  node who handle this obj, return the hold obj if succeed
-cptr esl_freeN(esl sl, i64 key, esln node);   // free the esl  node, return the hold obj if succeed
-cptr esl_freeH(esl sl);                       // free the head node, return the hold obj if succeed
-cptr esl_freeT(esl sl);                       // free the tail node, return the hold obj if succeed
+/// ---------------------- adder -------------------------
+///
+///     creat and add eobj to esl
+///
+eobj   esl_newO(etypeo type, uint len);    // create new eobj by type
 
-esln esl_addP(esl sl, i64 key, cptr ptr );
-esln esl_addN(esl sl, i64 key, esln node);     // the node to add must not in a eskiplist
+eobj   esl_addI(esl l, ekey key, i64    val);               // ENUM i64
+eobj   esl_addF(esl l, ekey key, f64    val);               // ENUM f64
+eobj   esl_addP(esl l, ekey key, conptr ptr);               // EPTR
+eobj   esl_addS(esl l, ekey key, constr str);               // ESTR
+eobj   esl_addR(esl l, ekey key, size   len);               // ERAW
+eobj   esl_addO(esl l, ekey key, eobj   obj);               // EOBJ
 
-esln esl_find(esl sl, i64 key);
+//! multi add
+eobj   esl_addMI(esl l, ekey key, i64    val);              // ENUM i64
+eobj   esl_addMF(esl l, ekey key, f64    val);              // ENUM f64
+eobj   esl_addMP(esl l, ekey key, conptr ptr);              // EPTR
+eobj   esl_addMS(esl l, ekey key, constr str);              // ESTR
+eobj   esl_addMR(esl l, ekey key, size   len);              // ERAW
+eobj   esl_addMO(esl l, ekey key, eobj   obj);              //
 
-esln esl_first(esl  sl);
-esln esl_last (esl  sl);
-esln esl_next (esln node);
-esln esl_prev (esln node);
-#define esl_itr2(sl, itr, tmp) for(tmp = esl_first(sl); (itr = tmp, tmp = esl_next(tmp), itr); )
+/// -- esl get operation --
+///
+///     get the obj or value from eskiplist
+///
+eobj   esl_val (esl l, ekey key);   // Returns the first found eobj by key
+i64    esl_valI(esl l, ekey key);   // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    esl_valF(esl l, ekey key);   // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+cstr   esl_valS(esl l, ekey key);   // Returns the cstr       of eobj if exist and type matchs ESTR, else return 0
+cptr   esl_valR(esl l, ekey key);   // Returns the ptr        of eobj if exist and type matchs ERAW, else return 0
+cptr   esl_valP(esl l, ekey key);   // Returns the ptr of raw in eobj if exist and type matchs EPTR, else return 0
 
-esln esl_rmO(esl sl, i64 key, cptr obj );
-esln esl_rmN(esl sl, i64 key, esln node);
+etypeo esl_valType(esl l, ekey key);    // Returns eobj's type if exist, else return EOBJ_UNKNOWN
+uint   esl_valLen (esl l, ekey key);    // Returns eobj's len  if exist and type matchs ESTR, ERAW, EOBJ, else return 0
 
-esln esl_popH(esl sl);
-esln esl_popT(esl sl);
+bool   esl_valIsTrue(esl l, ekey key);   // Returns true if the val in eobj is likely true:
+                                                //  1. the type of obj is ETRUE
+                                                //  2. the val of i64 or f64 is not 0
+                                                //  3. the ptr val is not 0
+                                                //  4. the str val is not empty
+                                                //  5. the len of raw is not 0
 
-uint esl_len(esl sl);
+/// -- esl travese --
+///
+///
+eobj esl_first(esl  l);
+eobj esl_last (esl  l);
+eobj esl_next (eobj o);
+eobj esl_prev (eobj o);
+
+#define esl_foreach(l, itr)   for(eobj itr = esl_first(l); itr; itr = esl_next(itr) )
+#define esl_foreach_s(l, itr) for(eobj _INNER_ = esl_first(l), itr; (itr = _INNER_, _INNER_ = esl_next(_INNER_), itr); )
+
+
+/// -- esl take --
+///
+///
+
+eobj esl_takeH(esl l);
+eobj esl_takeT(esl l);
+eobj esl_takeO(esl l, eobj o);
+
+eobj esl_takeOne(esl l, ekey key);
+eobj esl_takeAll(esl l, ekey key);      // todo
+
+int  esl_freeH(esl l);
+int  esl_freeT(esl l);
+int  esl_freeO(esl l, eobj o);
+
+int  esl_freeOne(esl l, ekey key);
+int  esl_freeAll(esl l, ekey key);      // todo
+
+//! utils
+void   esl_show(esl l, uint len);
+constr esl_version();
+
 
 
 #ifdef __cplusplus

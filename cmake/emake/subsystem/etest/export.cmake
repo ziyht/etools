@@ -35,9 +35,7 @@ return()
 #
 
 #
-#\! -- 添加测试工程
-#
-#  此 API 在位置 #1 中使用
+#\! -- 添加测试工程              <#1>
 #
 #  - Dest     测试项目在当前项目中的位置, 暂不支持外部位置
 #  - [ON|OFF] 开关, 默认值为 ON
@@ -46,9 +44,8 @@ return()
 ETestAdd(<Dest> [ON|OFF])
 
 #
-#\! -- 添加测试
+#\! -- 添加测试                 <#2 #3>
 #
-#  此 API 在位置 #2 #3 中使用
 #
 ETestAddTest(<TestCaseName>     # 测试的名称, 必须设置
     TYPE     [Auto|Unit|Module]    # 测试的类型, 默认值为 Auto

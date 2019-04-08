@@ -233,21 +233,24 @@ endmacro()
 
 function(_GetToCopysForKit i_kit)
 
-    EMakeGetTargetPropertyM(${i_kit} KIT_DERECT_DEPENDS _deps NO_CHECK)
+    # 检查当前 kit 是否已被检查过，若检查过，则直接退出，不做重复操作
+    EMakeGetTargetPropertyM(${i_kit} KIT_CHECKED_TOCOPY _checked NO_CHECK)
+    if(_checked)
+        return()
+    endif()
 
-    # 处理自身
-    EMakeGetTargetPropertyM(${i_kit} KIT_TYPE _kit_type)
+    # 获取当前 kit 代表需要拷贝（不包括依赖和附加文件）
+    EMakeGetTargetPropertyM(${i_kit} KIT_TYPE          _kit_type)
 
     if(${_kit_type} STREQUAL "EXT")
-        EMakeGetTargetPropertyM(${i_kit} RUNTIME_NAME  _runtime    NO_CHECK)
-        EMakeGetTargetPropertyM(${i_kit} ARCHIVE_NAME  _archive    NO_CHECK)
-        EMakeGetTargetPropertyM(${i_kit} LOCATION      _output_dir NO_CHECK)
+        EMakeGetTargetPropertyM(${i_kit} RUNTIME_NAME  _runtime      NO_CHECK)
+        EMakeGetTargetPropertyM(${i_kit} ARCHIVE_NAME  _archive      NO_CHECK)
+        EMakeGetTargetPropertyM(${i_kit} LOCATION      _output_dir   NO_CHECK)
     else()
         EMakeGetTargetPropertyM(${i_kit} KIT_RUNTIME_NAME  _runtime    NO_CHECK)
         EMakeGetTargetPropertyM(${i_kit} KIT_ARCHIVE_NAME  _archive    NO_CHECK)
         EMakeGetTargetPropertyM(${i_kit} KIT_OUTPUT_DIR    _output_dir NO_CHECK)
     endif()
-
 
     if(_runtime)
         EMakeSetTargetPropertySetM(${i_kit} "TO_COPY_RUNTIMES" "/" VARS ${_output_dir}/${_runtime} APPEND_NO_DUP)
@@ -262,7 +265,8 @@ function(_GetToCopysForKit i_kit)
         EMakeSetTargetPropertyM(${_output_dir}/${_archive} BLONG_TO VAR  ${i_kit}                   APPEND_NO_DUP)
     endif()
 
-    # 处理依赖
+    # 为每个依赖执行同样的检查
+    EMakeGetTargetPropertyM(${i_kit} KIT_DERECT_DEPENDS   _deps  NO_CHECK)
     foreach(_dep ${_deps})
         _GetToCopysForKit(${_dep})
     endforeach()
@@ -289,12 +293,35 @@ function(_GetToCopysForKit i_kit)
 
         foreach(_set TO_COPY_RUNTIMES TO_COPY_ARCHIVES TO_COPY_FILES TO_COPY_DIRS)
 
+            #
+            #  kit/dep
+            #   |
+            #   | -- TO_COPY_RUNTIMES
+            #   |       | -- TO_COPY_RUNTIMES_PROPERTIES_
+            #   |              |-- ${_prop1}
+            #   |              |      | -- ${_prop1}_KEY_      <- 这里存储目标位置
+            #   |              |      | -- ${_prop1}_VALS_     <- 这里存储所有文件
+            #   |              |      |        | -- ${val1}       <- 具体的一个文件
+            #   |              |      |        | -- ${val2}
+            #   |              |      |        | -- ...
+            #   |              |-- ${_prop2}
+            #   |              |-- ...
+            #   | -- TO_COPY_ARCHIVES
+            #   | -- TO_COPY_FILES
+            #   | -- TO_COPY_DIRS
+            #
+
             EMakeGetTargetPropertySetM(${_dep} ${_set})
 
             foreach(_prop ${${_set}_PROPERTIES_})
+
+                # 获取目标位置
                 EMakeValidatePath(${_dest_prefix}/${${_prop}_KEY_} _dest)
+
+                # 获取当前 _dep 中的文件，添加到当前 kit 中
                 EMakeSetTargetPropertySetM(${i_kit} ${_set} ${_dest} VARS ${${_prop}_VALS_} APPEND_NO_DUP)
 
+                # 对每一个文件针对当前 kit 设置必要的属性
                 foreach(_file ${${_prop}_VALS_})
 
                     EMakeGetTargetPropertyM(${_dep}_${${_prop}_KEY_}_${_file} SKIP_COPY      _skip_copy      NO_CHECK)
@@ -302,10 +329,39 @@ function(_GetToCopysForKit i_kit)
                     EMakeGetTargetPropertyM(${_dep}_${${_prop}_KEY_}_${_file} TEST_SKIP_COPY _test_skip_copy NO_CHECK)
                     EMakeGetTargetPropertyM(${_dep}_${${_prop}_KEY_}_${_file} TRACE          _trace          NO_CHECK)
 
+                    # EMakeInfF(" ${i_kit} ${_dep}: ${_file} ${_skip_copy}")
+
                     if(_skip_copy OR ${_dep}_skip_copy_VALS_)
-                        EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} SKIP_COPY VAR 1)
-                        #EMakeInfF(" ++ ${i_kit}_${_dest}_${_file} : SKIP_COPY : 1")
+                        set(_tag !)
+                    else()
+                        set(_tag)
                     endif()
+
+                    EMakeGetTargetPropertyM(${i_kit}_${_dest}_${_file} TRACE     _s_trace     NO_CHECK)
+                    EMakeGetTargetPropertyM(${i_kit}_${_dest}_${_file} SKIP_COPY _s_skip_copy NO_CHECK)
+
+                    if(_s_trace AND NOT _s_skip_copy)
+
+                        # 原始有 trace信息 但是没有 _skip_copy，说明需要拷贝，不做 _skip_copy
+
+                    else()
+
+                        if(_skip_copy OR ${_dep}_skip_copy_VALS_)
+                            EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} SKIP_COPY VAR 1)
+                            # EMakeInfF(" ++ ${i_kit}_${_dest}_${_file} : SKIP_COPY : 1")
+                        else()
+                            EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} SKIP_COPY VAR 0)
+                            # EMakeInfF(" -- ${i_kit}_${_dest}_${_file} : SKIP_COPY : 0")
+                        endif()
+
+                        if(_trace)
+                            EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} TRACE VAR "-> ${_dep} ${_tag}${_trace}")
+                        else()
+                            EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} TRACE VAR "-> ${_dep}")
+                        endif()
+
+                    endif()
+
 
                     if(NOT _test_dest)
                         EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} TEST_DEST VAR ${${_dep}_test_dest_VALS_})
@@ -318,13 +374,7 @@ function(_GetToCopysForKit i_kit)
 
                     if(_test_skip_copy OR ${_dep}_test_skip_copy_VALS_)
                         EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} TEST_SKIP_COPY VAR 1)
-                        #EMakeInfF(" ++ ${i_kit}_${_dest}_${_file} : TEST_SKIP_COPY : 1")
-                    endif()
-
-                    if(_trace)
-                        EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} TRACE VAR "-> ${_dep} ${_trace}")
-                    else()
-                        EMakeSetTargetPropertyM(${i_kit}_${_dest}_${_file} TRACE VAR "-> ${_dep}")
+                        # EMakeInfF(" ++ ${i_kit}_${_dest}_${_file} : TEST_SKIP_COPY : 1")
                     endif()
 
                 endforeach()
@@ -337,8 +387,7 @@ function(_GetToCopysForKit i_kit)
     endforeach()
 
     # 设置内部状态
-    EMakeGetTargetPropertyM(${i_kit} KIT_TYPE _type NO_CHECK)
-
+    EMakeSetTargetPropertyM(${i_kit} KIT_CHECKED_TOCOPY VAR 1)
 
 endfunction()
 

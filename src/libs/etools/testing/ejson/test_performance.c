@@ -15,19 +15,19 @@
 static void performance_obj_test(uint scale)
 {
     char key[32]; ejson itr; int64_t t;
-    ejson e = ejso_new(_OBJ_);
+    ejson e = ejson_new(EOBJ, 0);
 
     t = eutils_nowms();
     for(uint i = 0; i < scale; i++)
     {
         sprintf(key, "%d", i);
 
-        ejso_addT(e, key, _TRUE_);
+        ejson_addT(e, key, ETRUE);
     }
 
-    if(ejso_len(e) != scale)
+    if(ejson_len(e) != scale)
     {
-        printf("error: add %d elements, but only have %d elements in e\n", scale, ejso_len(e)); fflush(stdout);
+        printf("error: add %d elements, but only have %d elements in e\n", scale, ejson_len(e)); fflush(stdout);
         exit(1);
     }
 
@@ -36,12 +36,12 @@ static void performance_obj_test(uint scale)
 
     t = eutils_nowms();
     uint j = 0;
-    ejso_itr(e, itr)
+    ejson_foreach(e, itr)
     {
-        if(ejsr(e, ejso_keyS(itr))) j++;
+        if(ejson_valr(e, eobj_keyS(itr))) j++;
     }
 
-    if(ejso_len(e) != j)
+    if(ejson_len(e) != j)
     {
         printf("error: e have %d elements, but only found %d elements in e\n", scale, j); fflush(stdout);
         exit(1);
@@ -50,26 +50,26 @@ static void performance_obj_test(uint scale)
     printf("found %d \telem: %6"PRIu64"ms\n", j, eutils_nowms() - t); fflush(stdout);
 
     t = eutils_nowms();
-    ejso_free(e);
+    ejson_free(e);
     printf("free  %d \telem: %6"PRIu64"ms\n\n", j, eutils_nowms() - t); fflush(stdout);
 }
 
 static void performance_arr_test(uint scale)
 {
     char key[32]; ejson itr; int64_t t;
-    ejson e = ejso_new(_ARR_);
+    ejson e = ejson_new(EARR, 0);
 
     t = eutils_nowms();
     for(uint i = 0; i < scale; i++)
     {
         sprintf(key, "%d", i);
 
-        ejso_addT(e, key, _TRUE_);
+        ejson_addT(e, key, ETRUE);
     }
 
-    if(ejso_len(e) != scale)
+    if(ejson_len(e) != scale)
     {
-        printf("error: add %d elements, but only have %d elements in e\n", scale, ejso_len(e)); fflush(stdout);
+        printf("error: add %d elements, but only have %d elements in e\n", scale, ejson_len(e)); fflush(stdout);
         exit(1);
     }
 
@@ -77,14 +77,14 @@ static void performance_arr_test(uint scale)
 
     t = eutils_nowms();
     uint j = 0, i = 0;
-    ejso_itr(e, itr)
+    ejson_foreach(e, itr)
     {
         sprintf(key, "[%d]", i++);
 
-        if(itr == ejsk(e, key)) j++;
+        if(itr == ejson_valk(e, key)) j++;
     }
 
-    if(ejso_len(e) != j)
+    if(ejson_len(e) != j)
     {
         printf("error: e have %d elements, but only found %d elements in e\n", scale, j); fflush(stdout);
         exit(1);
@@ -93,7 +93,7 @@ static void performance_arr_test(uint scale)
     printf("found %d \telem: %6"PRIu64"ms\n", j, eutils_nowms() - t); fflush(stdout);
 
     t = eutils_nowms();
-    ejso_free(e);
+    ejson_free(e);
     printf("free  %d \telem: %6"PRIu64"ms\n\n", j, eutils_nowms() - t); fflush(stdout);
 }
 

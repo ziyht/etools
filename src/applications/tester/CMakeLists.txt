@@ -55,6 +55,7 @@ set(KIT_RESOURCES
 
 # - 额外 头文件目录 -
 set(KIT_INCLUDE_DIRS
+    ${LIBS_DIR}/etools
 )
 
 # - 额外 链接目录 -
@@ -106,3 +107,4 @@ set(KIT_DEPENDS)
 # - 添加测试 -
 # ETestAdd([NAME] [ON|OFF] [DEST Path] [CREATE])
 #
+ETestAdd(perf_test ON CREATE)

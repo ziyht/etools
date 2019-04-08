@@ -22,19 +22,7 @@
 #include "earg.h"
 #include "estr.h"
 #include "ejson.h"
-
-/// ----------------- micros helper -----------------------
-
-#define exe_ret(expr, ret ) { expr;      return ret;}
-#define is0_ret(cond, ret ) if(!(cond)){ return ret;}
-#define is1_ret(cond, ret ) if( (cond)){ return ret;}
-#define is0_exe(cond, expr) if(!(cond)){ expr;}
-#define is1_exe(cond, expr) if( (cond)){ expr;}
-
-#define is0_exeret(cond, expr, ret) if(!(cond)){ expr;        return ret;}
-#define is1_exeret(cond, expr, ret) if( (cond)){ expr;        return ret;}
-#define is0_elsret(cond, expr, ret) if(!(cond)){ expr;} else{ return ret;}
-#define is1_elsret(cond, expr, ret) if( (cond)){ expr;} else{ return ret;}
+#include "eutils.h"
 
 /// ----------------------- earg --------------------------
 
@@ -58,7 +46,7 @@ typedef struct _arg_s{
 typedef struct earg_s{
     estr  desc;
     estr  info;
-    ejson args_d;
+    eobj  args_d;
     estr  __shortopts;
     estr  __longopts;
 }earg_t;
@@ -67,7 +55,7 @@ earg   earg_new (constr desc)
 {
     earg h = calloc(1, sizeof(earg_t));
 
-    h->args_d = ejso_new(_OBJ_);
+    h->args_d = ejson_new(EOBJ, 0);
 
     estr_wrtS(h->desc, desc);
     estr_catB(h->desc, "\n", 1);
@@ -91,16 +79,16 @@ int    earg_free(earg   h)
     estr_free(h->__shortopts);  h->__shortopts = 0;
     estr_free(h->__longopts);   h->__longopts  = 0;
 
-    ejso_itr(h->args_d, itr)
+    ejson_foreach_s(h->args_d, itr)
     {
-        arg = ejso_valR(itr);
+        arg = EOBJ_VALR(itr);
 
         estr_free(arg->desc);                arg->desc          = 0;
         estr_free(arg->valS);                arg->valS          = 0;
         estr_free((estr)arg->__option.name); arg->__option.name = 0;
     }
 
-    ejso_free(h->args_d); h->args_d = 0;
+    ejson_free(h->args_d); h->args_d = 0;
 
     free(h);
 
@@ -114,7 +102,7 @@ static _arg __earg_addArg(earg h, constr tag, constr name, eptr df, constr desc,
     is0_ret(len = strlen(tag), 0);
     short_arg[0] = tag[0];
 
-    arg = ejso_addR(h->args_d, short_arg, sizeof(_arg_t));
+    arg = (_arg)ejson_addR(h->args_d, short_arg, sizeof(_arg_t));
     is0_ret(arg, 0);
 
     {
@@ -195,12 +183,12 @@ int    earg_parse(earg h, int argc, cstr argv[])
     int opt; int __longid; _arg arg; option_t* __longopts; ejson itr; char short_arg[4] = {0};
 
     is0_ret(h, 0);
-    is0_ret(ejso_len(h->args_d), 0);
+    is0_ret(eobj_len(h->args_d), 0);
 
     estr_clear(h->__longopts);
-    ejso_itr(h->args_d, itr)
+    ejson_foreach_s(h->args_d, itr)
     {
-        arg = ejso_valR(itr);
+        arg = EOBJ_VALR(itr);
 
         estr_catB(h->__longopts, &arg->__option, sizeof(option_t));
     }
@@ -215,7 +203,7 @@ int    earg_parse(earg h, int argc, cstr argv[])
         }
 
         short_arg[0] = (u8)opt;
-        arg = ejsr_valR(h->args_d, short_arg);
+        arg = ejson_valrR(h->args_d, short_arg);
         if(!arg)
         {
             fprintf (stderr, "%s    option unknown: %c\n", h->desc, *short_arg);
@@ -258,5 +246,5 @@ arg    earg_find(earg h, char tag)
     char short_arg[4] = {0};
     short_arg[0] = tag;
 
-    return h ? ejsr_valR(h->args_d, short_arg) : 0;
+    return h ? ejson_valrR(h->args_d, short_arg) : 0;
 }

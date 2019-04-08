@@ -45,34 +45,66 @@ typedef enum{
     ETRUE  ,            // 1
     ENULL  ,            // 2
     ENUM   ,            // 3
-    EPTR   ,            // 4
-    ESTR   ,            // 5
+    ESTR   ,            // 4
+    EPTR   ,            // 5
     ERAW   ,            // 6
     EOBJ   ,            // 7
+    EARR   ,            // 8  // only for ejson
 
     EOBJ_UNKNOWN  = 0x0f
 }etypeo;
 
 typedef enum{
-    EKEY_NO = 0,
-    EKEY_I  = 1,
-    EKEY_U  = 2,
-    EKEY_S  = 3,
+
+    //! -- key types --
+    EKEY_NO     = 0,    // 000
+    EKEY_I      = 1,    // 001
+    EKEY_U      = 2,    // 010
+    EKEY_F      = 3,    // 011
+    EKEY_S      = 4,    // 100
+
+    //! -- key sort types --
+    EKEY_ASC    = 0,    // 0000 : default
+    EKEY_DES    = 8,    // 1000
+
+    //! -- mask --
+    EKEY_MASK      = 0x7,  // 0111
+    EKEY_SORT_MASK = 0x8,  // 1000
 }etypek;
+
+//! opitions
+typedef enum {
+    ALL_ON      =  0xFF,
+    ALL_OFF     =  0x00,
+
+    //! -- ejson opts --
+
+    // parsing opts
+    ENDCHECK    =  0x01,     // requre null-terminated check in parse end
+    COMMENT     =  0x02,     // requre comment supported
+
+    // format opts
+    COMPACT     =  0x00,    // format a obj to a compat formated json string
+    PRETTY      =  0x01,    // format a obj to a pretty formated json string
+
+}eopts;
 
 /// ---------------------- ecan -------------------------
 ///
 ///     cantainer type for obj using;
 ///
 
+typedef union  eobj_s  * ejson;
 typedef struct _ell_s  * ell;
 typedef struct _edict_s* edict;
 typedef struct _erb_s  * erb;
+typedef struct _esl_s  * esl;
 
 typedef union ecan_s{
     ell     ll;
     edict   dict;
     erb     rb;
+    esl     sl;
 }ecan_t, * ecan;
 
 etypec ecan_typec(ecan c);
@@ -85,6 +117,7 @@ etypec ecan_typec(ecan c);
 typedef union __ekey_s{
     u64    u;
     i64    i;
+    f64    f;
     cptr   p;
     cstr   s;
 }ekey_t, ekey;
@@ -115,11 +148,9 @@ typedef union eobj_s{
 
 typedef void (*EOBJ_RLS_CB)(eobj);
 
-typedef eobj (*eobj_init_cb)(eobj o);                       /// init eobj
 typedef void (*eobj_rls_cb )(eobj o);                       /// release eobj's data, note: do not free @param o
 typedef int  (*eobj_cmp_cb )(eobj a, eobj b);               /// compare two eobj, we assume returned -1 when @param a less than @param b
 
-typedef eobj (*eobj_init_ex_cb)(eobj o, eval prvt);         /// init eobj
 typedef void (*eobj_rls_ex_cb )(eobj o, eval prvt);         /// release eobj's data, note: do not free @param o
 typedef int  (*eobj_cmp_ex_cb )(eobj a, eobj b, eval prvt); /// compare two eobj, we assume returned -1 when @param a less than @param b
 
@@ -150,10 +181,10 @@ static __ cptr   eobj_valR (eobj obj) { typedef struct __type{ uint _0:16; uint 
 
 #undef __
 
-
-
 int  eobj_free  (eobj o);
 int  eobj_freeEX(eobj o, eobj_rls_cb rls);
+
+constr eobj_typeoS(eobj o);
 
 #ifdef __cplusplus
 }

@@ -25,13 +25,22 @@
 extern "C" {
 #endif
 
-typedef union{
-    eobj_t o;
-}ello_t, * ello;
-
 ell  ell_new();
 
 eobj ell_newO(etypeo t, uint len);    // Returns a new eobj used by elist, len will have effect only when @param type is ESTR, ERAW
+
+uint ell_len    (ell l);             // Returns the number of items in the list.
+uint ell_size   (ell l);             // Returns the number of items in the list.
+bool ell_isEmpty(ell l);             // Returns 1 if the list contains no items; otherwise returns 0
+
+ell  ell_clear  (ell l);
+ell  ell_clearEx(ell l, eobj_rls_cb rls);
+
+int  ell_free  (ell l);
+int  ell_freeEx(ell l, eobj_rls_cb rls);
+
+void ell_show(ell l, uint max);                    // todo
+void ell_showSpan(ell l, uint begin, uint end);    // todo
 
 /// -- ell push operation --
 ///
@@ -59,6 +68,19 @@ eobj  ell_appdP(ell l, conptr ptr);         // EPTR
 eobj  ell_appdR(ell l, size_t len);         // ERAW
 eobj  ell_appdO(ell l, eobj   obj);         // EOBJ
 
+/// -- ell insert operation --
+///
+///     insert an obj at the idx of list
+///
+/// returns the created obj if succeed, otherwise return 0
+///
+eobj  ell_addI(ell l, int idx, i64    val);        // todo
+eobj  ell_addF(ell l, int idx, f64    val);        // todo
+eobj  ell_addS(ell l, int idx, constr str);        // todo
+eobj  ell_addP(ell l, int idx, conptr ptr);        // todo
+eobj  ell_addR(ell l, int idx, size_t len);        // todo
+eobj  ell_addO(ell l, int idx, eobj   obj);        // todo
+
 /// -- ell set operation --
 ///
 ///     reset(replace) the value of obj in @param idx of
@@ -83,19 +105,6 @@ eobj  ell_setS(ell l, int idx, constr str);         // EPTR
 eobj  ell_setR(ell l, int idx, size_t len);         // ERAW
 eobj  ell_setO(ell l, int idx, eobj   obj);         // todo
 
-/// -- ell insert operation --
-///
-///     insert an obj at the idx of list
-///
-/// returns the created obj if succeed, otherwise return 0
-///
-eobj  ell_addI(ell l, int idx, i64    val);        // todo
-eobj  ell_addF(ell l, int idx, f64    val);        // todo
-eobj  ell_addS(ell l, int idx, constr str);        // todo
-eobj  ell_addP(ell l, int idx, conptr ptr);        // todo
-eobj  ell_addR(ell l, int idx, size_t len);        // todo
-eobj  ell_addO(ell l, int idx, eobj   obj);        // todo
-
 /// -- ell get operation --
 ///
 ///
@@ -119,9 +128,6 @@ bool   ell_valIsTrue(ell l, uint idx);   // Returns true if the val in eobj is l
                                                 //  4. the str val is not empty
                                                 //  5. the len of raw is not 0
 
-bool  ell_isEmpty(ell l);               // Returns 1 if the list contains no items; otherwise returns 0 or -1 for l is nullptr.
-uint  ell_len    (ell l);               // Returns the number of items in the list.
-uint  ell_size   (ell l);               // Returns the number of items in the list.
 
 eobj  ell_first(ell  l);                // Returns the first item of list if have; otherwise returns 0.
 eobj  ell_last (ell  l);                // Returns the last  item of list if have; otherwise returns 0.
@@ -155,15 +161,6 @@ int   ell_freeOne(ell l, eobj val);     // todo
 
 int   ell_freeAllEx(ell l, eobj val, eobj_cmp_cb cmp, eobj_rls_cb rls); // todo
 int   ell_freeOneEx(ell l, eobj val, eobj_cmp_cb cmp, eobj_rls_cb rls); // todo
-
-ell   ell_clear  (ell l);
-ell   ell_clearEx(ell l, eobj_rls_cb rls);
-
-int   ell_free  (ell l);
-int   ell_freeEx(ell l, eobj_rls_cb rls);
-
-void  ell_show(ell l, uint max);                    // todo
-void  ell_showSpan(ell l, uint begin, uint end);    // todo
 
 constr ell_version();
 

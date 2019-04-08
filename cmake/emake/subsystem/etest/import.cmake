@@ -14,5 +14,10 @@
 #
 # =====================================================================================
 
+set(ETEST_VERSION "1.0.0")
+
+EMakeInfF("ETest Version: ${EBUILD_VERSION}")
+
 include(${SUB_SYSTEM_DIR}/modules/ETestAdd.cmake)
 include(${SUB_SYSTEM_DIR}/modules/ETestEngine.cmake)
+include(${SUB_SYSTEM_DIR}/modules/ETestFileGenerator.cmake)

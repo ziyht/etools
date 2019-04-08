@@ -6,7 +6,7 @@
 
 void etimer_ntpSync_test()
 {
-    while(1)
+    for(int i = 0; i < 10; i++)
     {
 
         esync stat = etimer_esyncGet("172.18.4.205", 1000);

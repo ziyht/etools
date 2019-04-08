@@ -168,31 +168,15 @@ macro(EBuildCheckDependsM i_kit)
     endif()
 
     # 查找指定的 lib
-#    set(_libs_tmp)
-#    foreach(_lib ${_libs})
+    foreach(_lib ${_libs})
 
-#        EMakeGetTargetPropertyM(${_lib} PACKAGE _check NO_CHECK)
+        find_library(LIB_${_lib} NAMES ${_lib} PATHS ${_dirs})
 
-#        if(NOT _check)
-#            set(_check ${_lib})
-#        endif()
+        if(${LIB_${_lib}} STREQUAL LIB_${_lib}-NOTFOUND)
+            EMakeErrF("the lib '-l${_lib}' depended by KIT '${i_kit}' can not be found")
+        endif()
 
-#        _findPackage(${_check} QUIET)  # 查找看是否是一个 package
-
-#        if(NOT ${_check}_FOUND)
-
-#            find_library(LIB_${_check} NAMES ${_check} PATHS ${_dirs})
-
-#            if(${LIB_${_check}} STREQUAL LIB_${_check}-NOTFOUND)
-#                EMakeErrF("the lib '-l${_lib}' depended by KIT '${i_kit}' can not be found")
-#            endif()
-
-#        endif()
-
-#        list(APPEND _libs_tmp ${_check})
-
-#    endforeach()
-#    set(_libs ${_libs_tmp})
+    endforeach()
 
     set(KIT_DEPENDS         ${_deps})
     set(KIT_LIBRARIES_SYS   ${_deps_qt} ${_libs})

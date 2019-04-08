@@ -18,6 +18,9 @@ macro(EMakeSetupConfigInternalM)
 
     EMakeGetProjectDirF(MAIN_PROJECT_ROOT_DIR MAIN_PROJECT_DIR)
 
+    add_definitions(-DMAIN_PROJECT_ROOT_DIR="${MAIN_PROJECT_ROOT_DIR}/")
+    add_definitions(-DMAIN_PROJECT_DIR="${MAIN_PROJECT_DIR}/")
+
     EMakeSetupBuildEnvM()
 
 endmacro()

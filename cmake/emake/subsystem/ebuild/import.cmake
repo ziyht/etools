@@ -14,6 +14,17 @@
 #
 # =====================================================================================
 
+set(EBUILD_VERSION "1.0.1")
+
+#
+# 1.0.1:
+#     fix copy empty files to dir which cause cmake err
+#
+#
+#
+
+EMakeInfF("EBuild Version: ${EBUILD_VERSION}")
+
 set(_ ${SUB_SYSTEM_DIR}/modules/)
 
 include(${_}/EBuildSetupQtM.cmake)

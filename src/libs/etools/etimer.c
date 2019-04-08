@@ -178,7 +178,7 @@ static void __task_after_cb(_etimer e)
 
     if(e->fresh)
     {
-        esl_addP(loop->tl, e->nextdl, e);
+        esl_addP(loop->tl, ekey_i(e->nextdl), e);
         __wakeup_inner_loop(loop);
     }
     mutex_ulck(loop->mu);
@@ -253,19 +253,19 @@ static void __polling_wakeup_all_loops(void* arg)
 
         mutex_lock(_wakeup_mu);
 
-        ejso_itr(all_loops, itr)
+        ejson_foreach(all_loops, itr)
         {
-            loop = ejso_valP(itr);
+            loop = EOBJ_VALP(itr);
 
             __wakeup_inner_loop(loop);
         }
 
-        loop_cnt = ejso_len(all_loops);
+        loop_cnt = ejson_len(all_loops);
         mutex_ulck(_wakeup_mu);
 
     }while(loop_cnt);
 
-    ejso_free(all_loops);
+    ejson_free(all_loops);
 }
 
 static int __register_wakeup(etloop loop)
@@ -284,12 +284,12 @@ static int __register_wakeup(etloop loop)
     if(!_inner_rt)
     {
         _inner_rt  = ert_new(1);
-        _all_loops = ejso_new(_OBJ_);
+        _all_loops = ejson_new(EOBJ, 0);
     }
 
     snprintf(key, 64, "%p", (void*)loop);
 
-    ejso_addP(_all_loops, key, loop);
+    ejson_addP(_all_loops, key, loop);
     ert_run(_inner_rt, "wakeup_guard", __polling_wakeup_all_loops, 0, _all_loops);
 
     mutex_ulck(_wakeup_mu);
@@ -307,9 +307,9 @@ static int __unregister_wakeup(etloop loop)
     snprintf(key, 64, "%p", (void*)loop);
 
     mutex_lock(_wakeup_mu);
-    ejso_freeR(_all_loops, key);
+    ejson_freeR(_all_loops, key);
 
-    if(0 == ejso_len(_all_loops))
+    if(0 == ejson_len(_all_loops))
     {
         ert_destroy(_inner_rt, 0);
 
@@ -375,7 +375,7 @@ static inline void __wakeup_inner_loop(etloop loop)
 
 static void* __inner_loop(void* arg)
 {
-    esln first, itr; _etimer e; i64 now; esl sl; etloop loop;
+    eobj first, itr; _etimer e; i64 now; esl sl; etloop loop;
 
 #if ETOOLS_HAVE_EPOLL_H
     struct uv__epoll_event events[1];
@@ -404,7 +404,7 @@ static void* __inner_loop(void* arg)
         now    = eutils_nowms();
 
         do{
-            loop->wait_ms = first->score - now;
+            loop->wait_ms = eobj_keyI(first) - now;
 
             if     (loop->wait_ms > 60000)   loop->wait_ms = 60000;
             else if(loop->wait_ms < 0)
@@ -435,24 +435,24 @@ static void* __inner_loop(void* arg)
         }
 
         do{
-            if(first->score > now)
+            if(eobj_keyI(first) > now)
             {
                 llog("first: %"PRIi64" now: %"PRIi64", break!", first->score, now);
                 break;
             }
 
-            e = first->obj;
+            e = eobj_valP(first);
 
             mutex_lock(e->mu);
-            if(__etimer_run(loop, e, now)) esl_addN(sl, e->nextdl, esl_popH(loop->tl));
+            if(__etimer_run(loop, e, now)) esl_addO(sl, ekey_i(e->nextdl), esl_takeH(loop->tl));
             else                           esl_freeH(loop->tl);
             mutex_ulck(e->mu);
 
         }while((first = esl_first(loop->tl)));
 
-        while((itr = esl_popH(sl)))
+        while((itr = esl_takeH(sl)))
         {
-            esl_addN(loop->tl, itr->score, itr);
+            esl_addO(loop->tl, ekey_i(eobj_keyI(itr)), itr);
             llog("readd: %"PRIi64" %p %d timers", e->nextdl, (void*)e, esl_len(loop->tl));
         }
 
@@ -555,7 +555,7 @@ etloop etloop_df(int maxthread)
 
 void   etloop_stop(etloop loop)
 {
-    esln itr, tmp; int running;
+    int running;
 
     is0_ret(loop, );
 
@@ -574,10 +574,10 @@ void   etloop_stop(etloop loop)
     loop->quit    = 2;
     echan_free(loop->sigs);
 
-    esl_itr2(loop->tl, itr, tmp)
+    esl_foreach_s(loop->tl, itr)
     {
-        llog("free etimer: %p %d", itr->obj, esl_len(loop->tl));
-        ((_etimer)itr->obj)->active = 0;
+        llog("free etimer: %p %d", itr->p, esl_len(loop->tl));
+        ((_etimer)EOBJ_VALP(itr))->active = 0;
     }
 
     esl_free(loop->tl);       loop->tl = 0;
@@ -663,7 +663,7 @@ int    etimer_start(etimer _e, etm_cb cb, u64 timeout, u64 repeat)
     loop = e->loop;
     mutex_lock(loop->mu);
 
-    esl_addP(loop->tl, e->nextdl, e);
+    esl_addP(loop->tl, ekey_i(e->nextdl), e);
     llog("added: %d", esl_len(loop->tl));
 
     loop->wait_ms = timeout;
