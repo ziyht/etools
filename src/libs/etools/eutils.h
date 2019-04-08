@@ -197,6 +197,9 @@ int ull2str(u64 v, char *s);
 i64  eutils_nowns();
 i64  eutils_nowms();
 
+i64  nowms();
+i64  nowns();
+
 int  eutils_rand();
 
 int  eutils_nprocs();

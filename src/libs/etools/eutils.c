@@ -139,6 +139,9 @@ static inline u64 __hrtime_ns(clocktype_t type)
 i64  eutils_nowns() { return __hrtime_ns(_CLOCK_PRECISE)          ; }
 i64  eutils_nowms() { return __hrtime_ns(_CLOCK_FAST   ) / 1000000; }
 
+i64  nowns() { return __hrtime_ns(_CLOCK_PRECISE)          ; }
+i64  nowms() { return __hrtime_ns(_CLOCK_FAST   ) / 1000000; }
+
 int ll2str(i64 value, char *s)
 {
     char *p, aux;
