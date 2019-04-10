@@ -18,6 +18,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
+#define EJSON_VERSION "ejson 0.9.2"     // fix bugs of ejson_take
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -39,8 +41,6 @@
 #include "_eobj_header.h"
 
 #include "ejson.h"
-
-#define EJSON_VERSION "ejson 0.9.1"
 
 typedef struct _ejson_node_s* _ejsn;
 typedef struct _ejson_root_s* _ejsr;
@@ -253,6 +253,8 @@ static eobj __objByKeys(_ejsr r, constr keys_, bool raw, bool rm)
             n = _obj_find(r, fk, strlen(fk));
             is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL); // not found, return
         }
+        else
+            n = (_ejsn)r;
 
         while( _idx )
         {
@@ -2723,9 +2725,9 @@ static eobj _arr_popT(_ejsr r)
 
     if(1 == _r_len(r)){_r_head(r) = _r_tail(r)          = NULL;}
 
-    else                  {_r_tail(r)                           = _n_lprev(n);
-                                            _n_lnext(_n_lprev(n)) = NULL         ;
-                           if(h->i && h->o == n) {h->o = _n_lprev(n); h->i--;} ;}
+    else              {_r_tail(r)                       = _n_lprev(n);
+                                  _n_lnext(_n_lprev(n)) = NULL         ;
+                       if(h->i && h->o == n) {h->o = _n_lprev(n); h->i--;} ;}
 
     _r_len(r)--;
 
@@ -2743,7 +2745,7 @@ static _ejsn _arr_find(_ejsr r, uint idx)
 
     h = _arr_hd(r);
 
-    if(idx >= (i = h->i)) { n = i ? h->o : _r_tail(r); for(; i != idx; i++) n = _n_lnext(n); }
+    if(idx >= (i = h->i)) { n = i ? h->o : _r_head(r); for(; i != idx; i++) n = _n_lnext(n); }
     else                  { n =     h->o             ; for(; i != idx; i--) n = _n_lprev(n); }
 
     h->i = idx;
@@ -2758,7 +2760,7 @@ static _ejsn _elistFind_ex(_ejsr r, uint idx, bool rm)
 
     h = _arr_hd(r);
 
-    if(idx >= (i = h->i)) { n = i ? h->o : _r_tail(r); for(; i != idx; i++) n = _n_lnext(n); }
+    if(idx >= (i = h->i)) { n = i ? h->o : _r_head(r); for(; i != idx; i++) n = _n_lnext(n); }
     else                  { n =     h->o             ; for(; i != idx; i--) n = _n_lprev(n); }
 
     if(rm)
@@ -2787,11 +2789,11 @@ static eobj _arr_takeI(_ejsr r, uint idx)
 
     h = _arr_hd(r);
 
-    if(idx >= (i = h->i)) { n = i ? h->o : _r_tail(r); for(; i != idx; i++) n = _n_lnext(n); }
+    if(idx >= (i = h->i)) { n = i ? h->o : _r_head(r); for(; i != idx; i++) n = _n_lnext(n); }
     else                  { n =     h->o             ; for(; i != idx; i--) n = _n_lprev(n); }
 
     if   (_n_lprev(n)) _n_lnext(_n_lprev(n)) = _n_lnext(n);
-    else               _r_tail(r)            = _n_lnext(n);
+    else               _r_head(r)            = _n_lnext(n);
 
     if   (_n_lnext(n)){_n_lprev(h->o = _n_lnext(n)) = _n_lprev(n);            h->i = idx    ;}
     else              {         h->o = _r_tail(r)   = _n_lprev(n);    if(idx) h->i = idx - 1;}
@@ -2812,12 +2814,12 @@ static eobj _arr_takeN(_ejsr r, _ejsn del)
 
     if((i = h->i))  {        for(              n =          h->o ; n && n != del; n = _n_lnext(n), i++);
                       if(!n) for(i = h->i - 1, n = _n_lprev(h->o); n && n != del; n = _n_lprev(n), i--); }
-    else            {        for(i = 0       , n = _r_tail (r   ); n && n != del; n = _n_lnext(n), i++); }
+    else            {        for(i = 0       , n = _r_head (r   ); n && n != del; n = _n_lnext(n), i++); }
 
     is0_ret(n, 0);
 
     if   (_n_lprev(n)) _n_lnext(_n_lprev(n)) = _n_lnext(n);
-    else               _r_tail(r)            = _n_lnext(n);
+    else               _r_head(r)            = _n_lnext(n);
 
     if   (_n_lnext(n)){_n_lprev(h->o = _n_lnext(n)) = _n_lprev(n);          h->i = i    ;}
     else              {         h->o = _r_tail (r)  = _n_lprev(n);    if(i) h->i = i - 1;}

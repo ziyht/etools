@@ -8,8 +8,8 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include "eutils.h"
 #include "ejson.h"
-#include "test_main.h"
 
 
 static void performance_obj_test(uint scale)

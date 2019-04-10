@@ -32,14 +32,9 @@ ETestAddTestSet(ejson
     CASES   t1_basic.c
             t2_parse.c
             t3_check.c
-            t4_addJ.c
-            test_check.c
-            test_eval.c
-            test_obj_add.c
-            test_obj_del.c
-            test_obj_get.c
-            test_obj_sort.c
-            test_obj_sub.c
+            t4_valk.c
+            t5_take.c
+            t6_sort.c
     )
 
 ETestAddTestSet(ejson-perf

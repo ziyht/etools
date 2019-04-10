@@ -1,4 +1,10 @@
-#include "test_main.h"
+/**
+* this file is create by subsystem 'ETest' from EMake framework
+*/
+
+#include <etest.h>
+
+#include "ejson.h"
 
 void ejson_sort_obj_test(){
 
@@ -75,17 +81,25 @@ void ejson_sort_arr_test(){
     estr_free(s);
 }
 
-void ejson_sort_test()
+static int t6_sort_case1()
 {
-    ejson_sort_obj_test();
-    ejson_sort_arr_test();
-}
-
-int test_obj_sort(int argc, char* argv[])
-{
-    E_UNUSED(argc); E_UNUSED(argv);
-
-    ejson_sort_test();
+    eexpect_num(1, 1);      // passed
 
     return ETEST_OK;
 }
+
+static int t6_sort_case2()
+{
+    eexpect_num(1, 0);      // will failed
+
+    return ETEST_OK;
+}
+
+int t6_sort(int argc, char* argv[])
+{
+    ETEST_RUN( t6_sort_case1() );
+    ETEST_RUN( t6_sort_case2() );
+
+    return ETEST_OK;
+}
+
