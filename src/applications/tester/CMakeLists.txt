@@ -107,4 +107,4 @@ set(KIT_DEPENDS)
 # - 添加测试 -
 # ETestAdd([NAME] [ON|OFF] [DEST Path] [CREATE])
 #
-ETestAdd(perf_test ON CREATE)
+ETestAdd(perf_test OFF CREATE)

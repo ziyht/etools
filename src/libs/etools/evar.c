@@ -46,7 +46,7 @@ evar  evar_gen (etypev t, int cnt, int size)
         return (evar){  t | __ETYPEV_PTR_MASK,
                         size,
                         cnt,
-                        eval_mk(p, ecalloc(cnt, size))
+                        EVAL_P(ecalloc(cnt, size))
                       };
     }
 

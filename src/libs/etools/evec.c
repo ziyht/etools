@@ -816,16 +816,16 @@ static evec __evec_new(etypev type, int size);
 
 evec evec_new(etypev type)
 {
-    static const u8 _size_map[] = {0, 1, 2, 4, 8, 1, 2, 4, 8, 8, 8, 1};
+    static const u8 _size_map[] = __EVAR_ITEM_LEN_MAP;
 
     type &= __ETYPEV_VAR_MASK;
 
-    return __evec_new(type, _size_map[type]);
+    return type >= E_USER ? 0 : __evec_new(type, _size_map[type]);
 }
 
 evec evec_newEx(int size)
 {
-    return __evec_new(E_RAW, size);
+    return __evec_new(E_USER, size);
 }
 
 static evec __evec_new(etypev type, int size)
@@ -843,8 +843,9 @@ static evec __evec_new(etypev type, int size)
     return out;
 }
 
-uint evec_len(evec v)   { return v ? _v_cnt(v) : 0; }
-uint evec_cap(evec v)   { return v ? _v_cap(v) : 0; }
+uint evec_len (evec v)   { return v ? _v_cnt (v) : 0; }
+uint evec_cap (evec v)   { return v ? _v_cap (v) : 0; }
+uint evec_size(evec v)   { return v ? _v_size(v) : 0; }
 
 /** -----------------------------------------------------
  *
@@ -925,57 +926,69 @@ static void __split_destroy_ex(_split s, eobj_rls_ex_cb rls, eval prvt)
  * ------------------------------------------------------
  */
 static void __evec_get_pos(evec v, uint idx, _pos p  );
-static bool __evec_addV   (evec v, uint idx, eval val, etypev type);
+static bool __evec_addV   (evec v, uint idx, evar var);
 
-bool evec_pushV(evec v, eval   val) { return __evec_addV(v, 0       ,              val , v ? _v_type(v): E_NAV); }
-bool evec_pushI(evec v, i64    val) { return __evec_addV(v, 0       , eval_mk(i  , val), E_I64); }
-bool evec_pushF(evec v, f64    val) { return __evec_addV(v, 0       , eval_mk(f  , val), E_F64); }
-bool evec_pushS(evec v, constr str) { return __evec_addV(v, 0       , eval_mk(C_s, str), E_STR); }
-bool evec_pushP(evec v, conptr ptr) { return __evec_addV(v, 0       , eval_mk(C_p, ptr), E_PTR); }
-bool evec_pushR(evec v, uint   len) { return __evec_addV(v, 0       , eval_mk(u32, len), E_RAW); }
+bool evec_pushV(evec v, evar   var) { return __evec_addV(v, 0       ,          var ); }
+bool evec_pushI(evec v, i64    val) { return __evec_addV(v, 0       , EVAR_I64(val)); }
+bool evec_pushF(evec v, f64    val) { return __evec_addV(v, 0       , EVAR_F64(val)); }
+bool evec_pushS(evec v, constr str) { return __evec_addV(v, 0       , EVAR_CS (str)); }
+bool evec_pushP(evec v, conptr ptr) { return __evec_addV(v, 0       , EVAR_CP (ptr)); }
+bool evec_pushR(evec v, uint   len) { return __evec_addV(v, 0       , EVAR_RAW(0, len)); }
 
-bool evec_appdV(evec v, eval   val) { return __evec_addV(v, UINT_MAX,              val , v ? _v_type(v): E_NAV); }
-bool evec_appdI(evec v, i64    val) { return __evec_addV(v, UINT_MAX, eval_mk(i  , val), E_I64); }
-bool evec_appdF(evec v, f64    val) { return __evec_addV(v, UINT_MAX, eval_mk(f  , val), E_F64); }
-bool evec_appdS(evec v, constr str) { return __evec_addV(v, UINT_MAX, eval_mk(C_s, str), E_STR); }
-bool evec_appdP(evec v, conptr ptr) { return __evec_addV(v, UINT_MAX, eval_mk(C_p, ptr), E_PTR); }
-bool evec_appdR(evec v, uint   len) { return __evec_addV(v, UINT_MAX, eval_mk(u32, len), E_RAW); }
+bool evec_appdV(evec v, evar   var) { return __evec_addV(v, UINT_MAX,          var ); }
+bool evec_appdI(evec v, i64    val) { return __evec_addV(v, UINT_MAX, EVAR_I64(val)); }
+bool evec_appdF(evec v, f64    val) { return __evec_addV(v, UINT_MAX, EVAR_F64(val)); }
+bool evec_appdS(evec v, constr str) { return __evec_addV(v, UINT_MAX, EVAR_CS (str)); }
+bool evec_appdP(evec v, conptr ptr) { return __evec_addV(v, UINT_MAX, EVAR_CP (ptr)); }
+bool evec_appdR(evec v, uint   len) { return __evec_addV(v, UINT_MAX, EVAR_RAW(0, len)); }
 
-bool evec_addV(evec v, uint i, eval   val) { return __evec_addV(v, i,              val , v ? _v_type(v): E_NAV); }
-bool evec_addI(evec v, uint i, i64    val) { return __evec_addV(v, i, eval_mk(i  , val), E_I64); }
-bool evec_addF(evec v, uint i, f64    val) { return __evec_addV(v, i, eval_mk(f  , val), E_F64); }
-bool evec_addS(evec v, uint i, constr str) { return __evec_addV(v, i, eval_mk(C_s, str), E_STR); }
-bool evec_addP(evec v, uint i, conptr ptr) { return __evec_addV(v, i, eval_mk(C_p, ptr), E_PTR); }
-bool evec_addR(evec v, uint i, uint   len) { return __evec_addV(v, i, eval_mk(u32, len), E_RAW); }
+bool evec_addV(evec v, uint i, evar   var) { return __evec_addV(v, i,          var ); }
+bool evec_addI(evec v, uint i, i64    val) { return __evec_addV(v, i, EVAR_I64(val)); }
+bool evec_addF(evec v, uint i, f64    val) { return __evec_addV(v, i, EVAR_F64(val)); }
+bool evec_addS(evec v, uint i, constr str) { return __evec_addV(v, i, EVAR_CS (str)); }
+bool evec_addP(evec v, uint i, conptr ptr) { return __evec_addV(v, i, EVAR_CP (ptr)); }
+bool evec_addR(evec v, uint i, uint   len) { return __evec_addV(v, i, EVAR_RAW(0, len)); }
 
-static bool __evec_addV(evec v, uint idx, eval val, etypev type)
+static bool __evec_addV(evec v, uint idx, evar var)
 {
     _pos_t info;
 
-    is1_ret(!v || type != _v_type(v), false);
+    var.type &= __ETYPEV_VAR_MASK;
 
-    if(type > E_PTR)
+    is1_ret(!v || var.type != _v_type(v), false);
+
+    if(var.type > E_PTR)
     {
-        switch (type)
+        switch (var.type)
         {
-            case E_STR : val.s = strdup (val.s  ); break;
-            case E_RAW : val.p = emalloc(val.u32); break;
+            case E_STR : var.v.s = strdup (var.v.s  ); break;
+
+            case E_RAW : {
+                             char* buf = emalloc(var.size);
+                             if(var.v.p)
+                             {
+                                 memcpy(buf, var.v.p, var.size);
+                             }
+                             var.v.p = buf;
+                         }
+                         break;
+
             default    : break;
         }
     }
 
     if(idx == 0)
     {
-        return __split_push(_v_head(v), val.r, _v_size(v));
+        return __split_push(_v_head(v), var.v.r, _v_size(v));
     }
     else if(idx >= _v_cnt(v))
     {
-        return __split_appd(_v_tail(v), val.r, _v_size(v));
+        return __split_appd(_v_tail(v), var.v.r, _v_size(v));
     }
 
     __evec_get_pos(v, idx, &info);
 
-    return __split_insert(info.s, val.r, _v_size(v), info.pos, 1);
+    return __split_insert(info.s, var.v.r, _v_size(v), info.pos, 1);
 }
 
 static void __evec_get_pos(evec v, uint idx, _pos p)

@@ -19,9 +19,11 @@ int evec_add_test()
 
     char data[] = "0123456789";
 
+
+
     for(int i = 0; i < 10; i++)
     {
-        evec_addV(v, 10, *(eval*)&data[i]);
+        evec_addV(v, 10, EVAR_RAW(&data[i], 1));
     }
 
 

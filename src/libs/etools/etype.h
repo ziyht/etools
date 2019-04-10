@@ -121,28 +121,28 @@ typedef union eval_s{
     constr   C_s, C_sa[1], * C_sp;  // const ver
 }eval_t, eval, * evalp;
 
-#define eval_mk(_v, v)   (eval_t){._v = v}
+#define EVAL_MK(_v, v)   (eval_t){._v = v}
 
-#define EVAL_ZORE       eval_mk(p, 0)
+#define EVAL_ZORE       EVAL_MK(p, 0)
 
-#define EVAL_I8( v)     eval_mk(i8  = v);
-#define EVAL_I16(v)     eval_mk(i16 = v);
-#define EVAL_I32(v)     eval_mk(i32 = v);
-#define EVAL_I64(v)     eval_mk(i64 = v);
+#define EVAL_I8( v)     EVAL_MK(i8 , v)
+#define EVAL_I16(v)     EVAL_MK(i16, v)
+#define EVAL_I32(v)     EVAL_MK(i32, v)
+#define EVAL_I64(v)     EVAL_MK(i64, v)
 
-#define EVAL_U8( v)     eval_mk(u8  = v);
-#define EVAL_U16(v)     eval_mk(i16 = v);
-#define EVAL_U32(v)     eval_mk(i32 = v);
-#define EVAL_U64(v)     eval_mk(i64 = v);
+#define EVAL_U8( v)     EVAL_MK(u8 , v)
+#define EVAL_U16(v)     EVAL_MK(i16, v)
+#define EVAL_U32(v)     EVAL_MK(i32, v)
+#define EVAL_U64(v)     EVAL_MK(i64, v)
 
-#define EVAL_F32(v)     eval_mk(f32 = v);
-#define EVAL_F64(v)     eval_mk(f64 = v);
+#define EVAL_F32(v)     EVAL_MK(f32, v)
+#define EVAL_F64(v)     EVAL_MK(f64, v)
 
-#define EVAL_S(  v)     eval_mk(s = v);
-#define EVAL_P(  v)     eval_mk(p = v);
+#define EVAL_S(  v)     EVAL_MK(s, v)
+#define EVAL_P(  v)     EVAL_MK(p, v)
 
-#define EVAL_CS( v)     eval_mk(C_s = v);
-#define EVAL_CP( v)     eval_mk(C_p = v);
+#define EVAL_CS( v)     EVAL_MK(C_s, v)
+#define EVAL_CP( v)     EVAL_MK(C_p, v)
 
 #pragma pack()
 
