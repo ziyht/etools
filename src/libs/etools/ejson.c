@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.6"     // fix bugs of check APIs and adjust ret val
+#define EJSON_VERSION "ejson 0.9.7"     // complition of cmp API
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1805,17 +1805,17 @@ static void __wrap_ARR(_ejsn n, estr* s, int depth)
  *
  *  -----------------------------------------------------
  */
-int ejson_cmpi(eobj o, int    val) { return o ? _eo_typeo(o) == ENUM ? __eobj_valI(o) < val ? -1 : __eobj_valI(o) > val ? 1 : 0 : -3 : -2; }
-int ejson_cmpf(eobj o, double val) { return o ? _eo_typeo(o) == ENUM ? __eobj_valF(o) < val ? -1 : __eobj_valF(o) > val ? 1 : 0 : -3 : -2; }
-int ejson_cmps(eobj o, constr str) { return o ? _eo_typeo(o) == ESTR ? str ? strcmp(_eo_valS(o), str) : -4 : -3 : -2;}
+int ejson_cmpI(eobj o, int    val) { return o ? _eo_typeo(o) == ENUM ? __eobj_valI(o) < val ? -1 : __eobj_valI(o) > val ? 1 : 0 : -3 : -2; }
+int ejson_cmpF(eobj o, double val) { return o ? _eo_typeo(o) == ENUM ? __eobj_valF(o) < val ? -1 : __eobj_valF(o) > val ? 1 : 0 : -3 : -2; }
+int ejson_cmpS(eobj o, constr str) { return o ? _eo_typeo(o) == ESTR ? str ? strcmp(_eo_valS(o), str) : -4 : -3 : -2;}
 
-int ejson_rcmpi(eobj r, constr rawk, int    val) { return ejson_cmpi(_getObjByRawk(_eo_rn(r), rawk), val);}
-int ejson_rcmpf(eobj r, constr rawk, double val) { return ejson_cmpf(_getObjByRawk(_eo_rn(r), rawk), val);}
-int ejson_rcmps(eobj r, constr rawk, constr str) { return ejson_cmps(_getObjByRawk(_eo_rn(r), rawk), str);}
+int ejson_cmpIr(eobj r, constr rawk, int    val) { return ejson_cmpI(_getObjByRawk(_eo_rn(r), rawk), val);}
+int ejson_cmpFr(eobj r, constr rawk, double val) { return ejson_cmpF(_getObjByRawk(_eo_rn(r), rawk), val);}
+int ejson_cmpSr(eobj r, constr rawk, constr str) { return ejson_cmpS(_getObjByRawk(_eo_rn(r), rawk), str);}
 
-int ejson_kcmpi(eobj r, constr keys, int    val) { return ejson_cmpi(_getObjByKeys(_eo_rn(r), keys), val);}
-int ejson_kcmpf(eobj r, constr keys, double val) { return ejson_cmpi(_getObjByKeys(_eo_rn(r), keys), val);}
-int ejson_kcmps(eobj r, constr keys, constr str) { return ejson_cmps(_getObjByKeys(_eo_rn(r), keys), str);}
+int ejson_cmpIk(eobj r, constr keys, int    val) { return ejson_cmpI(_getObjByKeys(_eo_rn(r), keys), val);}
+int ejson_cmpFk(eobj r, constr keys, double val) { return ejson_cmpF(_getObjByKeys(_eo_rn(r), keys), val);}
+int ejson_cmpSk(eobj r, constr keys, constr str) { return ejson_cmpS(_getObjByKeys(_eo_rn(r), keys), str);}
 
 /** -----------------------------------------------------
  *
