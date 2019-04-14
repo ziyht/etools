@@ -1831,11 +1831,11 @@ eobj  ejson_last (eobj r) { return _o_is_parent(r) ? _n_o(_r_tail(_eo_rn(r))) : 
 eobj  ejson_next (eobj o) { return (o && _n_lnext(_eo_dn(o))) ? _n_o(_n_lnext(_eo_dn(o))) : 0; }
 eobj  ejson_prev (eobj o) { return (o && _n_lprev(_eo_dn(o))) ? _n_o(_n_lprev(_eo_dn(o))) : 0; }
 
-eobj  ejson_rfirst(eobj r, constr rawk) { return ejson_first(_getObjByRawk(_eo_rn(r), rawk)); }
-eobj  ejspn_rlast (eobj r, constr rawk) { return ejson_last (_getObjByRawk(_eo_rn(r), rawk)); }
+eobj  ejson_firstr(eobj r, constr rawk) { return ejson_first(_getObjByRawk(_eo_rn(r), rawk)); }
+eobj  ejson_lastr (eobj r, constr rawk) { return ejson_last (_getObjByRawk(_eo_rn(r), rawk)); }
 
-eobj  ejson_kfirst(eobj r, constr keys) { return ejson_first(_getObjByKeys(_eo_rn(r), keys)); }
-eobj  ejson_klast (eobj r, constr keys) { return ejson_last (_getObjByKeys(_eo_rn(r), keys)); }
+eobj  ejson_firstk(eobj r, constr keys) { return ejson_first(_getObjByKeys(_eo_rn(r), keys)); }
+eobj  ejson_lastk (eobj r, constr keys) { return ejson_last (_getObjByKeys(_eo_rn(r), keys)); }
 
 /** -----------------------------------------------------
  *

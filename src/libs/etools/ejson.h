@@ -276,19 +276,19 @@ eobj  ejson_last (eobj r);
 eobj  ejson_next (eobj o);
 eobj  ejson_prev (eobj o);
 
-eobj  ejson_rfirst(eobj r, constr rawk);
-eobj  ejspn_rlast (eobj r, constr rawk);
+eobj  ejson_firstr(eobj r, constr rawk);
+eobj  ejson_lastr (eobj r, constr rawk);
 
-eobj  ejson_kfirst(eobj r, constr keys);
-eobj  ejson_klast (eobj r, constr keys);
+eobj  ejson_firstk(eobj r, constr keys);
+eobj  ejson_lastk (eobj r, constr keys);
 
 #define ejson_foreach( r,     itr)   for(itr = ejson_first (r    ); (itr); itr = ejson_next(itr))
-#define ejson_rforeach(r, rk, itr)   for(itr = ejson_rfirst(r, rk); (itr); itr = ejson_next(itr))
-#define ejson_kforeach(r, ks, itr)   for(itr = ejson_kfirst(r, ks); (itr); itr = ejson_next(itr))
+#define ejson_foreachr(r, rk, itr)   for(itr = ejson_firstr(r, rk); (itr); itr = ejson_next(itr))
+#define ejson_foreachk(r, ks, itr)   for(itr = ejson_firstk(r, ks); (itr); itr = ejson_next(itr))
 
 #define ejson_foreach_s( r,     itr) for(eobj _INNER_ = ejson_first (r    ), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
-#define ejson_rforeach_s(r, rk, itr) for(eobj _INNER_ = ejson_rfirst(r, rk), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
-#define ejson_kforeach_s(r, ks, itr) for(eobj _INNER_ = ejson_kfirst(r, ks), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
+#define ejson_foreachr_s(r, rk, itr) for(eobj _INNER_ = ejson_firstr(r, rk), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
+#define ejson_foreachk_s(r, ks, itr) for(eobj _INNER_ = ejson_firstk(r, ks), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
 
 
 /** -----------------------------------------------------
