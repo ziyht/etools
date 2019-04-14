@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.4"     // add vali and fix check API
+#define EJSON_VERSION "ejson 0.9.5"     // adjust _objByKeys()
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,17 +84,21 @@ typedef struct dictLink_s{
 
 // -- API
 static inline dict  _dict_new();
-static inline void  _dict_clear  (dict d);
-static inline void  _dict_free   (dict d);
-static inline _ejsn _dict_add    (dict d, constr k, int k_len, _ejsn n);
-static inline _ejsn _dict_find   (dict d, constr k, int k_len);
-static inline _ejsn _dict_find_ex(dict d, constr k, int k_len, bool rm);
-static inline _ejsn _dict_findS  (dict d, constr k);
-static inline _ejsn _dict_del    (dict d, _ejsn del);
-static inline int   _dict_getL   (dict d, constr k, int k_len, L l);
+static inline void  _dict_clear   (dict d);
+static inline void  _dict_free    (dict d);
+static inline _ejsn _dict_addB    (dict d, constr k, int k_len, _ejsn n);
+static inline _ejsn _dict_addS    (dict d, constr k, _ejsn n);
+static inline _ejsn _dict_findB   (dict d, constr k, int k_len);
+static inline _ejsn _dict_findB_ex(dict d, constr k, int k_len, bool rm);
+static inline _ejsn _dict_findS   (dict d, constr k);
+static inline _ejsn _dict_findS_ex(dict d, constr k, bool rm);
+static inline _ejsn _dict_del     (dict d, _ejsn del);
+static inline int   _dict_getBL   (dict d, constr k, int k_len, L l);
+static inline int   _dict_getSL   (dict d, constr k, L l);
 
 #define _dict_link(l, n)        { _n_dnext(n) = *((l)._pos); *((l)._pos) = n; *((l)._used) += 1;}
-#define _dictHashKey(k, l)      __djbHashS(k)
+#define _dictHashKeyS(k, l)     __djbHashS(k)
+#define _dictHashKeyB(k, l)     __djbHashB(k, l)
 
 // -- micros
 #define _dict_htreset(ht)       memset(ht, 0, sizeof(dictht_t));
@@ -181,6 +185,7 @@ static constr err_p;
 #define _cur_newkeyS(l)         emalloc(l + 1)
 #define _cur_dupkeyS            strdup
 #define _cur_cmpkeyS            strcmp
+#define _cur_ncmpkeyS           strncmp
 #define _cur_freekeyS           efree
 #define _cur_lenkeyS            strlen
 
@@ -191,9 +196,12 @@ static constr err_p;
 #define             _obj_init(  r)           _obj_hd((_ejsr)(r)) = _dict_new()
 #define             _obj_clear(  r)          _dict_clear(_obj_hd(r))
 #define             _obj_bzero( r)           memset(_r_o(r), 0, _R_OLEN)
-#define             _obj_find(   r,k,l)      (_obj_hd(r) ? _dict_find(_obj_hd(r), k, l) : 0)
-#define             _obj_find_ex(r,k,l,rm)   _dict_find_ex(_obj_hd(r), k, l, rm)
-#define             _obj_getL(   r,k,l,lp)   _dict_getL(_obj_hd(r), k, l, lp)
+#define             _obj_findS(   r,k  )     _dict_findS(_obj_hd(r), k)
+#define             _obj_findS_ex(r,k,  rm)  _dict_findS_ex(_obj_hd(r), k, rm)
+#define             _obj_findB(   r,k,l)     _dict_findB(_obj_hd(r), k, l)
+#define             _obj_findB_ex(r,k,l,rm)  _dict_findB_ex(_obj_hd(r), k, l, rm)
+#define             _obj_getSL(   r,k  ,lp)  _dict_getSL(_obj_hd(r), k,    lp)
+#define             _obj_getBL(   r,k,l,lp)  _dict_getBL(_obj_hd(r), k, l, lp)
 #define             _obj_free(   r)          _dict_free(_obj_hd(r))
 static inline _ejsn _obj_add  (_ejsr r, cstr key, _ejsn n);
 static inline void  _obj_link (_ejsr r, _ejsn n, L l);
@@ -308,58 +316,58 @@ static eobj __objByRawk(_ejsr r, constr keys_, bool rm)
 
     is1_ret(!_r_o(r) || _r_typec(r) != EJSON, 0);
 
-    n = _obj_find_ex(r, keys_, strlen(keys_), rm);
+    n = _obj_findS_ex(r, keys_, rm);
     is0_exeret(n, eerrfmt("can not find %s in %s", keys_, "."), NULL);
     return _n_o(n);
 }
 
-static __always_inline int __getAKey(constr p, cstr key, constr* _p)
+static __always_inline int __getAKey(constr p, constr* _key, constr* _p)
 {
-    int i = 0;
-
     if(*p == '.')
     {
-        p++;
+        p++; *_key = p;
 
         while(*p && *p != '.' && *p != '[')
         {
-            key[i++] = *p++;
+            p++;
         }
 
         *_p = p;
     }
     else if(*p == '[')
     {
-        p++;
+        p++; *_key = p;
 
         while(*p && *p != ']')
         {
-            key[i++] = *p++;
+            p++;
         }
 
         if(*p != ']')
             return -1;
 
         *_p = p + 1;
+
+        return *_p - *_key - 1;
     }
     else
     {
+        *_key = p;
+
         while(*p && *p != '.' && *p != '[')
         {
-            key[i++] = *p++;
+            p++;
         }
 
         *_p = p;
     }
 
-    key[i] = '\0';
-
-    return i;
+    return *_p - *_key;
 }
 
 static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
 {
-    char key[256]; constr p; int len; int id;
+    constr key; constr p; int len; int id;
 
     _ejsn n;
 
@@ -371,7 +379,7 @@ static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
 
     do{
 
-        len = __getAKey(p, key, &p);
+        len = __getAKey(p, &key, &p);
 
         is1_ret(len < 0, 0);
 
@@ -379,7 +387,7 @@ static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
 
         switch (_r_typeo(r))
         {
-            case EOBJ: is0_ret(n = _obj_find(r, key, len), 0);
+            case EOBJ: is0_ret(n = _obj_findB(r, key, len), 0);
                        break;
 
             case EARR: {
@@ -390,7 +398,7 @@ static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
                            id = strtol(key, &endp, 10);
 
                            //! must parse over then is a valid number
-                           if(*endp)
+                           if(*endp && *endp != ']' && *endp != '.')
                                return 0;
                        }
 
@@ -1346,7 +1354,7 @@ eobj   ejson_addkO(eobj r, constr keys, constr key, eobj   o   ) { return ejson_
 
 static eobj __ejson_makeRoom(_ejsr r, eobj in, bool overwrite, bool find)
 {
-    dictLink_t l; uint len; _ejsn n;
+    dictLink_t l; _ejsn n; //uint len;
 
     E_UNUSED(overwrite); E_UNUSED(find);
 
@@ -1356,8 +1364,8 @@ static eobj __ejson_makeRoom(_ejsr r, eobj in, bool overwrite, bool find)
     {
         case EOBJ:  is0_ret(_key_is_valid(_eo_keyS(in)), 0);
 
-                    len = strlen(_eo_keyS(in));
-                    if(!_obj_getL(r, _eo_keyS(in), len, &l)) return 0;
+                    //len = strlen(_eo_keyS(in));
+                    if(!_obj_getSL(r, _eo_keyS(in), &l)) return 0;
 
                     n = _n_newm(_eo_len(in)); _n_init(n);
 
@@ -1416,7 +1424,7 @@ static inline eobj __ejson_addJson(_ejsr r, constr key, constr src)
     {
         case EOBJ:  if(_key_is_valid(key))         // input key is valid, using it
                     {
-                        is0_exe(_obj_getL(r, key, strlen(key), &l), goto err_ret;);
+                        is0_exe(_obj_getSL(r, key, &l), goto err_ret;);
 
                         if(*src)  n = __parse_obj(0, &src, &err, _opt);
                         else      _n_newS(n, hk);       // here use hk to create ESTR obj
@@ -1429,7 +1437,7 @@ static inline eobj __ejson_addJson(_ejsr r, constr key, constr src)
                     }
                     else
                     {
-                        is1_exe(!*src || _key_is_invalid(hk) || !_obj_getL(r, hk, _cur_lenkeyS(hk), &l) || !(n = __parse_obj(0, &src, &err, _opt)), goto err_ret;);
+                        is1_exe(!*src || _key_is_invalid(hk) || !_obj_getSL(r, hk, &l) || !(n = __parse_obj(0, &src, &err, _opt)), goto err_ret;);
 
                         _n_keyS(n) = hk;
                     }
@@ -1466,24 +1474,24 @@ err_ret:
 
 static eobj __ejson_addO(_ejsr r, constr key, eobj   o   )
 {
-    cstr ok; dictLink_t l;
+    cstr o_k; dictLink_t l;
 
     is1_ret(_eo_linked(o) || un_eq(_eo_typec(o), EJSON), 0);
 
     switch (_r_typeo(r))
     {
-        case EOBJ:  ok = _eo_keyS(o);
+        case EOBJ:  o_k = _eo_keyS(o);
                     if(_key_is_valid(key))
                     {
-                        is0_ret(_obj_getL(r, key, strlen(key), &l), 0);
+                        is0_ret(_obj_getSL(r, key, &l), 0);
 
-                        if(ok) _cur_freekeyS(ok);
+                        if(o_k) _cur_freekeyS(o_k);
 
                         _eo_keyS(o) = _cur_dupkeyS(key);
                     }
-                    else if(_key_is_valid(ok))
+                    else if(_key_is_valid(o_k))
                     {
-                        is0_ret(_obj_getL(r, ok, _cur_lenkeyS(ok), &l), 0);
+                        is0_ret(_obj_getSL(r, o_k, &l), 0);
                     }
                     else
                         return 0;
@@ -2450,7 +2458,7 @@ static inline int _dictRehash(dict d, int n)
          while(de) {
              unsigned int h;
              nextde = _n_dnext(de);
-             h = _dictHashKey(_n_keyS(de), _cur_lenkeyS(_n_keyS(de))) & d->ht[1].sizemask;
+             h = _dictHashKeyS(_n_keyS(de), _cur_lenkeyS(_n_keyS(de))) & d->ht[1].sizemask;
              _n_dnext(de) = d->ht[1].table[h];
              d->ht[1].table[h] = de;
              d->ht[0].used--;
@@ -2530,7 +2538,7 @@ static inline int _dictExpandIfNeeded(dict d)
     return DICT_OK;
 }
 
-static int _dictKeyIndex(dict d, const void* key, int key_len)
+static int _dictKeyIndexB(dict d, const void* key, int key_len)
 {
     uint h, idx, table;
     _ejsn he;
@@ -2539,7 +2547,31 @@ static int _dictKeyIndex(dict d, const void* key, int key_len)
     if (_dictExpandIfNeeded(d) == DICT_ERR)
         return -1;
     /* Compute the key hash value */
-    h = _dictHashKey(key, key_len);
+    h = _dictHashKeyB(key, key_len);
+    for (table = 0; table <= 1; table++) {
+        idx = h & d->ht[table].sizemask;
+        /* Search if this slot does not already contain the given key */
+        he = d->ht[table].table[idx];
+        while(he) {
+            if ( !_cur_ncmpkeyS(key, _n_keyS(he), key_len) )
+                return -1;
+            he = _n_dnext(he);
+        }
+        if (!_dictIsRehashing(d)) break;
+    }
+    return idx;
+}
+
+static int _dictKeyIndexS(dict d, const void* key)
+{
+    uint h, idx, table;
+    _ejsn he;
+
+    /* Expand the hash table if needed */
+    if (_dictExpandIfNeeded(d) == DICT_ERR)
+        return -1;
+    /* Compute the key hash value */
+    h = _dictHashKeyS(key, strlen(key) );
     for (table = 0; table <= 1; table++) {
         idx = h & d->ht[table].sizemask;
         /* Search if this slot does not already contain the given key */
@@ -2554,14 +2586,14 @@ static int _dictKeyIndex(dict d, const void* key, int key_len)
     return idx;
 }
 
-static inline _ejsn _dict_add(dict d, constr k, int k_len, _ejsn n)
+static inline _ejsn _dict_addB(dict d, constr k, int k_len, _ejsn n)
 {
     int     idx;
     dictht* ht;
 
     if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
 
-    is1_ret((idx = _dictKeyIndex(d, k, k_len)) == -1, NULL); // already exist
+    is1_ret((idx = _dictKeyIndexB(d, k, k_len)) == -1, NULL); // already exist
 
     ht = _dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
     _n_dnext(n)    = ht->table[idx];
@@ -2571,19 +2603,36 @@ static inline _ejsn _dict_add(dict d, constr k, int k_len, _ejsn n)
     return n;
 }
 
-static _ejsn _dict_find(dict d, constr k, int k_len)
+static inline _ejsn _dict_addS(dict d, constr k, _ejsn n)
+{
+    int     idx;
+    dictht* ht;
+
+    if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
+
+    is1_ret((idx = _dictKeyIndexS(d, k)) == -1, NULL); // already exist
+
+    ht = _dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
+    _n_dnext(n)    = ht->table[idx];
+    ht->table[idx] = n;
+    ht->used++;
+
+    return n;
+}
+
+static _ejsn _dict_findB(dict d, constr k, int k_len)
 {
     _ejsn he;
     unsigned int h, idx, table;
 
     if(d->ht[0].size == 0) return NULL; /* We don't have a table at all */
     if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
-    h = _dictHashKey(k, k_len);
+    h = _dictHashKeyB(k, k_len);
     for (table = 0; table <= 1; table++) {
         idx = h & d->ht[table].sizemask;
         he = d->ht[table].table[idx];
         while(he) {
-            if ( !_cur_cmpkeyS(k, _n_keyS(he)) )
+            if ( !_cur_ncmpkeyS(k, _n_keyS(he), k_len) )
                 return he;
             he = _n_dnext(he);
         }
@@ -2599,7 +2648,7 @@ static _ejsn _dict_findS(dict d, constr k)
 
     if(d->ht[0].size == 0) return NULL; /* We don't have a table at all */
     if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
-    h = _dictHashKey(k, strlen(k));
+    h = _dictHashKeyS(k, _cur_lenkeyS(k) );
     for (table = 0; table <= 1; table++) {
         idx = h & d->ht[table].sizemask;
         he = d->ht[table].table[idx];
@@ -2613,7 +2662,7 @@ static _ejsn _dict_findS(dict d, constr k)
     return NULL;
 }
 
-static _ejsn _dict_find_ex(dict d, constr k, int k_len, bool rm)
+static _ejsn _dict_findB_ex(dict d, constr k, int k_len, bool rm)
 {
     unsigned int h, idx;
     _ejsn he, prevHe;
@@ -2621,7 +2670,41 @@ static _ejsn _dict_find_ex(dict d, constr k, int k_len, bool rm)
 
     if (d->ht[0].size == 0) return NULL; /* d->ht[0].table is NULL */
     if (_dictIsRehashing(d)) _dictRehashPtrStep(d);
-    h = _dictHashKey(k, k_len);
+    h = _dictHashKeyB(k, k_len);
+
+    for (table = 0; table <= 1; table++) {
+        idx = h & d->ht[table].sizemask;
+        he = d->ht[table].table[idx];
+        prevHe = NULL;
+        while(he) {
+            if (!_cur_ncmpkeyS(k, _n_keyS(he), k_len)) {
+                if(rm)
+                {
+                    /* Unlink the element from the list */
+                    if (prevHe) _n_dnext(prevHe)        = _n_dnext(he);
+                    else        d->ht[table].table[idx] = _n_dnext(he);
+                    d->ht[table].used--;
+                }
+
+                return he;
+            }
+            prevHe  = he;
+            he      = _n_dnext(he);
+        }
+        if (!_dictIsRehashing(d)) break;
+    }
+    return NULL; /* not found */
+}
+
+static _ejsn _dict_findS_ex(dict d, constr k, bool rm)
+{
+    unsigned int h, idx;
+    _ejsn he, prevHe;
+    int table;
+
+    if (d->ht[0].size == 0) return NULL; /* d->ht[0].table is NULL */
+    if (_dictIsRehashing(d)) _dictRehashPtrStep(d);
+    h = _dictHashKeyS(k, _cur_lenkeyS(k) );
 
     for (table = 0; table <= 1; table++) {
         idx = h & d->ht[table].sizemask;
@@ -2647,15 +2730,14 @@ static _ejsn _dict_find_ex(dict d, constr k, int k_len, bool rm)
     return NULL; /* not found */
 }
 
-
-static int _dict_getL(dict d, constr k, int k_len, L l)
+static int _dict_getBL(dict d, constr k, int k_len, L l)
 {
     int     idx;
     dictht* ht;
 
     if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
 
-    is1_ret((idx = _dictKeyIndex(d, k, k_len)) == -1, 0); // already exist
+    is1_ret((idx = _dictKeyIndexB(d, k, k_len)) == -1, 0); // already exist
 
     ht = _dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
     l->_pos  = &ht->table[idx];
@@ -2664,6 +2746,21 @@ static int _dict_getL(dict d, constr k, int k_len, L l)
     return 1;
 }
 
+static int _dict_getSL(dict d, constr k, L l)
+{
+    int     idx;
+    dictht* ht;
+
+    if(_dictIsRehashing(d)) _dictRehashPtrStep(d);
+
+    is1_ret((idx = _dictKeyIndexS(d, k)) == -1, 0); // already exist
+
+    ht = _dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
+    l->_pos  = &ht->table[idx];
+    l->_used = &ht->used;
+
+    return 1;
+}
 
 static _ejsn _dict_del(dict d, _ejsn del)
 {
@@ -2673,7 +2770,7 @@ static _ejsn _dict_del(dict d, _ejsn del)
 
     if (d->ht[0].size == 0) return NULL; /* d->ht[0].table is NULL */
     if (_dictIsRehashing(d)) _dictRehashPtrStep(d);
-    h = _dictHashKey(_n_keyS(del), _cur_lenkeyS(_n_keyS(del)));
+    h = _dictHashKeyS(_n_keyS(del), _cur_lenkeyS(_n_keyS(del)));
 
     for (table = 0; table <= 1; table++) {
         idx = h & d->ht[table].sizemask;
@@ -2701,7 +2798,7 @@ static _ejsn _dict_del(dict d, _ejsn del)
 
 static inline _ejsn _obj_add(_ejsr r, cstr key, _ejsn n)
 {
-    is0_ret(_dict_add(_obj_hd(r), key, _cur_lenkeyS(key), n), 0);
+    is0_ret(_dict_addS(_obj_hd(r), key, n), 0);
     _n_linked(n) = 1;
 
     if(!_r_head(r)){_r_head(r) =           _r_tail(r)  = n;}
