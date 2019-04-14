@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.5"     // adjust _objByKeys()
+#define EJSON_VERSION "ejson 0.9.6"     // fix bugs of check APIs and adjust ret val
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -557,7 +557,6 @@ eobj ejson_parseSEx(constr json, constr* _err, eopts opts)
             }
 
             json = lstrip(json + len +2);
-
         }
     }
     else
@@ -577,7 +576,7 @@ failed:
     return 0;
 }
 
-eobj ejson_parseF  (constr path) { return ejson_parseFEx(path, &eerrget(), COMMENT | ENDCHECK);}
+eobj ejson_parseF  (constr path) { return ejson_parseFEx(path, &eerrget(), COMMENT);}
 eobj ejson_parseFEx(constr path, constr* _err, eopts opts)
 {
     estr s; constr err;
@@ -591,12 +590,27 @@ eobj ejson_parseFEx(constr path, constr* _err, eopts opts)
 
         _ejsn n = __parse_obj(0, &json, &err, lstrip);
 
-        estr_free(s);
+        if(n)
+        {
+            if(opts & ENDCHECK)
+            {
+                json = lstrip(json);
 
-        if(n) return _n_o(n);
+                is1_exe(*json,  ejson_free(_n_o(n));
+                                err = "null-terminated check failed";
+                                goto failed);
+            }
+
+            estr_free(s);
+
+            return _n_o(n);
+        }
     }
 
+failed:
     if(_err) *_err = err;
+
+    estr_free(s);
 
     return 0;
 }
@@ -1117,24 +1131,24 @@ constr ejson_err () { return eerrget(); }
  *
  *  -----------------------------------------------------
  */
-static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip, erb     set);
-static bool __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip);
-static bool __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip);
-static bool __check_ARR(constr* _src, constr* _err, __lstrip_cb lstrip);
-static bool __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip);
+static uint __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip, erb     set);
+static uint __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip);
+static uint __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip);
+static uint __check_ARR(constr* _src, constr* _err, __lstrip_cb lstrip);
+static uint __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip);
 
-static bool __check_obj(constr* _src, constr* _err, __lstrip_cb lstrip);
+static uint __check_obj(constr* _src, constr* _err, __lstrip_cb lstrip);
 
-bool   ejson_checkS  (constr json){ return ejson_checkSEx(json, &eerrget(), ENDCHECK); }
-bool   ejson_checkSEx(constr json, constr* _err, eopts opts)
+uint   ejson_checkS  (constr json){ return ejson_checkSEx(json, &eerrget(), ENDCHECK); }
+uint   ejson_checkSEx(constr json, constr* _err, eopts opts)
 {
-    constr err; __lstrip_cb lstrip;
+    constr err; __lstrip_cb lstrip; uint cnt = 0;
 
     is0_exe(json, err = "NULL"; goto failed);
 
     lstrip = opts & COMMENT ? __lstrip2 : __lstrip1;
 
-    is0_exe(__check_obj(&json, &err, lstrip), goto failed);
+    is0_exe(cnt = __check_obj(&json, &err, lstrip), goto failed);
 
     if(opts & ENDCHECK)
     {
@@ -1143,15 +1157,39 @@ bool   ejson_checkSEx(constr json, constr* _err, eopts opts)
         is1_exe(*json, goto failed;);
     }
 
-    return true;
+    return cnt;
 
 failed:
     if(_err) *_err = json;
 
-    return false;
+    return 0;
 }
 
-static bool __check_obj(constr* _src, constr* _err, __lstrip_cb lstrip)
+uint ejson_checkF  (constr path) { return ejson_checkFEx(path, 0, COMMENT); }
+uint ejson_checkFEx(constr path, constr* _err, eopts opts)
+{
+    estr s; constr err;
+
+    is0_exe(path, err = "NULL"; goto failed);
+
+    s = estr_fromFile(path, 10 * 1024 * 1024 );  // 10M
+    if(s)
+    {
+        uint ret = ejson_checkSEx(s, _err, opts);
+
+        estr_free(s);
+
+        return ret;
+    }
+
+failed:
+    if(_err) *_err = err;
+
+    return 0;
+}
+
+
+static uint __check_obj(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
     switch (**_src) {
         case 'n' :  is0_exeret(strncmp(*_src, "null" , 4), *_src = lstrip(*_src + 4), 1); break;
@@ -1164,10 +1202,10 @@ static bool __check_obj(constr* _src, constr* _err, __lstrip_cb lstrip)
                         return __check_NUM(_src, _err, lstrip);
     }
 
-    return false;	// failure: err src
+    return 0;	// failure: err src
 }
 
-static bool __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip)
+static uint __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
     E_UNUSED(_err);
 
@@ -1192,7 +1230,7 @@ static bool __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip)
     return 1;
 }
 
-static bool __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip)
+static uint __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
     E_UNUSED(_err);
 
@@ -1202,30 +1240,34 @@ static bool __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip)
     {
         *_src = *_src - len;    // set err pos
 
-        return false;
+        return 0;
     }
 
     *_src = lstrip(*_src + len + 2);
 
-    return true;
+    return 1;
 }
 
-static bool __check_ARR(constr* _src, constr* _err, __lstrip_cb lstrip)
+static uint __check_ARR(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
+    uint cnt, ret;
+
     *_src = lstrip(*_src + 1);
 
-    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), true);
+    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), 1);
 
+    cnt = 1;
     do{
-        is0_ret(__check_obj(_src, _err, lstrip), false);
+        is0_ret(ret = __check_obj(_src, _err, lstrip), 0);
+        cnt += ret;
     }while(**_src == ',' && (*_src = lstrip(*_src + 1)));
 
-    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), true);
+    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), cnt);
 
-    return false;
+    return 0;
 }
 
-static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb     set)
+static uint __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb     set)
 {
     E_UNUSED(_err);
 
@@ -1235,7 +1277,7 @@ static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb    
     {
         *_src = *_src - len;
 
-        return false;
+        return 0;
     }
     else
     {
@@ -1246,8 +1288,9 @@ static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb    
             char key[129];
 
             memcpy(key, *_src + 1, len);
+            key[len] = '\0';
 
-            ok = erb_addMI(set, ekey_s(key), 1);
+            ok = erb_addI(set, ekey_s(key), 1);
         }
         else
         {
@@ -1255,8 +1298,9 @@ static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb    
             cstr key = emalloc(len + 1);
 
             memcpy(key, *_src + 1, len);
+            key[len] = '\0';
 
-            ok = erb_addMI(set, ekey_s(key), 1);
+            ok = erb_addI(set, ekey_s(key), 1);
 
             efree(key);
         }
@@ -1265,7 +1309,7 @@ static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb    
         {
             *_src = lstrip(*_src + len + 2);
 
-            return true;
+            return 1;
         }
         else
         {
@@ -1273,16 +1317,17 @@ static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb    
         }
     }
 
-    return false;
+    return 0;
 }
 
-static bool __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip)
+static uint __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
-    erb keyset;
+    erb keyset; uint cnt, ret;
 
     keyset = erb_new(EKEY_S);
     *_src  = lstrip(*_src + 1);
 
+    cnt = 1;
     while(**_src == '\"')
     {
         // -- check key
@@ -1291,14 +1336,16 @@ static bool __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip)
         // -- check obj
         is1_exe(**_src != ':', goto err_set);
         *_src = lstrip(*_src + 1);
-        is0_exe(__check_obj(_src, _err, lstrip), goto rls_ret);
+        is0_exe(ret = __check_obj(_src, _err, lstrip), goto rls_ret);
+
+        cnt += ret;
 
         // -- strip to next
         *_src   = lstrip(*_src);
         if(**_src == ',')
             *_src  = lstrip(*_src + 1);
     }
-    is1_exeret(**_src == '}', *_src  = lstrip(*_src + 1); erb_free(keyset), 1);
+    is1_exeret(**_src == '}', *_src  = lstrip(*_src + 1); erb_free(keyset), cnt);
 
 err_set:
 

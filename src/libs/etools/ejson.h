@@ -40,15 +40,13 @@ eobj ejson_new(etypeo type, uint len);                        // create a ejson 
 
 eobj ejson_parseS  (constr json);                             // parse str to ejson obj
 eobj ejson_parseSEx(constr json, constr* err, eopts opts);    // parse str to ejson obj
-
 eobj ejson_parseF  (constr path);                             // parse file to ejson obj
 eobj ejson_parseFEx(constr path, constr* err, eopts opts);    // parse file to ejson obj
 
-bool ejson_checkS  (constr json);                             // check if json format is correct in str
-bool ejson_checkSEx(constr json, constr* err, eopts opts);    // check if json format is correct in str
-
-bool ejson_checkF  (constr path);                             // check if json format is correct in file
-bool ejson_checkFEx(constr path, constr* err, eopts opts);    // check if json format is correct in filr
+uint ejson_checkS  (constr json);                             // check if json format is correct in str, returns the checked obj's cnt
+uint ejson_checkSEx(constr json, constr* err, eopts opts);    // check if json format is correct in str, returns the checked obj's cnt
+uint ejson_checkF  (constr path);                             // check if json format is correct in file, returns the checked obj's cnt
+uint ejson_checkFEx(constr path, constr* err, eopts opts);    // check if json format is correct in filr, returns the checked obj's cnt
 
 int  ejson_clear  (eobj r);                                   // clear a ejson obj, only effect on EOBJ and EARR
 int  ejson_clearEx(eobj r, eobj_rls_ex_cb rls, eval prvt);    // clear a ejson obj, only effect on EOBJ and EARR
