@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.2"     // fix bugs of ejson_take
+#define EJSON_VERSION "ejson 0.9.3"     // update valk found logic
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -302,9 +302,6 @@ static eobj __objByKeys(_ejsr r, constr keys_, bool raw, bool rm)
 #define _getObjByRawk(r, rawk) __objByRawk(r, rawk, 0)
 #define _rmObjByRawk( r, rawk) __objByRawk(r, rawk, 1)
 
-static __always_inline cstr split   (cstr key, char c) { cstr p = strchr(key,   c); is1_elsret(p, *p = '\0';return p + 1;, NULL); }
-static __always_inline cstr splitdot(cstr key        ) { cstr p = strchr(key, '.'); is1_elsret(p, *p = '\0';return p + 1;, NULL); }
-
 static eobj __objByRawk(_ejsr r, constr keys_, bool rm)
 {
     _ejsn n;
@@ -316,7 +313,7 @@ static eobj __objByRawk(_ejsr r, constr keys_, bool rm)
     return _n_o(n);
 }
 
-int __getAKey(constr p, cstr key, constr* _p)
+static __always_inline int __getAKey(constr p, cstr key, constr* _p)
 {
     int i = 0;
 
@@ -357,11 +354,10 @@ int __getAKey(constr p, cstr key, constr* _p)
 
     key[i] = '\0';
 
-
     return i;
 }
 
-static eobj __objByKeys2(_ejsr r, constr keys_, bool rm)
+static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
 {
     char key[256]; constr p; int len; int id;
 
@@ -383,20 +379,24 @@ static eobj __objByKeys2(_ejsr r, constr keys_, bool rm)
 
         switch (_r_typeo(r))
         {
-            case EOBJ: n = _obj_find(r, key, len);
-
-                       is0_ret(n, 0);
-
+            case EOBJ: is0_ret(n = _obj_find(r, key, len), 0);
                        break;
 
+            case EARR: {
+                           cstr endp;
 
-            case EARR: id = atoi(key);
+                           is1_ret(len == 0, 0);
 
-                        n = _arr_find(r, id);
+                           id = strtol(key, &endp, 10);
 
-                        is0_ret(n, 0);
+                           //! must parse over then is a valid number
+                           if(*endp)
+                               return 0;
+                       }
 
-                        break;
+                       is0_ret(n = _arr_find(r, id), 0);
+
+                       break;
         }
 
     }while(*p);
@@ -407,64 +407,6 @@ static eobj __objByKeys2(_ejsr r, constr keys_, bool rm)
                                           default  : return 0;              })
 
     return _n_o(n);
-}
-
-static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
-{
-    char  keys[512]; cstr fk, sk, last_fk;    // first key, second key, last first key
-    _ejsn n;
-    cstr  _idx; uint idx;
-
-    is1_ret(!_r_o(r) || _r_typec(r) != EJSON, 0);
-
-    strncpy(keys, keys_, 512);
-    fk = keys;
-    sk = splitdot(fk);
-
-    do{
-        _idx = split(fk, '[');
-
-        if(*fk)
-        {
-            n = _obj_find(r, fk, strlen(fk));
-            is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL); // not found, return
-        }
-        else
-            n = (_ejsn)r;
-
-        while( _idx )
-        {
-            is0_exeret(_n_typeo(n) == EARR, eerrfmt("%s is %s obj", keys, __eobj_typeS(_n_o(n), true));, NULL);
-
-            *(_idx - 1) = '[';          // restore
-            is1_exeret(*_idx < '0' || *_idx > '9', eerrfmt("invalid keys: %s", keys), NULL);
-
-            idx  = atoi(_idx);
-            _idx = split(_idx, '[');
-
-            r = (_ejsr)n;
-            n = _arr_find(r, idx);
-            is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL);
-        }
-
-        is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL);   // not found, return
-
-        // -- found and return it
-        is0_exeret(sk, is1_exeret(rm, switch (_r_typeo(r)) {
-                                      case EOBJ: _obj_takeN(r, n); break;
-                                      case EARR: _arr_takeN(r, n); break;
-                                      default       : return 0;                   }, _n_o(n)), _n_o(n));
-
-        r = (_ejsr)n;
-        last_fk = fk;
-        fk      = sk;
-        sk      = splitdot(fk);
-        if(last_fk != keys) *(last_fk - 1) = '.';
-    }while(_n_typeo(r) == EOBJ);
-
-    eerrfmt("%s is %s obj", keys, __eobj_typeS(_n_o(n), true));
-
-    return 0;
 }
 
 #endif

@@ -117,8 +117,8 @@ eobj ejson_addkO(eobj r, constr keys, constr key, eobj   o   );   // add an exis
  *  can not be splited
  *
  *      2. for k APIs, we consider keys as a continues key
- *  chan like "fruits[0].name", then we will found the first
- *  obj in arr 'fruits' and the the obj 'name' of it.
+ *  chan like "fruits[0].name", then we will found: 'fruits'
+ *   -> '0' -> 'name'.
  *
  *     {
  *          "fruits[0].name" : "tomato",
@@ -129,6 +129,17 @@ eobj ejson_addkO(eobj r, constr keys, constr key, eobj   o   );   // add an exis
  *                       --------------
  *                          ^---------------------------------- k found this
  *     }
+ *
+ *     3. for k APIs, you can split a key with '.' or '[]',
+ *  they are simply the same:
+ *
+ *      fruits[0].name      : fruits -> 0 -> name
+ *      fruits.0[name]      : fruits -> 0 -> name
+ *      fruits.0.[name]     : fruits -> 0 -> "" -> name
+ *
+ *     4. for k APIs, the key in '[]' can not be split again
+ *
+ *      fruits[0.name]      : fruits -> 0.name
  *
  *  -----------------------------------------------------
  */
