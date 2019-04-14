@@ -40,7 +40,6 @@ static int t3_check_case1()
 
 static int t3_check_case2()
 {
-    eexpect_num(1, 0);      // will failed
 
     return ETEST_OK;
 }

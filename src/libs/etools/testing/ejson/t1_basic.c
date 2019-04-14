@@ -25,7 +25,7 @@ static int ejson_new_test()
     return ETEST_OK;
 }
 
-static int ejson_add_test()
+static int ejson_add_test1()
 {
     ejson o; int i; char key[32] = "012345678901234567890", zero[32] = {0};
 
@@ -112,6 +112,95 @@ static int ejson_add_test()
 
     return ETEST_OK;
 }
+
+static int ejson_add_test2()
+{
+    ejson o; int i; char key[32] = "012345678901234567890", zero[32] = {0};
+
+    r = ejson_new(EARR, 0);
+
+    i = -1;
+    ++i; ejson_addT(r, 0, EFALSE);
+    ++i; ejson_addT(r, 0, ETRUE );
+    ++i; ejson_addT(r, 0, ENULL );
+    ++i; ejson_addI(r, 0, 1);
+    ++i; ejson_addF(r, 0, 2.0);
+    ++i; ejson_addS(r, 0, &key[i]);
+    ++i; ejson_addP(r, 0, &key[i]);
+    ++i; ejson_addR(r, 0, 9);
+    ++i; ejson_addT(r, 0, EOBJ);
+    ++i; ejson_addT(r, 0, EARR);
+
+    eexpect_num(ejson_isEmpty(r), 0);
+    eexpect_num(ejson_len(r), ++i);
+
+    i = -1;
+
+    ++i;
+    o = ejson_vali(r, i);
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), EFALSE); eexpect_num(ejson_valiType(r, i), ejson_type(o));
+
+    ++i;
+    o = ejson_vali(r, i);
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), ETRUE) ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+
+    ++i;
+    o = ejson_vali(r, i);
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), ENULL) ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+
+    ++i;
+    o = ejson_vali(r, i);
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), ENUM)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_num(eobj_valI(o), 1)      ; eexpect_num(ejson_valiI(   r, i), eobj_valI( o));
+    eexpect_num(eobj_valF(o), 1.0)    ; eexpect_num(ejson_valiF(   r, i), eobj_valF( o));
+
+    ++i;
+    o = ejson_vali(r, i)        ;
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), ENUM)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_num(eobj_valI(o), 2)      ; eexpect_num(ejson_valiI(   r, i), eobj_valI( o));
+    eexpect_num(eobj_valF(o), 2.0)    ; eexpect_num(ejson_valiF(   r, i), eobj_valF( o));
+
+    ++i;
+    o = ejson_vali(r, i)        ;
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), ESTR)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_str(eobj_valS(o), &key[i]); eexpect_str(ejson_valiS(   r, i), eobj_valS( o));
+
+    ++i;
+    o = ejson_vali(r, i)        ;
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), EPTR)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_ptr(eobj_valP(o), &key[i]); eexpect_ptr(ejson_valiP(   r, i), eobj_valP( o));
+
+    ++i;
+    o = ejson_vali(r, i)        ;
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), ERAW)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_num(eobj_len(o)  , 9   )  ; eexpect_num(ejson_valiLen( r, i), eobj_len(  o));
+    eexpect_raw(eobj_valR(o) , zero, 9); eexpect_raw(ejson_valiR(  r, i), eobj_valR( o), 9);
+
+    ++i;
+    o = ejson_vali(r, i)        ;
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), EOBJ)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_num(eobj_len(o)  , 0   )  ; eexpect_num(ejson_valiLen( r, i), eobj_len(  o));
+
+    ++i;
+    o = ejson_vali(r, i)        ;
+    eunexpc_ptr(o, 0);
+    eexpect_num(ejson_type(o), EARR)  ; eexpect_num(ejson_valiType(r, i), ejson_type(o));
+    eexpect_num(eobj_len(o)  , 0   )  ; eexpect_num(ejson_valiLen( r, i), eobj_len(  o));
+
+    eexpect_num(ejson_free(r), ++i + 1);
+
+    return ETEST_OK;
+}
+
 
 static int ejson_addr_test()
 {
@@ -625,7 +714,8 @@ int t1_basic(int argc, char* argv[])
 
     ETEST_RUN( ejson_new_test () );
 
-    ETEST_RUN( ejson_add_test () );
+    ETEST_RUN( ejson_add_test1() ); // obj
+    ETEST_RUN( ejson_add_test2() ); // arr
     ETEST_RUN( ejson_addr_test() );
     ETEST_RUN( ejson_addk_test() );
 

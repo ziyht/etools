@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.3"     // update valk found logic
+#define EJSON_VERSION "ejson 0.9.4"     // add vali and fix check API
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1109,9 +1109,9 @@ constr ejson_err () { return eerrget(); }
  *
  *  -----------------------------------------------------
  */
-static bool __check_KEY(constr* _src, constr* _err, erb     set);
-static bool __check_NUM(constr* _src, constr* _err);
-static bool __check_STR(constr* _src, constr* _err);
+static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip, erb     set);
+static bool __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip);
+static bool __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip);
 static bool __check_ARR(constr* _src, constr* _err, __lstrip_cb lstrip);
 static bool __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip);
 
@@ -1145,23 +1145,21 @@ failed:
 
 static bool __check_obj(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
-    constr s  = lstrip(*_src);
-
-    switch (*s) {
-        case 'n' :  is0_exeret(strncmp(s,"null", 4), *_src = s + 4, 1); break;
-        case 'f' :  is0_exeret(strncmp(s,"false",5), *_src = s + 5, 1); break;
-        case 't' :  is0_exeret(strncmp(s,"true", 4), *_src = s + 4, 1); break;
-        case '\"':  return __check_STR(_src, _err);
+    switch (**_src) {
+        case 'n' :  is0_exeret(strncmp(*_src, "null" , 4), *_src = lstrip(*_src + 4), 1); break;
+        case 'f' :  is0_exeret(strncmp(*_src, "false", 5), *_src = lstrip(*_src + 5), 1); break;
+        case 't' :  is0_exeret(strncmp(*_src, "true" , 4), *_src = lstrip(*_src + 4), 1); break;
+        case '\"':  return __check_STR(_src, _err, lstrip);
         case '[' :  return __check_ARR(_src, _err, lstrip);
         case '{' :  return __check_OBJ(_src, _err, lstrip);
-        default  :  if(*s == '-' || (*s >= '0' && *s <= '9'))
-                        return __check_NUM(_src, _err);
+        default  :  if(**_src == '-' || (**_src >= '0' && **_src <= '9'))
+                        return __check_NUM(_src, _err, lstrip);
     }
 
-    *_src = s;  return 0;	// failure: err src
+    return false;	// failure: err src
 }
 
-static bool __check_NUM(constr* _src, constr* _err)
+static bool __check_NUM(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
     E_UNUSED(_err);
 
@@ -1181,12 +1179,12 @@ static bool __check_NUM(constr* _src, constr* _err)
         while (*s >= '0' && *s <= '9') s++;  // Number?
     }
 
-    *_src = s;
+    *_src = lstrip(s);
 
     return 1;
 }
 
-static bool __check_STR(constr* _src, constr* _err)
+static bool __check_STR(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
     E_UNUSED(_err);
 
@@ -1194,37 +1192,32 @@ static bool __check_STR(constr* _src, constr* _err)
 
     if(len < 0)
     {
-        *_src = *_src - len;
+        *_src = *_src - len;    // set err pos
 
-        return 0;
+        return false;
     }
 
-    return 1;
+    *_src = lstrip(*_src + len + 2);
+
+    return true;
 }
 
 static bool __check_ARR(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
-    constr s = lstrip(*_src + 1);
+    *_src = lstrip(*_src + 1);
 
-    is1_exeret(*s == ']', *_src = s + 1, 1);
+    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), true);
 
     do{
-        *_src = s;
+        is0_ret(__check_obj(_src, _err, lstrip), false);
+    }while(**_src == ',' && (*_src = lstrip(*_src + 1)));
 
-        is0_ret(__check_obj(_src, _err, lstrip), 0);
+    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), true);
 
-        s = lstrip(*_src);
-
-    }while(*s == ',' && s++);
-
-    is1_exeret(*s == ']', *_src = s + 1, 1);
-
-    *_src = s;
-
-    return 0;
+    return false;
 }
 
-static bool __check_KEY(constr* _src, constr* _err, erb     set)
+static bool __check_KEY(constr* _src, constr* _err, __lstrip_cb lstrip , erb     set)
 {
     E_UNUSED(_err);
 
@@ -1234,63 +1227,72 @@ static bool __check_KEY(constr* _src, constr* _err, erb     set)
     {
         *_src = *_src - len;
 
-        return 0;
+        return false;
     }
     else
     {
+        bool ok;
+
         if(len <= 128)
         {
             char key[129];
 
             memcpy(key, *_src + 1, len);
 
-            return erb_addMI(set, ekey_s(key), 1);
+            ok = erb_addMI(set, ekey_s(key), 1);
         }
         else
         {
-            bool ret;
+
             cstr key = emalloc(len + 1);
 
             memcpy(key, *_src + 1, len);
 
-            ret = erb_addMI(set, ekey_s(key), 1);
+            ok = erb_addMI(set, ekey_s(key), 1);
 
             efree(key);
+        }
 
-            return ret;
+        if(ok)
+        {
+            *_src = lstrip(*_src + len + 2);
+
+            return true;
+        }
+        else
+        {
+            //! todo: set err
         }
     }
 
-    return 1;
+    return false;
 }
 
 static bool __check_OBJ(constr* _src, constr* _err, __lstrip_cb lstrip)
 {
-    erb keyset; constr s;
+    erb keyset;
 
     keyset = erb_new(EKEY_S);
-    s      = lstrip(*_src + 1);
+    *_src  = lstrip(*_src + 1);
 
-    while(*s == '\"')
+    while(**_src == '\"')
     {
         // -- check key
-        is0_exe(__check_KEY(_src, _err, keyset), goto err_set);
+        is0_exe(__check_KEY(_src, _err, lstrip, keyset), goto err_set);
 
         // -- check obj
-        s   = lstrip(*_src);
-        is1_exe(*s != ':', goto err_set);
-        *_src = s + 1;
+        is1_exe(**_src != ':', goto err_set);
+        *_src = lstrip(*_src + 1);
         is0_exe(__check_obj(_src, _err, lstrip), goto rls_ret);
 
         // -- strip to next
-        s   = lstrip(*_src);
-        if(*s == ',') s++;
-        s   = lstrip(s + 1);
+        *_src   = lstrip(*_src);
+        if(**_src == ',')
+            *_src  = lstrip(*_src + 1);
     }
-    is1_exeret(*s == '}', erb_free(keyset), 1);
+    is1_exeret(**_src == '}', *_src  = lstrip(*_src + 1); erb_free(keyset), 1);
 
 err_set:
-    *_src = s;
 
 rls_ret:
     erb_free(keyset);
@@ -1348,11 +1350,13 @@ static eobj __ejson_makeRoom(_ejsr r, eobj in, bool overwrite, bool find)
 
     E_UNUSED(overwrite); E_UNUSED(find);
 
-    is1_ret(!_r_o(r) || _key_is_invalid(_eo_keyS(in)), 0);
+    is1_ret(!_r_o(r), 0);
 
     switch (_r_typeo(r))
     {
-        case EOBJ:  len = strlen(_eo_keyS(in));
+        case EOBJ:  is0_ret(_key_is_valid(_eo_keyS(in)), 0);
+
+                    len = strlen(_eo_keyS(in));
                     if(!_obj_getL(r, _eo_keyS(in), len, &l)) return 0;
 
                     n = _n_newm(_eo_len(in)); _n_init(n);
@@ -1364,6 +1368,8 @@ static eobj __ejson_makeRoom(_ejsr r, eobj in, bool overwrite, bool find)
                     return _n_o(n);
 
         case EARR:  n = _n_newm(_eo_len(in)); _n_init(n);
+
+                    if(!_arr_hd(r)) _arr_init(r);
 
                     _arr_appd(r, n);
 
@@ -1503,30 +1509,39 @@ static eobj __ejson_addO(_ejsr r, constr key, eobj   o   )
  *  -----------------------------------------------------
  */
 
-eobj   ejson_valr (eobj r, constr rawk) { return _getObjByRawk(_eo_rn(r), rawk);}
-i64    ejson_valrI(eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retI(r); }
-f64    ejson_valrF(eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retF(r); }
-constr ejson_valrS(eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retS(r); }
-cptr   ejson_valrP(eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retP(r); }
-cptr   ejson_valrR(eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retR(r); }
-
+eobj   ejson_valr      (eobj r, constr rawk) { return _getObjByRawk(_eo_rn(r), rawk);}
+i64    ejson_valrI     (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retI(r); }
+f64    ejson_valrF     (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retF(r); }
+constr ejson_valrS     (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retS(r); }
+cptr   ejson_valrP     (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retP(r); }
+cptr   ejson_valrR     (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retR(r); }
 etypeo ejson_valrType  (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retT(r); }
 constr ejson_valrTypeS (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); return eobj_typeoS(r); }
 uint   ejson_valrLen   (eobj r, constr rawk) { r = _getObjByRawk(_eo_rn(r), rawk); _eo_retL(r); }
 bool   ejson_valrIsTrue(eobj r, constr rawk) { return __eobj_isTrue(_getObjByRawk(_eo_rn(r), rawk));}
 
 
-eobj   ejson_valk (eobj r, constr keys) { return _getObjByKeys(_eo_rn(r), keys);}
-i64    ejson_valkI(eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retI(r); }
-f64    ejson_valkF(eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retF(r); }
-constr ejson_valkS(eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retS(r); }
-cptr   ejson_valkP(eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retP(r); }
-cptr   ejson_valkR(eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retR(r); }
-
+eobj   ejson_valk      (eobj r, constr keys) { return _getObjByKeys(_eo_rn(r), keys);}
+i64    ejson_valkI     (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retI(r); }
+f64    ejson_valkF     (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retF(r); }
+constr ejson_valkS     (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retS(r); }
+cptr   ejson_valkP     (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retP(r); }
+cptr   ejson_valkR     (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retR(r); }
 etypeo ejson_valkType  (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retT(r); }
 constr ejson_valkTypeS (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); return eobj_typeoS(r); }
 uint   ejson_valkLen   (eobj r, constr keys) { r = _getObjByKeys(_eo_rn(r), keys); _eo_retL(r); }
 bool   ejson_valkIsTrue(eobj r, constr keys) { return __eobj_isTrue(_getObjByKeys(_eo_rn(r), keys));}
+
+eobj   ejson_vali      (eobj r, int idx) { if(r && _eo_typeco(r) ==_EJSON_CO_ARR ) { _ejsn n = _arr_find(_eo_rn(r), idx); return n ? _n_o(n) : 0; }  return 0;}
+i64    ejson_valiI     (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retI(r); }
+f64    ejson_valiF     (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retF(r); }
+constr ejson_valiS     (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retS(r); }
+cptr   ejson_valiP     (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retP(r); }
+cptr   ejson_valiR     (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retR(r); }
+etypeo ejson_valiType  (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retT(r); }
+constr ejson_valiTypeS (eobj r, int idx) { r = ejson_vali(r, idx); return eobj_typeoS(r); }
+uint   ejson_valiLen   (eobj r, int idx) { r = ejson_vali(r, idx); _eo_retL(r); }
+bool   ejson_valiIsTrue(eobj r, int idx) { return __eobj_isTrue(ejson_vali(r, idx)); }
 
 /** -----------------------------------------------------
  *

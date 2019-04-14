@@ -178,17 +178,17 @@ bool   ejson_valIksTrue(eobj r, constr keys);   // Returns true if the val in eo
                                                     //  4. the str val is not empty
                                                     //  5. the len of raw is not 0
 
-eobj   ejson_vali (eobj r, constr rawk);        // Returns the eobj with the specific rawk
-i64    ejson_valiI(eobj r, constr rawk);        // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
-f64    ejson_valiF(eobj r, constr rawk);        // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
-constr ejson_valiS(eobj r, constr rawk);        // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
-cptr   ejson_valiP(eobj r, constr rawk);        // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
-cptr   ejson_valiR(eobj r, constr rawk);        // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
+eobj   ejson_vali (eobj r, int idx);            // Returns the eobj in the specific idx
+i64    ejson_valiI(eobj r, int idx);            // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    ejson_valiF(eobj r, int idx);            // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+constr ejson_valiS(eobj r, int idx);            // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
+cptr   ejson_valiP(eobj r, int idx);            // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
+cptr   ejson_valiR(eobj r, int idx);            // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
 
-etypeo ejson_valiType  (eobj r, constr rawk);   // Returns eobj's type if exist, else return EOBJ_UNKNOWN
-constr ejson_valiTypeS (eobj r, constr rawk);   // Returns eobj's type in string type
-uint   ejson_valiLen   (eobj r, constr rawk);   // Returns eobj's len  if found and type matchs ESTR, ERAW, EOBJ, EARR else return 0
-bool   ejson_valiIsTrue(eobj r, constr rawk);   // Returns true if the val in eobj is likely true:
+etypeo ejson_valiType  (eobj r, int idx);       // Returns eobj's type if exist, else return EOBJ_UNKNOWN
+constr ejson_valiTypeS (eobj r, int idx);       // Returns eobj's type in string type
+uint   ejson_valiLen   (eobj r, int idx);       // Returns eobj's len  if found and type matchs ESTR, ERAW, EOBJ, EARR else return 0
+bool   ejson_valiIsTrue(eobj r, int idx);       // Returns true if the val in eobj is likely true:
                                                     //  1. the type of obj is ETRUE
                                                     //  2. the val of i64 or f64 is not 0
                                                     //  3. the ptr val is not 0

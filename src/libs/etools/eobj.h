@@ -169,13 +169,13 @@ eobj  eobj_setKeyS(eobj o, constr key);
 /// - else, you can using the following APIs
 static __ ekey   eobj_key  (eobj obj) { return obj ? ((ekey* )obj)[-2]    : (ekey){0}; }
 static __ i64    eobj_keyI (eobj obj) { return obj ? ((i64*  )obj)[-2]    :  0; }
-static __ cstr   eobj_keyS (eobj obj) { return obj ? (((ekey*)obj)[-2].s) :  0; }
+static __ constr eobj_keyS (eobj obj) { return obj ? (((ekey*)obj)[-2].s) :  0; }
 static __ etypeo eobj_typeo(eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_o : 4; uint _2:8;} __type_t; return obj ? ((__type_t*)obj)[-1].t_o : -1; }
 static __ etypec eobj_typec(eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_o : 4; uint _2:8;} __type_t; return obj ? ((__type_t*)obj)[-1]._1  : -1; }
 static __ uint   eobj_len  (eobj obj) { return obj ? ((uint*)obj)[-2] :  0; }
 static __ i64    eobj_valI (eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_on: 5; uint _2:7;} __type_t; if(obj) switch (((__type_t*)obj)[-1].t_on) { case ENUM : return EOBJ_VALI(obj); case ENUM | 1<<4: return EOBJ_VALF(obj); } return   0; }
 static __ f64    eobj_valF (eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_on: 5; uint _2:7;} __type_t; if(obj) switch (((__type_t*)obj)[-1].t_on) { case ENUM : return EOBJ_VALI(obj); case ENUM | 1<<4: return EOBJ_VALF(obj); } return 0.0; }
-static __ cstr   eobj_valS (eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_o : 4; uint _2:8;} __type_t; if(obj) return ESTR == ((__type_t*)obj)[-1].t_o ? EOBJ_VALS(obj) :   0; return   0; }
+static __ constr eobj_valS (eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_o : 4; uint _2:8;} __type_t; if(obj) return ESTR == ((__type_t*)obj)[-1].t_o ? EOBJ_VALS(obj) :   0; return   0; }
 static __ cptr   eobj_valP (eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_o : 4; uint _2:8;} __type_t; if(obj) return EPTR == ((__type_t*)obj)[-1].t_o ? EOBJ_VALP(obj) :   0; return   0; }
 static __ cptr   eobj_valR (eobj obj) { typedef struct __type{ uint _0:16; uint _1:4; uint t_o : 4; uint _2:8;} __type_t; if(obj) return ERAW == ((__type_t*)obj)[-1].t_o ? EOBJ_VALR(obj) :   0; return   0; }
 
