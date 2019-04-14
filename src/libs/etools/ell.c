@@ -19,8 +19,9 @@
 #include <errno.h>
 
 #include "eutils.h"
+
 #include "ell.h"
-#include "_eobj_header.h"
+#include "eobj_p.h"
 
 #define ELL_VERSION "ell 1.2.1"
 

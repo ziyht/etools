@@ -37,8 +37,9 @@
 #include "etype.h"
 #include "eutils.h"
 #include "estr.h"
+
 #include "erb.h"
-#include "_eobj_header.h"
+#include "eobj_p.h"
 
 #include "ejson.h"
 
@@ -219,6 +220,8 @@ static inline eobj  _arr_takeN(_ejsr r, _ejsn n);
 #define _key_is_valid(  k) (k)
 #define _key_is_invalid(k) (!k)
 
+#if 0
+
 #define _getObjByKeys(r, keys) __objByKeys(r, keys, 0, 0)
 #define _getObjByRawk(r, rawk) __objByKeys(r, rawk, 1, 0)
 #define _rmObjByKeys( r, keys) __objByKeys(r, keys, 0, 1)
@@ -291,6 +294,180 @@ static eobj __objByKeys(_ejsr r, constr keys_, bool raw, bool rm)
     return 0;
 }
 
+
+#else
+
+#define _getObjByKeys(r, keys) __objByKeys(r, keys, 0)
+#define _rmObjByKeys( r, keys) __objByKeys(r, keys, 1)
+#define _getObjByRawk(r, rawk) __objByRawk(r, rawk, 0)
+#define _rmObjByRawk( r, rawk) __objByRawk(r, rawk, 1)
+
+static __always_inline cstr split   (cstr key, char c) { cstr p = strchr(key,   c); is1_elsret(p, *p = '\0';return p + 1;, NULL); }
+static __always_inline cstr splitdot(cstr key        ) { cstr p = strchr(key, '.'); is1_elsret(p, *p = '\0';return p + 1;, NULL); }
+
+static eobj __objByRawk(_ejsr r, constr keys_, bool rm)
+{
+    _ejsn n;
+
+    is1_ret(!_r_o(r) || _r_typec(r) != EJSON, 0);
+
+    n = _obj_find_ex(r, keys_, strlen(keys_), rm);
+    is0_exeret(n, eerrfmt("can not find %s in %s", keys_, "."), NULL);
+    return _n_o(n);
+}
+
+int __getAKey(constr p, cstr key, constr* _p)
+{
+    int i = 0;
+
+    if(*p == '.')
+    {
+        p++;
+
+        while(*p && *p != '.' && *p != '[')
+        {
+            key[i++] = *p++;
+        }
+
+        *_p = p;
+    }
+    else if(*p == '[')
+    {
+        p++;
+
+        while(*p && *p != ']')
+        {
+            key[i++] = *p++;
+        }
+
+        if(*p != ']')
+            return -1;
+
+        *_p = p + 1;
+    }
+    else
+    {
+        while(*p && *p != '.' && *p != '[')
+        {
+            key[i++] = *p++;
+        }
+
+        *_p = p;
+    }
+
+    key[i] = '\0';
+
+
+    return i;
+}
+
+static eobj __objByKeys2(_ejsr r, constr keys_, bool rm)
+{
+    char key[256]; constr p; int len; int id;
+
+    _ejsn n;
+
+    is1_ret(!_r_o(r) || _r_typec(r) != EJSON, 0);
+
+    p = keys_;
+
+    n = (_ejsn)r;
+
+    do{
+
+        len = __getAKey(p, key, &p);
+
+        is1_ret(len < 0, 0);
+
+        r = (_ejsr)n;
+
+        switch (_r_typeo(r))
+        {
+            case EOBJ: n = _obj_find(r, key, len);
+
+                       is0_ret(n, 0);
+
+                       break;
+
+
+            case EARR: id = atoi(key);
+
+                        n = _arr_find(r, id);
+
+                        is0_ret(n, 0);
+
+                        break;
+        }
+
+    }while(*p);
+
+    is1_exe(rm, switch (_r_typeo(r)) {
+                                          case EOBJ: _obj_takeN(r, n); break;
+                                          case EARR: _arr_takeN(r, n); break;
+                                          default  : return 0;              })
+
+    return _n_o(n);
+}
+
+static eobj __objByKeys(_ejsr r, constr keys_, bool rm)
+{
+    char  keys[512]; cstr fk, sk, last_fk;    // first key, second key, last first key
+    _ejsn n;
+    cstr  _idx; uint idx;
+
+    is1_ret(!_r_o(r) || _r_typec(r) != EJSON, 0);
+
+    strncpy(keys, keys_, 512);
+    fk = keys;
+    sk = splitdot(fk);
+
+    do{
+        _idx = split(fk, '[');
+
+        if(*fk)
+        {
+            n = _obj_find(r, fk, strlen(fk));
+            is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL); // not found, return
+        }
+        else
+            n = (_ejsn)r;
+
+        while( _idx )
+        {
+            is0_exeret(_n_typeo(n) == EARR, eerrfmt("%s is %s obj", keys, __eobj_typeS(_n_o(n), true));, NULL);
+
+            *(_idx - 1) = '[';          // restore
+            is1_exeret(*_idx < '0' || *_idx > '9', eerrfmt("invalid keys: %s", keys), NULL);
+
+            idx  = atoi(_idx);
+            _idx = split(_idx, '[');
+
+            r = (_ejsr)n;
+            n = _arr_find(r, idx);
+            is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL);
+        }
+
+        is0_exeret(n, eerrfmt("can not find %s in %s", fk, fk == keys ? "." : keys), NULL);   // not found, return
+
+        // -- found and return it
+        is0_exeret(sk, is1_exeret(rm, switch (_r_typeo(r)) {
+                                      case EOBJ: _obj_takeN(r, n); break;
+                                      case EARR: _arr_takeN(r, n); break;
+                                      default       : return 0;                   }, _n_o(n)), _n_o(n));
+
+        r = (_ejsr)n;
+        last_fk = fk;
+        fk      = sk;
+        sk      = splitdot(fk);
+        if(last_fk != keys) *(last_fk - 1) = '.';
+    }while(_n_typeo(r) == EOBJ);
+
+    eerrfmt("%s is %s obj", keys, __eobj_typeS(_n_o(n), true));
+
+    return 0;
+}
+
+#endif
 /// -------------------- str strip helper -------------------------
 
 #define _lstrip1(s) do{ while(*s && (unsigned char)*s <= 32) s++;}while(0)

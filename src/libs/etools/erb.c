@@ -843,7 +843,9 @@ static __always_inline  struct rb_node *rb_first_postorder(const struct rb_root 
 
 #include "ecompat.h"
 #include "eutils.h"
-#include "_eobj_header.h"
+
+#include "erb.h"
+#include "eobj_p.h"
 
 #pragma pack(push, 1)
 

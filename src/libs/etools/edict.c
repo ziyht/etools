@@ -21,10 +21,11 @@
 #include <string.h>
 #include <assert.h>
 
-#include "edict.h"
 #include "ecompat.h"
 #include "eutils.h"
-#include "_eobj_header.h"
+
+#include "eobj_p.h"
+#include "edict.h"
 
 #pragma pack(1)
 typedef struct _edict_node_s* _edictn;

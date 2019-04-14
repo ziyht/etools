@@ -1,4 +1,4 @@
-#include "_eobj_header.h"
+#include "eobj_p.h"
 
 #include "ell.h"
 #include "esl.h"

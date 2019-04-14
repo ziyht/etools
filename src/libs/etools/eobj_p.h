@@ -1,6 +1,6 @@
 /// =====================================================================================
 ///
-///       Filename:  _eobj_header.h
+///       Filename:  eobj_p.h
 ///
 ///    Description:  this is a eobj header file for internal using
 ///
@@ -29,6 +29,29 @@
 
 #pragma pack(1)
 
+/**
+ *
+ *            (len)       (field)
+ *  node ->  --------------------
+ *           | <dynamic> : link |
+ *           |-------------------
+ *           | 64        : key  |              <- exist if needed
+ *           |------------------------------
+ *           | 64        : hdr  | 32: len  |
+ *           |                  | 16: ref  |   <- not used now
+ *           |                  |-----------------------
+ *           |                  | 16: hdt  | 4: t_c    |  EJSON ELL ERB EDICT ESL ...
+ *           |                  |          | 4: t_o    |  EFALSE ETRUE ENULL ENUM ESTR EPTR ERAW EOBJ EARR
+ *           |                  |          | 1: t_e    |  ENUM : is float?   ESTR ERAW: is a ptr?
+ *           |                  |          | 2: t_k    |  EKEY_S EKEY_I EKEY_NO
+ *           |                  |          | 1: linked |
+ *           |                  |          | 4: __     |  reserved
+ *  eobj ->  |-----------------------------------------
+ *           | <dynamic> : obj  |
+ *           --------------------
+ *
+ *
+ */
 typedef union {
     struct {
         uint t_c    : 4;         // class type: ejson elist erb edict ...

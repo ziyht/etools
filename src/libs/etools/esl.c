@@ -14,14 +14,13 @@
 //
 // =====================================================================================
 
-#define ESL_VERSION "esl 1.2.0"     // compat to new _eobj_header
+#define ESL_VERSION "esl 1.2.0"     // compat to new eobj_p
 
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "_eobj_header.h"
-
 #include "esl.h"
+#include "eobj_p.h"
 
 #pragma pack(1)
 
@@ -96,11 +95,11 @@ typedef struct esl_root_s {
 //!
 //!     when convert real node addr to virtual node addr, we can handle the node
 //! as the same way like other cantainer's obj, so we can using the macros in
-//! _eobj_header.h
+//! eobj_p.h
 //!
 //!
 
-#undef  _n_init     // not using the one in _eobj_header
+#undef  _n_init     // not using the one in eobj_p
 
 #define _n_vn(n, lv)            ((_esln)&((char*)n)[ lv * sizeof(void*)])
 #define _n_r(n, lv)             ((_eslr)&((char*)n)[ lv * sizeof(void*)])
