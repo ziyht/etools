@@ -4,6 +4,9 @@
 #include "ealloc.h"
 #include "etype.h"
 #include "eutils.h"
+#include "estr.h"
+#include "estr_p.h"
+#include "eobj_p.h"
 
 #include "evec.h"
 
@@ -38,10 +41,15 @@ typedef struct _evec_split_s{
 
 typedef struct _pos_s
 {
+    //! input
+    evec        v;      // evec handle
+    constr      in;
+    int         inlen;
+    int         cnt;
+
+    //! target
     _split      s;      // split
     int         pos;    // postion (direct)
-    uint        f;      // factor
-    evec        hd;     // evec handle
 }_pos_t, * _pos;
 
 #pragma pack()
@@ -57,30 +65,32 @@ typedef struct _pos_s
 #define _split_len(s)           (s->rear - s->front)
 #define _split_avail(s)         (_split_cap(s) - (_split_len(s)))
 
-#define _split_fptr(s)          _split_base(s) + (_split_fpos(s) * _split_size(s))         // ptr of front (first element)
-#define _split_rptr(s)          _split_base(s) + (_split_rpos(s) * _split_size(s))         // ptr of rear
-#define _split_lptr(s)          _split_base(s) + (((_split_rear(s) - 1) % _split_cap(s)) * _split_size(s)) // ptr of last element
-#define _split_eptr(s)          _split_base(s) + (_split_cap(s) * _split_size(s))          // end ptr of base
+#define _split_fptr(s)          (_split_base(s) + (_split_fpos(s) * _split_size(s)))                        // ptr of front (first element)
+#define _split_rptr(s)          (_split_base(s) + (_split_rpos(s) * _split_size(s)))                        // ptr of rear
+#define _split_lptr(s)          (_split_base(s) + (((_split_rear(s) - 1) % _split_cap(s)) * _split_size(s)))// ptr of last element
+#define _split_eptr(s)          (_split_base(s) + (_split_cap(s) * _split_size(s)))                         // ptr of base end
 
-#define _split_pptr(s, p)       _split_base(s) + (p) * _split_size(s)
+#define _split_pptr(s, p)       (_split_base(s) + (p % _split_cap(s)) * _split_size(s))
 
 #pragma pack(1)
 
 typedef struct evec_s
 {
-    _split      head;
-    _split      tail;
-
+    //! data
     u32         cnt;                // all element count
     u32         cap;                // all buffer  cap
 
-    u32         size;               // element size
+    _split      head;               // point to the first split
+    _split      tail;               // point to the last  split
     u32         splits;             // splits count
-
     u32         factor;             // factor for create, expand, shrink, merging, delete splits operations
-    u32         reserves;           //
+    u16         esize;              // element size
 
-    uint        type         : 8;   // etypev
+    //! setting
+    u16         max_cap;            // the max cap of a split can hold
+    u32         reserves;           // how many items cap wanted to reserve
+
+    u8          type;               // etypev
     uint        need_merging : 1;
 }evec_t;
 
@@ -90,7 +100,7 @@ typedef struct evec_s
 #define _v_tail(v)          (v)->tail
 #define _v_cnt(v)           (v)->cnt
 #define _v_cap(v)           (v)->cap
-#define _v_size(v)          (v)->size
+#define _v_esize(v)         (v)->esize
 #define _v_splits(v)        (v)->splits
 #define _v_factor(v)        (v)->factor
 #define _v_reserve(v)       (v)->reserves
@@ -117,7 +127,7 @@ static _split __split_new(int need_rooms, int size)
     }
 
     out->cap   = need_rooms;
-    out->size = size;
+    out->size  = size;
     out->base  = ecalloc(need_rooms, size);
 
     return out;
@@ -626,7 +636,7 @@ static bool __split_make_room(_split s, int pos, int cnt, _pos info)
     {
         if(!_split_next(s) || !_split_prev(s))
         {
-            if(!__split_expand(s, need_rooms, info->f))
+            if(!__split_expand(s, need_rooms, info->v->factor))
             {
                 _split new_s = __split_new(need_rooms, _split_size(s));
 
@@ -744,53 +754,51 @@ static bool __split_make_room(_split s, int pos, int cnt, _pos info)
 }
 
 
-static cptr __pos_write(_pos info, constr in, int inlen, int cnt)
+static cptr __pos_write(_pos pos)
 {
-    cptr p = _split_pptr(info->s, info->pos);
+    cptr p = _split_pptr(pos->s, pos->pos);
 
-    if(cnt <= _split_avail(info->s))
+    if(pos->cnt <= _split_avail(pos->s))
     {
-        __split_write_hard(info->s, info->pos, in, inlen, cnt);
+        __split_write_hard(pos->s, pos->pos, pos->in, pos->inlen, pos->cnt);
     }
     else
     {
-        int write = _split_avail(info->s);
+        int write = _split_avail(pos->s);
 
-        __split_write_hard(info->s, info->pos, in, inlen, write);
+        __split_write_hard(pos->s, pos->pos, pos->in, pos->inlen, write);
 
-        cnt   -= write;
-        in    += write * _split_size(info->s);
-        inlen -= write * _split_size(info->s);
+        pos->cnt   -= write;
+        pos->in    += write * _split_size(pos->s);
+        pos->inlen -= write * _split_size(pos->s);
 
         //! push to next
-        __split_write_hard(_split_next(info->s), _split_fpos(info->s), in, inlen, cnt);
+        __split_write_hard(_split_next(pos->s), _split_fpos(pos->s), pos->in, pos->inlen, pos->cnt);
     }
 
     return p;
 }
 
-static cptr __split_insert(_split s, constr in, int inlen, int pos, int cnt)
+static cptr __split_insert(_split s, _pos_t* pos)
 {
-    _pos_t info;
-
-    if(!__split_squeeze_room(s, pos, cnt, &info))
+    if(!__split_squeeze_room(s, pos->pos, pos->cnt, pos))
     {
-        if(!__split_make_room(s, pos, cnt, &info))
+        if(!__split_make_room(s, pos->pos, pos->cnt, pos))
             return false;
     }
 
-    return __pos_write(&info, in, inlen, cnt);
+    return __pos_write(pos);
 }
 
 
-static cptr __split_push(_split s, constr in, int inlen)
+static cptr __split_push(_split s, constr in, int inlen, int cnt)
 {
-    return __split_insert(s, in, inlen, _split_fpos(s), 1);
+
 }
 
-static cptr __split_appd(_split s, constr in, int inlen)
+static cptr __split_appd(_split s, constr in, int inlen, int cnt)
 {
-    return __split_insert(s, in, inlen, _split_rpos(s), 1);
+
 }
 
 static cptr __split_at(_split s, int idx)
@@ -803,38 +811,39 @@ static cptr __split_at(_split s, int idx)
 
 
 
-//! -----------------------------------------------------------------------
-//!  evec
+/// -----------------------------------------------------------------------
+//! evec basic
+///
 
-/** -----------------------------------------------------
- *
- *  evec new
- *
- * ------------------------------------------------------
- */
 static evec __evec_new(etypev type, int size);
 
-evec evec_new(etypev type)
+evec evec_new(etypev type, u16 esize)
 {
     static const u8 _size_map[] = __EVAR_ITEM_LEN_MAP;
 
     type &= __ETYPEV_VAR_MASK;
 
-    return type >= E_USER ? 0 : __evec_new(type, _size_map[type]);
+    if(type == E_NAV)
+        return 0;
+
+    if(type != E_USER)
+    {
+        return __evec_new(type, _size_map[type]);
+    }
+
+    if(esize == 0)
+        return 0;
+
+    return esize > 0 ? __evec_new(E_USER, esize) : 0;
 }
 
-evec evec_newEx(int size)
-{
-    return __evec_new(E_USER, size);
-}
-
-static evec __evec_new(etypev type, int size)
+static evec __evec_new(etypev type, int esize)
 {
     evec out = ecalloc(1, sizeof(*out));
 
-    _v_size  (out) = size;
+    _v_esize (out) = esize;
     _v_factor(out) = 2;
-    _v_head  (out) = __split_new(1, _v_size(out));
+    _v_head  (out) = __split_new(1, _v_esize(out));
     _v_tail  (out) = _v_head(out);
     _v_cap   (out) = _split_cap(_v_head(out));
     _v_splits(out) = 1;
@@ -843,25 +852,99 @@ static evec __evec_new(etypev type, int size)
     return out;
 }
 
-uint evec_len (evec v)   { return v ? _v_cnt (v) : 0; }
-uint evec_cap (evec v)   { return v ? _v_cap (v) : 0; }
-uint evec_size(evec v)   { return v ? _v_size(v) : 0; }
+uint   evec_len (evec v)   { return v ? _v_cnt (v)  : 0; }
+uint   evec_cap (evec v)   { return v ? _v_cap (v)  : 0; }
+uint   evec_esize(evec v)  { return v ? _v_esize(v) : 0; }
+etypev evec_type(evec v)   { return v ? _v_type(v)  : E_NAV;}
 
-/** -----------------------------------------------------
- *
- *  evec clear
- *
- * ------------------------------------------------------
- */
-static void __split_clear     (_split s);
-static void __split_clear_ex  (_split s, eobj_rls_ex_cb rls, eval prvt);
-static void __split_destroy   (_split s);
-static void __split_destroy_ex(_split s, eobj_rls_ex_cb rls, eval prvt);
+/// ------------ evec clear and free ---------------------
+///
+///
+///
 
-int evec_clear  (evec v){ return evec_clearEx(v, 0, (eval){0});}
+static void __split_clear   (evec v, _split s);
+static void __split_clear_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt);
+static void __split_free    (evec v, _split s);
+static void __split_free_ex (evec v, _split s, eobj_rls_ex_cb rls, eval prvt);
+
+int evec_clear  (evec v){ return evec_clearEx(v, 0, EVAL_ZORE);}
 int evec_clearEx(evec v, eobj_rls_ex_cb rls, eval prvt)
 {
-    int cnt; _split s, tmp;
+    int cnt; _split s, next; int rsv;
+
+    is0_ret(v, 0);
+
+    cnt = _v_cnt(v);
+    s   = _v_head(v);
+    rsv = _v_reserve(v) ? _v_reserve(v) : 1;
+
+    _v_splits(v) = 0;
+    _v_tail  (v) = 0;
+
+    if(rls)
+    {
+        while(s)
+        {
+            next = _split_next(s);
+
+            if(rsv > 0)
+            {
+                __split_clear_ex(v, s, rls, prvt);
+
+                rsv -= _split_cap(s);
+
+                _v_splits(v)++;
+                _v_tail  (v) = s;
+            }
+            else
+            {
+                if(_v_tail  (v) == _split_prev(s))
+                {
+                    _split_next(_split_prev(s)) = 0;
+                }
+
+                __split_free_ex(v, s, rls, prvt);
+            }
+
+            s = next;
+        }
+    }
+    else
+    {
+        while(s)
+        {
+            next = _split_next(s);
+
+            if(rsv > 0)
+            {
+                __split_clear(v, s);
+
+                rsv -= _split_cap(s);
+
+                _v_splits(v)++;
+                _v_tail  (v) = s;
+            }
+            else
+            {
+                if(_v_tail  (v) == _split_prev(s))
+                {
+                    _split_next(_split_prev(s)) = 0;
+                }
+
+                __split_free(v, s);
+            }
+
+            s = next;
+        }
+    }
+
+    return cnt;
+}
+
+int  evec_free  (evec v){ return evec_freeEx(v, 0, EVAL_ZORE); }
+int  evec_freeEx(evec v, eobj_rls_ex_cb rls, eval prvt)
+{
+    int cnt; _split s, next;
 
     is0_ret(v, 0);
 
@@ -873,26 +956,46 @@ int evec_clearEx(evec v, eobj_rls_ex_cb rls, eval prvt)
     {
         while(s)
         {
-            tmp = _split_next(s);
-            __split_destroy_ex(s, rls, prvt);
-            s = tmp;
+            next = _split_next(s);
+
+            __split_free_ex(v, s, rls, prvt);
+
+            s = next;
         }
     }
     else
     {
         while(s)
         {
-            tmp = _split_next(s);
-            __split_destroy(s);
-            s = tmp;
+            next = _split_next(s);
+
+            __split_free(v, s);
+
+            s = next;
         }
     }
 
-    return cnt;
+    efree(v);
+
+    return cnt ? cnt : -1;
 }
 
-static void __split_clear(_split s)
+static void __split_clear(evec v, _split s)
 {
+    switch (_v_type(v))
+    {
+        case E_STR:
+        case E_RAW: {
+                        int pos;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            _s_free( *(estr*)_split_pptr(s, pos) );
+                        }
+                    }
+                    break;
+    }
+
     if(_split_rpos(s) >= _split_cap(s))
     {
         memset(_split_fptr(s), 0, _split_eptr(s) - _split_fptr(s));
@@ -907,23 +1010,141 @@ static void __split_clear(_split s)
     _split_rpos(s) = 0;
 }
 
-static void __split_destroy(_split s)
+static void __split_clear_ex (evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
 {
+    switch (_v_type(v))
+    {
+        case E_STR: {
+                        int pos;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            _s_free( *(estr*)_split_pptr(s, pos) );
+                        }
+                    }
+                    break;
+
+        case E_RAW: {
+                        int pos; _enode_t b;
+
+                        _ehdr_type_oe(b.hdr) = _ERAW_P;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            b.obj.s    = *(estr*)_split_pptr(s, pos);
+                            b.hdr._len = _s_len(b.obj.s);
+
+                            rls(&b.obj, prvt);
+
+                            _s_free( b.obj.s );
+                        }
+                    }
+                    break;
+
+        case E_USER:{
+                        int pos; _enode_t b;
+
+                        _ehdr_type_oe(b.hdr) = _ERAW_P;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            b.obj.s    = _split_pptr(s, pos);
+                            b.hdr._len = _s_len(b.obj.s);
+
+                            rls(&b.obj, prvt);
+                        }
+                    }
+                    break;
+    }
+
+    if(_split_rpos(s) >= _split_cap(s))
+    {
+        memset(_split_fptr(s), 0, _split_eptr(s) - _split_fptr(s));
+        memset(_split_base(s), 0, _split_rptr(s) - _split_base(s));
+    }
+    else
+    {
+        memset(_split_fptr(s), 0, _split_avail(s) * _split_size(s));
+    }
+
+    _split_fpos(s) = 0;
+    _split_rpos(s) = 0;
+}
+
+static void __split_free(evec v, _split s)
+{
+    switch (_v_type(v))
+    {
+        case E_STR:
+        case E_RAW: {
+                        int pos;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            _s_free( *(estr*)_split_pptr(s, pos) );
+                        }
+                    }
+                    break;
+    }
+
     efree(_split_base(s));
     efree(s);
 }
 
-
-static void __split_destroy_ex(_split s, eobj_rls_ex_cb rls, eval prvt)
+static void __split_free_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
 {
-    __split_destroy(s);
+    switch (_v_type(v))
+    {
+        case E_STR: {
+                        int pos;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            _s_free( *(estr*)_split_pptr(s, pos) );
+                        }
+                    }
+                    break;
+
+        case E_RAW: {
+                        int pos; _enode_t b;
+
+                        _ehdr_type_oe(b.hdr) = _ERAW_P;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            b.obj.s    = *(estr*)_split_pptr(s, pos);
+                            b.hdr._len = _s_len(b.obj.s);
+
+                            rls(&b.obj, prvt);
+
+                            _s_free( b.obj.s );
+                        }
+                    }
+                    break;
+
+        case E_USER:{
+                        int pos; _enode_t b;
+
+                        _ehdr_type_oe(b.hdr) = _ERAW_P;
+
+                        for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
+                        {
+                            b.obj.s    = _split_pptr(s, pos);
+                            b.hdr._len = _s_len(b.obj.s);
+
+                            rls(&b.obj, prvt);
+                        }
+                    }
+                    break;
+    }
+
+    efree(_split_base(s));
+    efree(s);
 }
 
 /** -----------------------------------------------------
+ *  -- evec add --
  *
- *  evec push appd add(insert)
- *
- * ------------------------------------------------------
  */
 static void __evec_get_pos(evec v, uint idx, _pos p  );
 static bool __evec_addV   (evec v, uint idx, evar var);
@@ -949,53 +1170,67 @@ bool evec_addS(evec v, uint i, constr str) { return __evec_addV(v, i, EVAR_CS (s
 bool evec_addP(evec v, uint i, conptr ptr) { return __evec_addV(v, i, EVAR_CP (ptr)); }
 bool evec_addR(evec v, uint i, uint   len) { return __evec_addV(v, i, EVAR_RAW(0, len)); }
 
-static bool __evec_addV(evec v, uint idx, evar var)
+static bool __evec_addB(evec v, uint idx, constr in, uint len, int cnt)
 {
-    _pos_t info;
+    _pos_t p = {v, in, len, cnt, 0, 0};
 
-    var.type &= __ETYPEV_VAR_MASK;
-
-    is1_ret(!v || var.type != _v_type(v), false);
-
-    if(var.type > E_PTR)
-    {
-        switch (var.type)
-        {
-            case E_STR : var.v.s = strdup (var.v.s  ); break;
-
-            case E_RAW : {
-                             char* buf = emalloc(var.size);
-                             if(var.v.p)
-                             {
-                                 memcpy(buf, var.v.p, var.size);
-                             }
-                             var.v.p = buf;
-                         }
-                         break;
-
-            default    : break;
-        }
-    }
+    _v_cnt(v) += cnt;
 
     if(idx == 0)
     {
-        return __split_push(_v_head(v), var.v.r, _v_size(v));
+        p.s   = _v_head(v);
+        p.pos = _split_fpos(p.s);
+
     }
     else if(idx >= _v_cnt(v))
     {
-        return __split_appd(_v_tail(v), var.v.r, _v_size(v));
+        p.s = _v_tail(v);
+        p.pos = _split_rpos(p.s);
+    }
+    else
+        __evec_get_pos(v, idx, &p);
+
+    return __split_insert(p.s, &p);
+}
+
+static bool __evec_addV(evec v, uint idx, evar var)
+{
+    int v_type;
+
+    is1_ret(!v, false);
+
+    v_type = var.type & __ETYPEV_VAR_MASK;
+
+    switch (_v_type(v))
+    {
+        case E_USER :   if(v_type != E_RAW)
+                            return false;
+
+                        return var.type & __ETYPEV_PTR_MASK ? __evec_addB(v, idx, var.v.p, var.esize, 1)
+                                                            : __evec_addB(v, idx, var.v.r, var.esize, 1);
+
+        default     :   if(v_type != _v_type(v))
+                            return false;
+
+                        switch(v_type)
+                        {
+                            case E_STR :    var.v.s = estr_dupS(var.v.s  );
+                                            break;
+
+                            case E_RAW :    var.v.p   = estr_newLen(var.v.p, var.esize);
+                                            var.esize = 8;
+                                            break;
+                        }
+
+                        break;
+
     }
 
-    __evec_get_pos(v, idx, &info);
-
-    return __split_insert(info.s, var.v.r, _v_size(v), info.pos, 1);
+    return __evec_addB(v, idx, var.v.r, var.esize, var.cnt ? var.cnt : 1);
 }
 
 static void __evec_get_pos(evec v, uint idx, _pos p)
 {
-    if(idx > _v_cnt(v))
-        return;
-
     p->s = _v_head(v);
 
     do{
@@ -1016,3 +1251,23 @@ static void __evec_get_pos(evec v, uint idx, _pos p)
         p->s = _split_next(p->s);
     }while(1);
 }
+
+/// -----------------------------------------------------
+/// evec val
+///
+///
+
+cptr evec_val (evec v, uint idx){ _pos_t p;is1_ret(!v || idx >= _v_cnt(v)                                               , 0); __evec_get_pos(v, idx, &p); return _split_pptr(p.s, p.pos);}
+i64  evec_valI(evec v, uint idx){ _pos_t p;is1_ret(!v || idx >= _v_cnt(v) ||(_v_type(v) != E_I64 && _v_type(v) != E_F64), 0); __evec_get_pos(v, idx, &p); return _v_type(v) == E_I64 ? *(i64*)_split_pptr(p.s, p.pos) : *(f64*)_split_pptr(p.s, p.pos);}
+f64  evec_valF(evec v, uint idx){ _pos_t p;is1_ret(!v || idx >= _v_cnt(v) ||(_v_type(v) != E_I64 && _v_type(v) != E_F64), 0); __evec_get_pos(v, idx, &p); return _v_type(v) == E_I64 ? *(i64*)_split_pptr(p.s, p.pos):  *(f64*)_split_pptr(p.s, p.pos);}
+cstr evec_valS(evec v, uint idx){ _pos_t p;is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_STR                        , 0); __evec_get_pos(v, idx, &p); return *(cstr*)_split_pptr(p.s, p.pos);}
+cptr evec_valP(evec v, uint idx){ _pos_t p;is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_PTR                        , 0); __evec_get_pos(v, idx, &p); return *(cptr*)_split_pptr(p.s, p.pos);}
+cptr evec_valR(evec v, uint idx){ _pos_t p;is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_RAW                        , 0); __evec_get_pos(v, idx, &p); return *(cptr*)_split_pptr(p.s, p.pos);}
+
+/// -----------------------------------------------------
+/// evec take
+///
+///
+
+
+

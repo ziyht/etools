@@ -74,42 +74,41 @@ typedef enum etypev_s{
 //!
 //! __ETYPEV_PTR_MASK:
 //!
-//!    8   24    32  8
-//!   |type|size|cnt| v  |
+//!    1    2    4   8
+//!   |type|size|cnt|ptr|
 //!                   |-------> |   data    |
 //!                              (size *cnt)
 //!
 typedef struct evar_s{
-    uint    type :  8;        // type
-    uint    size : 24;        // element size
-    uint    cnt      ;        // element count
-    eval    v        ;        // val(data)
+    u8      __;             // unused
+    u8      type  ;         // type
+    u16     esize ;         // element size
+    uint    cnt   ;         // element count
+    eval    v     ;         // val(data)
 }evar_t, evar, * evarp;
 
-#define EVAR_MK(_t, _p, _v) (evar){.type = _t, .v._p = _v}
+#define EVAR_NAV            (evar){.type = E_NAV, .v = EVAL_ZORE }
 
-#define EVAR_ZORE           EVAR_MK(E_NAV, p, 0)
+#define EVAR_I8( v)         (evar){0, E_I8 , 1, 1, EVAL_I8 (v)}
+#define EVAR_I16(v)         (evar){0, E_I16, 2, 1, EVAL_I16(v)}
+#define EVAR_I32(v)         (evar){0, E_I32, 4, 1, EVAL_I32(v)}
+#define EVAR_I64(v)         (evar){0, E_I64, 8, 1, EVAL_I64(v)}
 
-#define EVAR_I8( v)         EVAR_MK(E_I8 , i8 , (v))
-#define EVAR_I16(v)         EVAR_MK(E_I16, i16, (v))
-#define EVAR_I32(v)         EVAR_MK(E_I32, i32, (v))
-#define EVAR_I64(v)         EVAR_MK(E_I64, i64, (v))
+#define EVAR_U8( v)         (evar){0, E_U8 , 1, 1, EVAL_U8 (v)}
+#define EVAR_U16(v)         (evar){0, E_U16, 2, 1, EVAL_U16(v)}
+#define EVAR_U32(v)         (evar){0, E_U32, 4, 1, EVAL_U32(v)}
+#define EVAR_U64(v)         (evar){0, E_U64, 8, 1, EVAL_U64(v)}
 
-#define EVAR_U8( v)         EVAR_MK(E_U8 , u8 , (v))
-#define EVAR_U16(v)         EVAR_MK(E_U16, u16, (v))
-#define EVAR_U32(v)         EVAR_MK(E_U32, u32, (v))
-#define EVAR_U64(v)         EVAR_MK(E_U64, u64, (v))
+#define EVAR_F32(v)         (evar){0, E_F32, 4, 1, EVAL_F32(v)}
+#define EVAR_F64(v)         (evar){0, E_F64, 8, 1, EVAL_F64(v)}
 
-#define EVAR_F32(v)         EVAR_MK(E_F32, f32, (v))
-#define EVAR_F64(v)         EVAR_MK(E_F64, f64, (v))
+#define EVAR_S(  v)         (evar){0, E_STR, 8, 1, EVAL_S(v)}
+#define EVAR_P(  v)         (evar){0, E_PTR, 8, 1, EVAL_P(v)}
 
-#define EVAR_S(  v)         EVAR_MK(E_STR, s, (v))
-#define EVAR_P(  v)         EVAR_MK(E_PTR, p, (v))
+#define EVAR_CS( v)         (evar){0, E_STR, 8, 1, EVAL_CS(v)}
+#define EVAR_CP( v)         (evar){0, E_PTR, 8, 1, EVAL_CP(v)}
 
-#define EVAR_CS( v)         EVAR_MK(E_STR, C_s, (v))
-#define EVAR_CP( v)         EVAR_MK(E_PTR, C_p, (v))
-
-#define EVAR_RAW(p, l)      (evar){E_RAW | __ETYPEV_PTR_MASK, (l), 1, EVAL_CP(p)}
+#define EVAR_RAW(p, l)      (evar){0, E_RAW | __ETYPEV_PTR_MASK, (l), 1, EVAL_CP(p)}
 
 //! for stack using
 evar  evar_gen (etypev t, int cnt, int size);   // create automaticlly, call evar_free() after using it
@@ -118,7 +117,7 @@ evar  evar_gen (etypev t, int cnt, int size);   // create automaticlly, call eva
 evarp evar_new (etypev t, int cnt, int size);   // create automaticlly
 
 uint  evar_cnt  (evarp vp);     // element cnt
-uint  evar_size (evarp vp);     // element size
+uint  evar_esize(evarp vp);     // element size
 uint  evar_space(evarp vp);     // cnt * size
 
 etypev evar_type( evarp vp);

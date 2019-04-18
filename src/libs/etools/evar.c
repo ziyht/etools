@@ -32,7 +32,7 @@ evar  evar_gen (etypev t, int cnt, int size)
     p = t & __ETYPEV_PTR_MASK;
     t = t & __ETYPEV_VAR_MASK;
 
-    is1_ret(t == E_NAV, EVAR_ZORE);
+    is1_ret(t == E_NAV, EVAR_NAV);
 
     if     (t    <= E_RAW)       size = _len_map[t];     // get internal size
     else if(size <  1    )       size = 1;               // recorrect size
@@ -43,7 +43,7 @@ evar  evar_gen (etypev t, int cnt, int size)
 
     if(p)
     {
-        return (evar){  t | __ETYPEV_PTR_MASK,
+        return (evar){0,t | __ETYPEV_PTR_MASK,
                         size,
                         cnt,
                         EVAL_P(ecalloc(cnt, size))
@@ -52,43 +52,43 @@ evar  evar_gen (etypev t, int cnt, int size)
 
     if(cnt > 1 || a)
     {
-        return (evar){  t | __ETYPEV_ARR_MASK,
+        return (evar){0,t | __ETYPEV_ARR_MASK,
                         size,
                         cnt,
                         EVAL_ZORE
                       };
     }
 
-    return (evar){  t,
+    return (evar){0,t,
                     size,
                     1,
                     EVAL_ZORE
                   };
 }
 
-static evarp __evar_newa(etypev t, int cnt, int size)
+static evarp __evar_newa(etypev t, int cnt, int esize)
 {
     evarp v;
 
-    v = ecalloc(cnt* size + sizeof(*v) - sizeof(eval) + (size == 1 ? 1 : 0), 1);
+    v = ecalloc(cnt * esize + sizeof(*v) - sizeof(eval) + (esize == 1 ? 1 : 0), 1);
 
-    v->type = t | __ETYPEV_NEW_MASK | __ETYPEV_ARR_MASK;
-    v->size = size;
-    v->cnt  = cnt;
+    v->type  = t | __ETYPEV_NEW_MASK | __ETYPEV_ARR_MASK;
+    v->esize = esize;
+    v->cnt   = cnt;
 
     return v;
 }
 
-static evarp __evar_newp(etypev t, int cnt, int size)
+static evarp __evar_newp(etypev t, int cnt, int esize)
 {
     evarp v;
 
     v = emalloc(sizeof(*v));
 
-    v->type = t | __ETYPEV_NEW_MASK | __ETYPEV_PTR_MASK;
-    v->size = size;
-    v->cnt  = cnt;
-    v->v.p  = ecalloc(cnt, size);
+    v->type  = t | __ETYPEV_NEW_MASK | __ETYPEV_PTR_MASK;
+    v->esize = esize;
+    v->cnt   = cnt;
+    v->v.p   = ecalloc(cnt, esize);
 
     return v;
 }
@@ -148,7 +148,7 @@ uint evar_free(evarp vp)
     if((vp->type & __ETYPEV_VAR_MASK) == __E_EVAR)
     {
         cnt = evar_free(vp->v.p);
-        *vp = EVAR_ZORE;
+        *vp = EVAR_NAV;
     }
     else if(vp->type & __ETYPEV_PTR_MASK)
     {
@@ -163,14 +163,14 @@ uint evar_free(evarp vp)
     if(vp->type & __ETYPEV_NEW_MASK)
         efree(vp);
     else
-        *vp = EVAR_ZORE;
+        *vp = EVAR_NAV;
 
     return cnt;
 }
 
-uint  evar_cnt  (evarp vp)  { return vp ? vp->cnt            : 0; }
-uint  evar_size (evarp vp)  { return vp ? vp->size           : 0; }
-uint  evar_space(evarp vp)  { return vp ? vp->cnt * vp->size : 0; }
+uint  evar_cnt  (evarp vp)  { return vp ? vp->cnt             : 0; }
+uint  evar_esize(evarp vp)  { return vp ? vp->esize           : 0; }
+uint  evar_space(evarp vp)  { return vp ? vp->cnt * vp->esize : 0; }
 
 etypev evar_type( evarp vp) { return vp ? vp->type                     : E_NAV;}
 bool   evar_isArr(evarp vp) { return vp ? vp->type & __ETYPEV_ARR_MASK : 0;  }

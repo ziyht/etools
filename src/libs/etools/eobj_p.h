@@ -99,6 +99,8 @@ typedef union {
 
 #define _EHDT_NUMI          ENUM
 #define _EHDT_NUMF          (ENUM | 1 << 4)
+#define _EHDT_STRP          (ESTR | 1 << 4)
+#define _EHDT_RAWP          (ERAW | 1 << 4)
 
 #define _ehdt_type_c(t)     (t).__1.t_c
 #define _ehdt_type_o(t)     (t).__1.t_o
@@ -187,6 +189,9 @@ typedef enum _eo_type_map{
     _ENUM_I = _EHDT_NUMI,
     _ENUM_F = _EHDT_NUMF,
 
+    _ESTR_P = _EHDT_STRP,
+    _ERAW_P = _EHDT_RAWP,
+
     _EO_NOKEY = _EHDT_NOKEY,
     _EO_KEYI  = _EHDT_KEYI,
     _EO_KEYS  = _EHDT_KEYS,
@@ -208,12 +213,12 @@ typedef enum _eo_type_map{
 
 typedef struct _eroot_s{
     _ehdt_t     typ;
-    eobj        obj;
+    eobj_t      obj;
 }_eroot_t, * _eroot_p;
 
 typedef struct _enode_s{
     _ehdr_t     hdr;
-    eobj        obj;
+    eobj_t      obj;
 }_enode_t;
 
 #pragma pack()
@@ -420,6 +425,7 @@ static __always_inline i64 __eobj_valI(eobj o) { switch(_eo_typeoe(o)){ case _EN
 static __always_inline i64 __eobj_valF(eobj o) { switch(_eo_typeoe(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); } return 0;}
 
 constr __eobj_typeS(eobj o, bool beauty);
+
 
 #endif
 

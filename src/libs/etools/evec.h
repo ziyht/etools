@@ -14,16 +14,16 @@ extern "C" {
  *
  *  evec basic
  *
- * ------------------------------------------------------
+ *
  */
-evec evec_new(etypev type);
-evec evec_newEx(int size);
+evec evec_new(etypev type, u16 esize);
 
 bool evec_reserve(evec v);
 
-uint evec_len (evec v);
-uint evec_cap (evec v);
-uint evec_size(evec v);
+uint   evec_len  (evec v);
+uint   evec_cap  (evec v);
+uint   evec_esize(evec v);
+etypev evec_type (evec v);
 
 int  evec_clear  (evec v);
 int  evec_clearEx(evec v, eobj_rls_ex_cb rls, eval prvt);
@@ -32,17 +32,27 @@ int  evec_free  (evec v);
 int  evec_freeEx(evec v, eobj_rls_ex_cb rls, eval prvt);
 
 /** -----------------------------------------------------
+ *  -- evec add --
  *
- *  evec add
+ * @note:
+ *    - push :  append ahead
+ *    - appd :  append tail
+ *    - add  :  if i  = 0  , push
+ *              if i >= len, appd
+ *              else       , insert at the specific pos
  *
- * ------------------------------------------------------
+ * @note:
+ *
+ *      we create new base for 'str' and 'raw' data, and
+ *  manager the ptr internal
+ *
  */
 bool evec_pushV(evec v, evar   var);
-bool evec_pushI(evec v, i64    val);
-bool evec_pushF(evec v, f64    val);
-bool evec_pushS(evec v, constr str);
-bool evec_pushP(evec v, conptr ptr);
-bool evec_pushR(evec v, uint   len);
+bool evec_pushI(evec v, i64    val);    // only for E_I64
+bool evec_pushF(evec v, f64    val);    // only for E_F64
+bool evec_pushS(evec v, constr str);    // only for E_STR
+bool evec_pushP(evec v, conptr ptr);    // only for E_PTR
+bool evec_pushR(evec v, uint   len);    // only for E_RAW
 
 bool evec_appdV(evec v, evar   var);
 bool evec_appdI(evec v, i64    val);
@@ -54,26 +64,38 @@ bool evec_appdR(evec v, uint   len);
 bool evec_addV(evec v, uint i, evar   var);
 bool evec_addI(evec v, uint i, i64    str);
 bool evec_addF(evec v, uint i, f64    str);
-bool evec_addS(evec v, uint i, constr str);     // hold as ptr actually
-bool evec_addP(evec v, uint i, conptr str);     // hold as ptr actually
-bool evec_addR(evec v, uint i, uint   len);     // hold as ptr actually
+bool evec_addS(evec v, uint i, constr str);
+bool evec_addP(evec v, uint i, conptr str);
+bool evec_addR(evec v, uint i, uint   len);
 
-bool evec_addVEx(evec v, uint i, eval val, int len);
 
-/** -----------------------------------------------------
- *
- *  evec val
- *
- * ------------------------------------------------------
- */
-cptr evec_at  (evec v, uint idx);
+/// -----------------------------------------------------
+/// -- evec val --
+///
+///
+///
+cptr evec_at  (evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
 
-cptr evec_val (evec v, uint idx);
-i64  evec_valI(evec v, uint idx);
-f64  evec_valF(evec v, uint idx);
-cstr evec_valS(evec v, uint idx);
-cptr evec_valP(evec v, uint idx);
-cptr evec_valR(evec v, uint idx);
+cptr evec_val (evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
+i64  evec_valI(evec v, uint idx);       // Retruns the val of element, returns 0 if not exist
+f64  evec_valF(evec v, uint idx);       // Retruns the val of element, returns 0 if not exist
+cstr evec_valS(evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
+cptr evec_valP(evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
+cptr evec_valR(evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
+
+
+cptr evec_first();
+cptr evec_last();
+
+/// -----------------------------------------------------
+/// evec take
+///
+///
+
+evar evec_takeH(evec v);                // Takes the first element
+evar evec_takeT(evec v);                // Takes the last  element
+evar evec_takeI(evec v, uint idx);      // Takes the specific element
+
 
 
 #ifdef __cplusplus

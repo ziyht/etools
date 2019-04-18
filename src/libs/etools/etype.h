@@ -131,9 +131,9 @@ typedef union eval_s{
 #define EVAL_I64(v)     EVAL_MK(i64, v)
 
 #define EVAL_U8( v)     EVAL_MK(u8 , v)
-#define EVAL_U16(v)     EVAL_MK(i16, v)
-#define EVAL_U32(v)     EVAL_MK(i32, v)
-#define EVAL_U64(v)     EVAL_MK(i64, v)
+#define EVAL_U16(v)     EVAL_MK(u16, v)
+#define EVAL_U32(v)     EVAL_MK(u32, v)
+#define EVAL_U64(v)     EVAL_MK(u64, v)
 
 #define EVAL_F32(v)     EVAL_MK(f32, v)
 #define EVAL_F64(v)     EVAL_MK(f64, v)
