@@ -30,9 +30,9 @@
 #define ETEST_OK  0
 #endif
 
-#define ETEST_RUN(func) __ETEST_EXEC((func), __FILE__, __LINE__)
+#define ETEST_RUN(func) __ETEST_EXEC(func, __FILE__, __LINE__)
 
-#define eexpect_num(a, b)       __etest_equal_num(a, b, __FILE__, __LINE__)
+#define eexpect_num(a, b)       __etest_equal_num(a, b, __FILE__, __LINE__, __FUNCTION__)
 #define eexpect_ptr(a, b)       __etest_equal_ptr(a, b, __FILE__, __LINE__)
 #define eexpect_str(a, b)       __etest_equal_str(a, b, __FILE__, __LINE__)
 #define eexpect_raw(a, b, l)    __etest_equal_raw(a, b, __FILE__, __LINE__, l)
@@ -46,7 +46,9 @@
 //! etest definition
 //!
 
-#define __etest_equal_num(a, b, f, l)                               \
+#define __VAL_FMT_
+
+#define __etest_equal_num(a, b, f, l, F)                            \
 do{                                                                 \
     int sizea = sizeof(a);                                          \
     int sizeb = sizeof(b);                                          \
@@ -61,9 +63,10 @@ do{                                                                 \
     case  4:                                                        \
     case  8: if(xz > 0.00000001)                                    \
              {                                                      \
-                 printf("etest check num equal faild: %s(%d)\n"     \
+                 printf("etest check num equal faild:\n"            \
                         "    %s: %f\n"                              \
-                        "    %s: %f\n", f, l, #a, fa, #b, fb);      \
+                        "    %s: %f\n"                              \
+                        "  %s(%d) %s\n", #a, fa, #b, fb, f, l, F);  \
                  fflush(stdout);                                    \
                  return ETEST_ERR;                                  \
              }                                                      \
@@ -207,10 +210,11 @@ do{                                                                 \
 #define __ETEST_EXEC(func, f, l)                                    \
     if((func) != ETEST_OK)                                          \
     {                                                               \
-        printf("%s(%d): %s FAILED\n", f, l, #func);                 \
+        printf("  %s(%d): %s\n", f, l, #func);                      \
+        return ETEST_ERR;                                           \
     }else                                                           \
     {                                                               \
-        printf("%s(%d): %s PASSED\n", f, l, #func);                 \
+        printf("%s PASSED\n", #func);                               \
     }                                                               \
 
 #endif

@@ -36,6 +36,7 @@ ETestAddTestSet(ejson
             t5_take.c
             t6_sort.c
             t7_cmp.c
+            t8_set.c
     )
 
 ETestAddTestSet(ejson-perf

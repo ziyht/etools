@@ -421,7 +421,6 @@ static __always_inline i64 __eobj_valF(eobj o) { switch(_eo_typeoe(o)){ case _EN
 
 constr __eobj_typeS(eobj o, bool beauty);
 
-
 #endif
 
 #ifdef _cur_cmpkeyS

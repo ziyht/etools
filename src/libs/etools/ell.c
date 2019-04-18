@@ -211,6 +211,7 @@ if(o != n)                                                              \
     if(_n_prev(n)){ _n_next(_n_prev(n)) = n; } else _c_head(l) = n;     \
     if(_n_next(n)){ _n_prev(_n_next(n)) = n; } else _c_tail(l) = n;     \
     if(_c_hisn(l) == o) _c_hisn(l) = n;                                 \
+    o = n;                                                              \
 }
 #else
 #define _node_update(l, o, n)                                           \
@@ -393,11 +394,7 @@ static eobj _ell_setRaw(ell l, int idx, eval v, uint need_len, _eotype type)
     {
         _elln newn = _n_newr(n, need_len);
 
-        if(newn != n)
-        {
-            _node_update(l, n, newn);
-            n = newn;
-        }
+        _node_update(l, n, newn);
     }
 
     switch((int)type)

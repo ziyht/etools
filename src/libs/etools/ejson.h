@@ -58,6 +58,8 @@ etypeo ejson_type   (eobj o);
 uint   ejson_len    (eobj o);         // Returns the len of ESTR or ERAW or number of items of EOBJ or EARR, else return 0
 bool   ejson_isEmpty(eobj o);         // Returns false if ejson contains items, otherwise return true
 
+void ejson_show(ejson r);
+
 constr ejson_errp();
 constr ejson_err ();
 
@@ -291,12 +293,33 @@ eobj  ejson_lastk (eobj r, constr keys);
 #define ejson_foreachk_s(r, ks, itr) for(eobj _INNER_ = ejson_firstk(r, ks), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
 
 
-/** -----------------------------------------------------
- *
- *  ejson update
- *
- *  -----------------------------------------------------
- */
+/// -----------------------------------------------------
+//! @brief ejson set
+///
+/// @note:
+/// 1. if target not exsit, create automatically if the last
+///    found obj is a EOBJ obj
+/// 2. the found obj will be reset always, any children of it
+///    will be delete automatically, be careful by using it,
+///    it may cause memleak when have EPTR or ERAW obj associated
+///    with the delete obj
+/// 3. we do not create any not exsit obj for EARR obj
+///
+eobj ejson_setTr(eobj r, constr rawk, etypeo   t);
+eobj ejson_setIr(eobj r, constr rawk, i64    val);
+eobj ejson_setFr(eobj r, constr rawk, f64    val);
+eobj ejson_setSr(eobj r, constr rawk, constr str);
+eobj ejson_setPr(eobj r, constr rawk, constr ptr);
+eobj ejson_setRr(eobj r, constr rawk, uint   len);
+
+eobj ejson_setTk(eobj r, constr rawk, etypeo   t);
+eobj ejson_setIk(eobj r, constr rawk, i64    val);
+eobj ejson_setFk(eobj r, constr rawk, f64    val);
+eobj ejson_setSk(eobj r, constr rawk, constr str);
+eobj ejson_setPk(eobj r, constr rawk, constr ptr);
+eobj ejson_setRk(eobj r, constr rawk, uint   len);
+
+
 ejson ejso_setT(ejson obj, uint  type);     // only support FALSE/TRUE/NULL obj
 ejson ejso_setF(ejson obj, double val);     // only support NUM obj
 ejson ejso_setS(ejson obj, constr val);     // only support STR obj
