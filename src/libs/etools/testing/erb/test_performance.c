@@ -31,11 +31,11 @@ static void performance_keyI_test(uint scale)
     t = eutils_nowms();
     j = 0; scale ++;
     tn = eutils_nowns(); i = 0;
-    if(erb_find(h, (ekey){i})) j++;
+    if(erb_val(h, (ekey){i})) j++;
     printf("find  1   \telem: %6"PRIu64"ns\n", eutils_nowns() - tn); fflush(stdout);
     for(i = 1; i < scale; i++)
     {
-        if(erb_find(h, (ekey){i})) j++;
+        if(erb_val(h, (ekey){i})) j++;
     }
 
     if(erb_len(h) != j)
@@ -141,7 +141,7 @@ void performance_keyI_rand_test(int scale)
     {
         key = (uint)eutils_rand() % scale;
         tn1 = eutils_nowns();
-        if(erb_find(h, (ekey){key}))j++;
+        if(erb_val(h, (ekey){key}))j++;
         tn  = eutils_nowns() - tn1;
 
         tn_total += tn;

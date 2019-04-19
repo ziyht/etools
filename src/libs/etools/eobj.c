@@ -1,5 +1,6 @@
 #include "eobj_p.h"
 
+#include "ejson.h"
 #include "ell.h"
 #include "esl.h"
 #include "edict.h"
@@ -28,6 +29,11 @@ int eobj_free(eobj o)
 
     return 0;
 }
+
+int  eobj_cmpI(eobj o, i64    val) { return o ? _eo_typeo(o) == ENUM ? __eobj_valI(o) < val ? -1 : __eobj_valI(o) > val ? 1 : 0 : -3 : -2; }
+int  eobj_cmpF(eobj o, f64    val) { return o ? _eo_typeo(o) == ENUM ? __eobj_valF(o) < val ? -1 : __eobj_valF(o) > val ? 1 : 0 : -3 : -2; }
+int  eobj_cmpS(eobj o, constr str) { return o ? _eo_typeo(o) == ESTR ? str ? strcmp(_eo_valS(o), str) : -4 : -3 : -2;}
+
 
 eobj eobj_setKeyI(eobj o, i64 key)
 {
@@ -146,7 +152,7 @@ constr __eobj_typeS(eobj o, bool beauty)
     return "";
 }
 
-constr eobj_typeoS(eobj o)
+constr eobj_typeS(eobj o)
 {
     return __eobj_typeS(o, 1);
 }

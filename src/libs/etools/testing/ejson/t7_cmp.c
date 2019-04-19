@@ -27,35 +27,35 @@ static int t7_cmp_case1()
     eexpect_num(ejson_cmpI(ei, 1), 0);
     eexpect_num(ejson_cmpI(ei, 2), -1);
 
-    eexpect_num(ejson_cmpIr(r, "i", 0), 1);
-    eexpect_num(ejson_cmpIr(r, "i", 1), 0);
-    eexpect_num(ejson_cmpIr(r, "i", 2), -1);
+    eexpect_num(ejson_rcmpI(r, "i", 0), 1);
+    eexpect_num(ejson_rcmpI(r, "i", 1), 0);
+    eexpect_num(ejson_rcmpI(r, "i", 2), -1);
 
-    eexpect_num(ejson_cmpIk(r, "i", 0), 1);
-    eexpect_num(ejson_cmpIk(r, "i", 1), 0);
-    eexpect_num(ejson_cmpIk(r, "i", 2), -1);
+    eexpect_num(ejson_kcmpI(r, "i", 0), 1);
+    eexpect_num(ejson_kcmpI(r, "i", 1), 0);
+    eexpect_num(ejson_kcmpI(r, "i", 2), -1);
 
     eexpect_num(ejson_cmpF(ef, 0), 1);
     eexpect_num(ejson_cmpF(ef, 1), 0);
     eexpect_num(ejson_cmpF(ef, 2), -1);
 
-    eexpect_num(ejson_cmpFr(r, "f", 0), 1);
-    eexpect_num(ejson_cmpFr(r, "f", 1), 0);
-    eexpect_num(ejson_cmpFr(r, "f", 2), -1);
+    eexpect_num(ejson_rcmpF(r, "f", 0), 1);
+    eexpect_num(ejson_rcmpF(r, "f", 1), 0);
+    eexpect_num(ejson_rcmpF(r, "f", 2), -1);
 
-    eexpect_num(ejson_cmpFk(r, "f", 0), 1);
-    eexpect_num(ejson_cmpFk(r, "f", 1), 0);
-    eexpect_num(ejson_cmpFk(r, "f", 2), -1);
+    eexpect_num(ejson_kcmpF(r, "f", 0), 1);
+    eexpect_num(ejson_kcmpF(r, "f", 1), 0);
+    eexpect_num(ejson_kcmpF(r, "f", 2), -1);
 
     eexpect_num(ejson_cmpS(es, "rtr"), 1);
     eexpect_num(ejson_cmpS(es, "str"), 0);
     eexpect_num(ejson_cmpS(es, "ttr"), -1);
     eexpect_num(ejson_cmpS(es,  0   ), -4);
 
-    eexpect_num(ejson_cmpSr(r, "s", "rtr"), 1);
-    eexpect_num(ejson_cmpSr(r, "s", "str"), 0);
-    eexpect_num(ejson_cmpSr(r, "s", "ttr"), -1);
-    eexpect_num(ejson_cmpSr(r, "s", 0   ), -4);
+    eexpect_num(ejson_rcmpS(r, "s", "rtr"), 1);
+    eexpect_num(ejson_rcmpS(r, "s", "str"), 0);
+    eexpect_num(ejson_rcmpS(r, "s", "ttr"), -1);
+    eexpect_num(ejson_rcmpS(r, "s", 0   ), -4);
 
     eexpect_num(ejson_cmpI(0 , 2), -2);
     eexpect_num(ejson_cmpI(r , 2), -3);

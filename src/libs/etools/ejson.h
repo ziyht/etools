@@ -90,29 +90,31 @@ eobj ejson_addS(eobj r, constr key, constr str );                 // add a  STR 
 eobj ejson_addR(eobj r, constr key, uint   len );                 // add a  RAW obj to root, alloc a new space(len) for data
 eobj ejson_addO(eobj r, constr key, eobj   o   );                 // add an exist obj to obj
 
-eobj ejson_addrJ(eobj r, constr rawk, constr key, constr json);   // add an json  obj to specific obj in root via rawk
-eobj ejson_addrT(eobj r, constr rawk, constr key, etypeo type);   // add an type  obj to specific obj in root via rawk, only support EFLASE, ETURE, ENULL, EARR, EOBJ
-eobj ejson_addrI(eobj r, constr rawk, constr key, i64    val );   // add an NUM   obj to specific obj in root via rawk
-eobj ejson_addrF(eobj r, constr rawk, constr key, f64    val );   // add an NUM   obj to specific obj in root via rawk
-eobj ejson_addrP(eobj r, constr rawk, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via rawk
-eobj ejson_addrS(eobj r, constr rawk, constr key, constr str );   // add a  STR   obj to specific obj in root via rawk
-eobj ejson_addrR(eobj r, constr rawk, constr key, uint   len );   // add a  RAW   obj to specific obj in root via rawk, alloc a new space(len) for data
-eobj ejson_addrO(eobj r, constr rawk, constr key, eobj   o   );   // add an exist obj to specific obj in root via rawk
+eobj ejson_raddJ(eobj r, constr rawk, constr key, constr json);   // add an json  obj to specific obj in root via rawk
+eobj ejson_raddT(eobj r, constr rawk, constr key, etypeo type);   // add an type  obj to specific obj in root via rawk, only support EFLASE, ETURE, ENULL, EARR, EOBJ
+eobj ejson_raddI(eobj r, constr rawk, constr key, i64    val );   // add an NUM   obj to specific obj in root via rawk
+eobj ejson_raddF(eobj r, constr rawk, constr key, f64    val );   // add an NUM   obj to specific obj in root via rawk
+eobj ejson_raddP(eobj r, constr rawk, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via rawk
+eobj ejson_raddS(eobj r, constr rawk, constr key, constr str );   // add a  STR   obj to specific obj in root via rawk
+eobj ejson_raddR(eobj r, constr rawk, constr key, uint   len );   // add a  RAW   obj to specific obj in root via rawk, alloc a new space(len) for data
+eobj ejson_raddO(eobj r, constr rawk, constr key, eobj   o   );   // add an exist obj to specific obj in root via rawk
 
-eobj ejson_addkJ(eobj r, constr keys, constr key, constr json);   // add an json  obj to specific obj in root via path
-eobj ejson_addkT(eobj r, constr keys, constr key, etypeo type);   // add an type  obj to specific obj in root via path, only support EFLASE, ETURE, ENULL, EARR, EOBJ
-eobj ejson_addkI(eobj r, constr keys, constr key, i64    val );   // add an NUM   obj to specific obj in root via path
-eobj ejson_addkF(eobj r, constr keys, constr key, f64    val );   // add an NUM   obj to specific obj in root via path
-eobj ejson_addkP(eobj r, constr keys, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via path
-eobj ejson_addkS(eobj r, constr keys, constr key, constr str );   // add a  STR   obj to specific obj in root via path
-eobj ejson_addkR(eobj r, constr keys, constr key, uint   len );   // add a  RAW   obj to specific obj in root via path, alloc a new space(len) for data
-eobj ejson_addkO(eobj r, constr keys, constr key, eobj   o   );   // add an exist obj to specific obj in root via path
+eobj ejson_kaddJ(eobj r, constr keys, constr key, constr json);   // add an json  obj to specific obj in root via path
+eobj ejson_kaddT(eobj r, constr keys, constr key, etypeo type);   // add an type  obj to specific obj in root via path, only support EFLASE, ETURE, ENULL, EARR, EOBJ
+eobj ejson_kaddI(eobj r, constr keys, constr key, i64    val );   // add an NUM   obj to specific obj in root via path
+eobj ejson_kaddF(eobj r, constr keys, constr key, f64    val );   // add an NUM   obj to specific obj in root via path
+eobj ejson_kaddP(eobj r, constr keys, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via path
+eobj ejson_kaddS(eobj r, constr keys, constr key, constr str );   // add a  STR   obj to specific obj in root via path
+eobj ejson_kaddR(eobj r, constr keys, constr key, uint   len );   // add a  RAW   obj to specific obj in root via path, alloc a new space(len) for data
+eobj ejson_kaddO(eobj r, constr keys, constr key, eobj   o   );   // add an exist obj to specific obj in root via path
 
 /** -----------------------------------------------------
  *
- *  ejson val
+ * @brief ejson val
  *
- *  @note
+ *      get obj or val from a ejson obj
+ *
+ * @note
  *      1. for r APIs, we consider rawk as a whole key and
  *  can not be splited
  *
@@ -141,15 +143,14 @@ eobj ejson_addkO(eobj r, constr keys, constr key, eobj   o   );   // add an exis
  *
  *      fruits[0.name]      : fruits -> 0.name
  *
- *  -----------------------------------------------------
+ *
  */
-eobj   ejson_valr (eobj r, constr rawk);        // Returns the eobj with the specific rawk
-i64    ejson_valrI(eobj r, constr rawk);        // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
-f64    ejson_valrF(eobj r, constr rawk);        // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
-constr ejson_valrS(eobj r, constr rawk);        // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
-cptr   ejson_valrP(eobj r, constr rawk);        // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
-cptr   ejson_valrR(eobj r, constr rawk);        // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
-
+eobj   ejson_valr      (eobj r, constr rawk);   // Returns the eobj with the specific rawk
+i64    ejson_valrI     (eobj r, constr rawk);   // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    ejson_valrF     (eobj r, constr rawk);   // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+constr ejson_valrS     (eobj r, constr rawk);   // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
+cptr   ejson_valrP     (eobj r, constr rawk);   // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
+cptr   ejson_valrR     (eobj r, constr rawk);   // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
 etypeo ejson_valrType  (eobj r, constr rawk);   // Returns eobj's type if exist, else return EOBJ_UNKNOWN
 constr ejson_valrTypeS (eobj r, constr rawk);   // Returns eobj's type in string type
 uint   ejson_valrLen   (eobj r, constr rawk);   // Returns eobj's len  if found and type matchs ESTR, ERAW, EOBJ, EARR else return 0
@@ -160,14 +161,12 @@ bool   ejson_valrIsTrue(eobj r, constr rawk);   // Returns true if the val in eo
                                                     //  4. the str val is not empty
                                                     //  5. the len of raw is not 0
 
-eobj   ejson_valk (eobj r, constr keys);        // Returns the eobj with the specific keys
-i64    ejson_valkI(eobj r, constr keys);        // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
-f64    ejson_valkF(eobj r, constr keys);        // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
-constr ejson_valkS(eobj r, constr keys);        // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
-cptr   ejson_valkP(eobj r, constr keys);        // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
-cptr   ejson_valkR(eobj r, constr keys);        // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
-
-
+eobj   ejson_valk      (eobj r, constr keys);   // Returns the eobj with the specific keys
+i64    ejson_valkI     (eobj r, constr keys);   // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    ejson_valkF     (eobj r, constr keys);   // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+constr ejson_valkS     (eobj r, constr keys);   // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
+cptr   ejson_valkP     (eobj r, constr keys);   // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
+cptr   ejson_valkR     (eobj r, constr keys);   // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
 etypeo ejson_valkType  (eobj r, constr keys);   // Returns eobj's type if exist, else return EOBJ_UNKNOWN
 constr ejson_valkTypeS (eobj r, constr keys);   // Returns eobj's type in string type
 uint   ejson_valkLen   (eobj r, constr keys);   // Returns eobj's len  if exist and type matchs ESTR, ERAW, EOBJ, EARR else return 0
@@ -178,13 +177,12 @@ bool   ejson_valIksTrue(eobj r, constr keys);   // Returns true if the val in eo
                                                     //  4. the str val is not empty
                                                     //  5. the len of raw is not 0
 
-eobj   ejson_vali (eobj r, int idx);            // Returns the eobj in the specific idx
-i64    ejson_valiI(eobj r, int idx);            // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
-f64    ejson_valiF(eobj r, int idx);            // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
-constr ejson_valiS(eobj r, int idx);            // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
-cptr   ejson_valiP(eobj r, int idx);            // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
-cptr   ejson_valiR(eobj r, int idx);            // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
-
+eobj   ejson_vali      (eobj r, int idx);       // Returns the eobj in the specific idx
+i64    ejson_valiI     (eobj r, int idx);       // Returns the value i64  of eobj if exist and type matchs ENUM, else return 0
+f64    ejson_valiF     (eobj r, int idx);       // Returns the value f64  of eobj if exist and type matchs ENUM, else return 0
+constr ejson_valiS     (eobj r, int idx);       // Returns the cstr       of eobj if exist and type matchs EPTR, else return 0
+cptr   ejson_valiP     (eobj r, int idx);       // Returns the ptr        of eobj if exist and type matchs ESTR, else return 0
+cptr   ejson_valiR     (eobj r, int idx);       // Returns the ptr of raw in eobj if exist and type matchs ERAW, else return 0
 etypeo ejson_valiType  (eobj r, int idx);       // Returns eobj's type if exist, else return EOBJ_UNKNOWN
 constr ejson_valiTypeS (eobj r, int idx);       // Returns eobj's type in string type
 uint   ejson_valiLen   (eobj r, int idx);       // Returns eobj's len  if found and type matchs ESTR, ERAW, EOBJ, EARR else return 0
@@ -206,8 +204,8 @@ bool   ejson_valiIsTrue(eobj r, int idx);       // Returns true if the val in eo
  *  -----------------------------------------------------
  */
 estr ejson_toS (eobj o,              estr* out, eopts opts);
-estr ejson_toSr(eobj o, constr rawk, estr* out, eopts opts);
-estr ejson_toSk(eobj o, constr keys, estr* out, eopts opts);
+estr ejson_rtoS(eobj o, constr rawk, estr* out, eopts opts);
+estr ejson_ktoS(eobj o, constr keys, estr* out, eopts opts);
 
 /** -----------------------------------------------------
  *
@@ -242,7 +240,7 @@ int  ejson_freeIEx(eobj r, int     idx, eobj_rls_ex_cb rls, eval prvt);
  *
  *  ejson comparing
  *
- *  @return
+ * @return
  *       1: obj >  val
  *       0: obj == val
  *      -1: obj <  val
@@ -251,17 +249,18 @@ int  ejson_freeIEx(eobj r, int     idx, eobj_rls_ex_cb rls, eval prvt);
  *      -4: val of cstr is null
  *  -----------------------------------------------------
  */
-int  ejson_cmpI(eobj o, int    val);
-int  ejson_cmpF(eobj o, double val);
-int  ejson_cmpS(eobj o, constr str);
 
-int  ejson_cmpIr(eobj r, constr rawk, int    val);
-int  ejson_cmpFr(eobj r, constr rawk, double val);
-int  ejson_cmpSr(eobj r, constr rawk, constr str);
+#define ejson_cmpI eobj_cmpI
+#define ejson_cmpF eobj_cmpF
+#define ejson_cmpS eobj_cmpS
 
-int  ejson_cmpIk(eobj r, constr keys, int    val);
-int  ejson_cmpFk(eobj r, constr keys, double val);
-int  ejson_cmpSk(eobj r, constr keys, constr str);
+int  ejson_rcmpI(eobj r, constr rawk, i64    val);
+int  ejson_rcmpF(eobj r, constr rawk, f64    val);
+int  ejson_rcmpS(eobj r, constr rawk, constr str);
+
+int  ejson_kcmpI(eobj r, constr keys, i64    val);
+int  ejson_kcmpF(eobj r, constr keys, f64    val);
+int  ejson_kcmpS(eobj r, constr keys, constr str);
 
 /** -----------------------------------------------------
  *
@@ -278,19 +277,19 @@ eobj  ejson_last (eobj r);
 eobj  ejson_next (eobj o);
 eobj  ejson_prev (eobj o);
 
-eobj  ejson_firstr(eobj r, constr rawk);
-eobj  ejson_lastr (eobj r, constr rawk);
+eobj  ejson_rfirst(eobj r, constr rawk);
+eobj  ejson_rlast (eobj r, constr rawk);
 
-eobj  ejson_firstk(eobj r, constr keys);
-eobj  ejson_lastk (eobj r, constr keys);
+eobj  ejson_kfirst(eobj r, constr keys);
+eobj  ejson_klast (eobj r, constr keys);
 
 #define ejson_foreach( r,     itr)   for(itr = ejson_first (r    ); (itr); itr = ejson_next(itr))
-#define ejson_foreachr(r, rk, itr)   for(itr = ejson_firstr(r, rk); (itr); itr = ejson_next(itr))
-#define ejson_foreachk(r, ks, itr)   for(itr = ejson_firstk(r, ks); (itr); itr = ejson_next(itr))
+#define ejson_rforeach(r, rk, itr)   for(itr = ejson_rfirst(r, rk); (itr); itr = ejson_next(itr))
+#define ejson_kforeach(r, ks, itr)   for(itr = ejson_kfirst(r, ks); (itr); itr = ejson_next(itr))
 
 #define ejson_foreach_s( r,     itr) for(eobj _INNER_ = ejson_first (r    ), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
-#define ejson_foreachr_s(r, rk, itr) for(eobj _INNER_ = ejson_firstr(r, rk), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
-#define ejson_foreachk_s(r, ks, itr) for(eobj _INNER_ = ejson_firstk(r, ks), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
+#define ejson_rforeach_s(r, rk, itr) for(eobj _INNER_ = ejson_rfirst(r, rk), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
+#define ejson_kforeach_s(r, ks, itr) for(eobj _INNER_ = ejson_kfirst(r, ks), itr; (itr = _INNER_, _INNER_ = ejson_next(_INNER_), itr); )
 
 
 /// -----------------------------------------------------

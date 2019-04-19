@@ -181,10 +181,26 @@ static __ cptr   eobj_valR (eobj obj) { typedef struct __type{ uint _0:16; uint 
 
 #undef __
 
-int  eobj_free  (eobj o);
-int  eobj_freeEX(eobj o, eobj_rls_cb rls);
+int    eobj_free  (eobj o);
+int    eobj_freeEX(eobj o, eobj_rls_cb rls);
 
-constr eobj_typeoS(eobj o);
+
+/** ---------------------------------------------
+ * @brief eobj comparing
+ *
+ * @return
+ *       1: obj >  val
+ *       0: obj == val
+ *      -1: obj <  val
+ *      -2: obj is NULL
+ *      -3: type not match
+ *      -4: val of cstr is null
+ */
+int    eobj_cmpI(eobj o, i64    val);
+int    eobj_cmpF(eobj o, f64    val);
+int    eobj_cmpS(eobj o, constr str);
+
+constr eobj_typeS(eobj o);
 
 #ifdef __cplusplus
 }
