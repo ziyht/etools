@@ -14,207 +14,245 @@
 ///
 /// =====================================================================================
 
-
 #ifndef __E_TEST_H__
 #define __E_TEST_H__
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
-#include "etype.h"
-
-#define ETEST_VERSION "etest 1.0.2"      // Implemented etest_equal_raw()
+#define ETEST_VERSION "etest 1.1.0"      // adjust implementations
 
 #ifndef ETEST_OK
 #define ETEST_ERR 1
 #define ETEST_OK  0
 #endif
 
-#define ETEST_RUN(func) __ETEST_EXEC(func, __FILE__, __LINE__)
+#define ETEST_RUN( func)        __ETEST_EXEC(func, __FILE__, __LINE__)
 
-#define eexpect_num(a, b)       __etest_equal_num(a, b, __FILE__, __LINE__, __FUNCTION__)
-#define eexpect_ptr(a, b)       __etest_equal_ptr(a, b, __FILE__, __LINE__)
-#define eexpect_str(a, b)       __etest_equal_str(a, b, __FILE__, __LINE__)
-#define eexpect_raw(a, b, l)    __etest_equal_raw(a, b, __FILE__, __LINE__, l)
+#define eexpect_1(  cond)       __etest_expect(cond, __FILE__, __LINE__, true)
+#define eexpect_0(  cond)       __etest_expect(cond, __FILE__, __LINE__, false)
 
-#define eunexpc_num(a, b)       __etest_unequ_num(a, b, __FILE__, __LINE__)
-#define eunexpc_ptr(a, b)       __etest_unequ_ptr(a, b, __FILE__, __LINE__)
-#define eunexpc_str(a, b)       __etest_unequ_str(a, b, __FILE__, __LINE__)
-#define eunexpc_raw(a, b, l)    __etest_unequ_raw(a, b, __FILE__, __LINE__, l)
+#define eexpect_num(a, b)       __etest_expect_num(a, b, __FILE__, __LINE__, 1, __FUNCTION__)
+#define eexpect_ptr(a, b)       __etest_expect_ptr(a, b, __FILE__, __LINE__, 1)
+#define eexpect_str(a, b)       __etest_expect_str(a, b, __FILE__, __LINE__, 1)
+#define eexpect_raw(a, b, l)    __etest_expect_raw(a, b, __FILE__, __LINE__, l, 1)
+
+#define eunexpc_num(a, b)       __etest_expect_num(a, b, __FILE__, __LINE__, 0, __FUNCTION__)
+#define eunexpc_ptr(a, b)       __etest_expect_ptr(a, b, __FILE__, __LINE__, 0)
+#define eunexpc_str(a, b)       __etest_expect_str(a, b, __FILE__, __LINE__, 0)
+#define eunexpc_raw(a, b, l)    __etest_expect_raw(a, b, __FILE__, __LINE__, l, 0)
 
 //! -----------------------------------------------------------
 //! etest definition
 //!
 
-#define __VAL_FMT_
-
-#define __etest_equal_num(a, b, f, l, F)                            \
+#define __etest_expect(cond, f, l, t)                               \
 do{                                                                 \
-    int sizea = sizeof(a);                                          \
-    int sizeb = sizeof(b);                                          \
-    int size  = sizea < sizeb ? sizeb : sizea;                      \
-                                                                    \
-    f64 fa = (a), fb = (b), xz = fa - fb;                           \
-    if(xz < 0) xz = -xz;                                            \
-                                                                    \
-    switch (size) {                                                 \
-    case  1:                                                        \
-    case  2:                                                        \
-    case  4:                                                        \
-    case  8: if(xz > 0.00000001)                                    \
-             {                                                      \
-                 printf("etest check num equal faild:\n"            \
-                        "    %s: %f\n"                              \
-                        "    %s: %f\n"                              \
-                        "  %s(%d) %s\n", #a, fa, #b, fb, f, l, F);  \
-                 fflush(stdout);                                    \
-                 return ETEST_ERR;                                  \
-             }                                                      \
-             break;                                                 \
-    default: printf("etest check num equal faild: %s(%d)\n"         \
-                     "    maybe not a num of %s or %s??\n"          \
-                     "    %d %d", f, l, #a, #b, sizea, sizeb);      \
-             fflush(stdout);                                        \
-             return ETEST_ERR;                                      \
-             break;                                                 \
-    }                                                               \
-}while(0)
-
-#define __etest_unequ_num(a, b, f, l)                               \
-do{                                                                 \
-    int sizea = sizeof(a);                                          \
-    int sizeb = sizeof(b);                                          \
-    int size  = sizea < sizeb ? sizeb : sizea;                      \
-                                                                    \
-    f64 fa = a, fb =b , xz = fa - fb;                               \
-    if(xz < 0) xz = -xz;                                            \
-                                                                    \
-    switch (size) {                                                 \
-    case  1:                                                        \
-    case  2:                                                        \
-    case  4:                                                        \
-    case  8: if(xz < 0.00000001)                                    \
-             {                                                      \
-                 printf("etest check num equal faild: %s(%d)\n"     \
-                        "    %s: %f\n"                              \
-                        "    %s: %f\n", f, l, #a, fa, #b, fb);      \
-                 fflush(stdout);                                    \
-                 return ETEST_ERR;                                  \
-             }                                                      \
-             break;                                                 \
-    default: printf("etest check num equal faild: %s(%d)\n"         \
-                     "    maybe not a num of %s or %s??\n"          \
-                     "    %d %d", f, l, #a, #b, sizea, sizeb);      \
-             fflush(stdout);                                        \
-             return ETEST_ERR;                                      \
-             break;                                                 \
-    }                                                               \
-}while(0)
-
-#define __etest_equal_ptr(a, b, f, l)                               \
-do{                                                                 \
-    const void* p1, * p2;                                           \
-    p1 = a; p2 = b;                                                 \
-                                                                    \
-    if(p1 != p2)                                                    \
+    if(ETEST_ERR == __etest_expect_bool(cond, #cond, f, l, t))      \
     {                                                               \
-        printf("etest check ptr equal faild: %s(%d)\n"              \
-            "    %s: %p\n"                                          \
-            "    %s: %p\n",                                         \
-            f, l, #a, p1, #b, p2);                                  \
-        fflush(stdout);                                             \
         return ETEST_ERR;                                           \
     }                                                               \
 }while(0)
 
-#define __etest_unequ_ptr(a, b, f, l)                               \
+#define __etest_expect_num(a, b, f, l, eq, F)                       \
 do{                                                                 \
-    const void* p1, * p2;                                           \
-    p1 = a; p2 = b;                                                 \
-                                                                    \
-    if(p1 == p2)                                                    \
-    {                                                               \
-        printf("etest check ptr unequ faild: %s(%d)\n"              \
-            "    %s: %p\n"                                          \
-            "    %s: %p\n",                                         \
-            f, l, #a, p1, #b, p2);                                  \
-        fflush(stdout);                                             \
+    if(ETEST_ERR == __etest_cmp_num                                 \
+        (a, b, sizeof(a), sizeof(b), #a, #b, f, l, eq))             \
         return ETEST_ERR;                                           \
-    }                                                               \
 }while(0)
 
-#define __etest_equal_str(a, b, f, l)                               \
+#define __etest_expect_ptr(a, b, f, l, eq)                          \
 do{                                                                 \
-    const char* s1, * s2;                                           \
-    s1 = a; s2 = b;                                                 \
-                                                                    \
-    if(0 != strcmp(s1, s2))                                         \
-    {                                                               \
-        printf("etest check str equal faild: %s(%d)\n"              \
-            "    %s: %s\n"                                          \
-            "    %s: %s\n",                                         \
-            f, l, #a, s1, #b, s2);                                  \
-        fflush(stdout);                                             \
+    if(ETEST_ERR == __etest_cmp_ptr(a, b, #a, #b, f, l, eq))        \
         return ETEST_ERR;                                           \
-    }                                                               \
 }while(0)
 
-#define __etest_unequ_str(a, b, f, l)                               \
+#define __etest_expect_str(a, b, f, l, eq)                          \
 do{                                                                 \
-    const char* s1, * s2;                                           \
-    s1 = a; s2 = b;                                                 \
-                                                                    \
-    if(0 == strcmp(s1, s2))                                         \
-    {                                                               \
-        printf("etest check str unequ faild: %s(%d)\n"              \
-            "    %s: %s\n"                                          \
-            "    %s: %s\n",                                         \
-            f, l, #a, s1, #b, s2);                                  \
-        fflush(stdout);                                             \
+    if(ETEST_ERR == __etest_cmp_str(a, b, #a, #b, f, l, eq))        \
         return ETEST_ERR;                                           \
-    }                                                               \
 }while(0)
 
-#define __etest_equal_raw(a, b, f, l, L)                            \
+#define __etest_expect_raw(a, b, f, l, len, eq)                     \
 do{                                                                 \
-    const char* s1, * s2; int len;                                  \
-    s1 = a; s2 = b; len = L;                                        \
-                                                                    \
-    if(0 != memcmp(s1, s2, len))                                    \
-    {                                                               \
-        printf("etest check raw equal faild: %s(%d)\n"              \
-            "    %s: %s\n"                                          \
-            "    %s: %s\n",                                         \
-            f, l, #a, s1, #b, s2);                                  \
-        fflush(stdout);                                             \
+    if(ETEST_ERR == __etest_cmp_raw(a, b, #a, #b, len, f, l, eq))   \
         return ETEST_ERR;                                           \
-    }                                                               \
 }while(0)
 
-#define __etest_unequ_raw(a, b, f, l, L)                            \
+#define __ETEST_CALL(func, f, l)                                    \
 do{                                                                 \
-    const char* s1, * s2; uint len;                                 \
-    s1 = a; s2 = b; len = L;                                        \
-                                                                    \
-    if(0 == memcmp(s1, s2, len))                                    \
-    {                                                               \
-        printf("etest check str unequ faild: %s(%d)\n"              \
-            "    %s: %s\n"                                          \
-            "    %s: %s\n",                                         \
-            f, l, #a, s1, #b, s2);                                  \
-        fflush(stdout);                                             \
-        return ETEST_ERR;                                           \
-    }                                                               \
-}while(0)
-
-#define __ETEST_EXEC(func, f, l)                                    \
     if((func) != ETEST_OK)                                          \
     {                                                               \
-        printf("  %s(%d): %s\n", f, l, #func);                      \
+        printf(__ETEST_ERR_BT_FMT, f, l, #func);                    \
+        fflush(stdout);                                             \
         return ETEST_ERR;                                           \
-    }else                                                           \
-    {                                                               \
-        printf("%s PASSED\n", #func);                               \
     }                                                               \
+}while(0)
+
+static int __etest_exec_arg;
+
+#define __ETEST_EXEC(func, f, l)                                    \
+do{                                                                 \
+    __etest_exec_arg++;                                             \
+    __ETEST_CALL(func, f, l);                                       \
+    __etest_exec_arg--;                                             \
+                                                                    \
+    if(__etest_exec_arg == 0)                                       \
+    {                                                               \
+        printf("  PASSED %s\n", #func);                             \
+        fflush(stdout);                                             \
+    }                                                               \
+}while(0)
+
+
+
+#define __ETEST_ERR_HINT_LINE     "===========FAILED============\n"
+#define __ETEST_ERR_BT_FMT        "  %s(%d): %s\n"
+
+static int __etest_expect_bool(bool cond, char* tag, char* file, int line, bool _true)
+{
+    int passed;
+
+    passed = cond == _true;
+
+    if(passed)
+        return ETEST_OK;
+
+    printf(__ETEST_ERR_HINT_LINE
+        "etest expect %s:\n"
+        "    %s: %s\n"
+        __ETEST_ERR_BT_FMT,
+            _true ? "true" : "false",
+            tag, cond ? "true" : "false", file, line, "");
+    fflush(stdout);
+
+    return ETEST_ERR;
+}
+
+static int __etest_cmp_num(double fa, double fb, int sizea, int sizeb, char* taga, char* tagb, char* file, int line, int equal)
+{
+    int size, passed;
+
+    size = sizea > sizeb ? sizea : sizeb;
+
+    if(size != 1 && size != 2 && size != 4 && size != 8)
+    {
+        printf(__ETEST_ERR_HINT_LINE
+            "etest expect num equal:\n"
+            "    maybe not a num of %s or %s, size:\n"
+            "    %d %d\n"
+            __ETEST_ERR_BT_FMT,
+            taga, tagb, sizea, sizeb, file, line, "");
+        fflush(stdout);
+    }
+
+    passed = fa == fb ? equal ? 1 : 0
+                      : equal ? 0 : 1 ;
+
+    if(passed)
+        return ETEST_OK;
+
+    if(fa - (long long)fa != 0 || fb - (long long)fb != 0)
+    {
+        printf(__ETEST_ERR_HINT_LINE
+            "etest expect num %s:\n"
+            "    %s: %f\n"
+            "    %s: %f\n"
+            __ETEST_ERR_BT_FMT,
+                equal ? "equal" : "unequal",
+                taga, fa, tagb, fb, file, line, "");
+    }
+    else
+    {
+        printf(__ETEST_ERR_HINT_LINE
+            "etest expect num %s:\n"
+            "    %s: %lld\n"
+            "    %s: %lld\n"
+            __ETEST_ERR_BT_FMT,
+               equal ? "equal" : "unequal",
+               taga, (long long)fa, tagb, (long long)fb, file, line, "");
+    }
+
+    fflush(stdout);
+
+    return ETEST_ERR;
+}
+
+static int __etest_cmp_ptr(const void* pa, const void* pb, char* taga, char* tagb, char* file, int line, int equal)
+{
+    int passed;
+
+    passed = pa == pb ? equal ? 1 : 0
+                      : equal ? 0 : 1 ;
+
+    if(passed)
+        return ETEST_OK;
+
+    printf(__ETEST_ERR_HINT_LINE
+        "etest expect ptr %s:\n"
+        "    %s: %p\n"
+        "    %s: %p\n"
+        __ETEST_ERR_BT_FMT,
+            equal ? "equal" : "unequal",
+            taga, pa, tagb, pb, file, line, "");
+    fflush(stdout);
+
+    return ETEST_ERR;
+}
+
+static int __etest_cmp_str(const char* sa, const char* sb, char* taga, char* tagb, char* file, int line, int equal)
+{
+    int passed;
+
+    if(!sa || !sb)
+    {
+        passed = sa == sb;
+    }
+    else
+        passed = (0 == strcmp(sa, sb)) ? equal ? 1 : 0
+                                       : equal ? 0 : 1 ;
+
+    if(passed)
+        return ETEST_OK;
+
+    printf(__ETEST_ERR_HINT_LINE
+        "etest expect ptr %s:\n"
+        "    %s: %s\n"
+        "    %s: %s\n"
+        __ETEST_ERR_BT_FMT,
+            equal ? "equal" : "unequal",
+            taga, sa, tagb, sb, file, line, "");
+    fflush(stdout);
+
+    return ETEST_ERR;
+}
+
+static int __etest_cmp_raw(const void* ra, const void* rb, char* taga, char* tagb, int len, char* file, int line, int equal)
+{
+    int passed;
+
+    if(!ra || !rb)
+    {
+        passed = ra == rb;
+    }
+    else
+        passed = (0 == memcmp(ra, rb, len)) ? equal ? 1 : 0
+                                            : equal ? 0 : 1 ;
+
+    if(passed)
+        return ETEST_OK;
+
+    printf(__ETEST_ERR_HINT_LINE
+        "etest expect ptr %s:\n"
+        "    %s: %s\n"
+        "    %s: %s\n"
+        __ETEST_ERR_BT_FMT,
+            equal ? "equal" : "unequal",
+            taga, (char*)ra, tagb, (char*)rb, file, line, "");
+    fflush(stdout);
+
+    return ETEST_ERR;
+}
 
 #endif

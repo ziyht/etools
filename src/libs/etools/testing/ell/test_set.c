@@ -60,7 +60,7 @@ int test_convert_i()
 
 int test_set(int argc, char* argv[])
 {
-    ETEST_RUN(test_convert_i())
+    ETEST_RUN( test_convert_i() );
 
     return ETEST_OK;
 }
