@@ -34,5 +34,6 @@ ETestAddTestSet(evar
 
     CASES    gen_test.c     # stack
              new_test.c     # heap
+             set_test.c
 )
 
