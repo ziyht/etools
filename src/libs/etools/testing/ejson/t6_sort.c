@@ -4,49 +4,53 @@
 
 #include <etest.h>
 
+#include "eutils.h"
+
 #include "ejson.h"
 
-void ejson_sort_obj_test(){
+static int ejson_sort_obj_test(){
 
-    ejson e = ejson_new(EOBJ, 0); cstr s = 0;
+    ejson e = ejson_new(EOBJ, 0);
 
-    //ejson_addJ(e, 0, "\"1\":1");
-    ejson_addI(e, "1", 1);
-    ejson_addI(e, "10", 10);
-    ejson_addI(e, "0", 0);
-    ejson_addI(e, "01", 1);
-    ejson_addI(e, "101", 101);
-    ejson_addI(e, "100", 100);
-    ejson_addI(e, "001", 1);
-    ejson_addI(e, "111", 111);
-    ejson_addI(e, "010", 10);
+    ejson_addI(e, "9", 1);
+    ejson_addI(e, "8", 1);
+    ejson_addI(e, "7", 10);
+    ejson_addI(e, "6", 0);
+    ejson_addI(e, "5", 1);
+    ejson_addI(e, "4", 101);
+    ejson_addI(e, "3", 100);
+    ejson_addI(e, "2", 1);
+    ejson_addI(e, "1", 111);
+    ejson_addI(e, "0", 10);
 
     printf("before sort:\n"); fflush(stdout);
-    ejson_toS(e, &s, PRETTY); printf("%s\n", s); fflush(stdout);
+    ejson_show(e);
 
-//    printf("sort by keys in Ascending:\n"); fflush(stdout);
-//    ejso_sort(e, __KEYS_ACS);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by keys in Ascending:\n"); fflush(stdout);
+    ejson_sort(e, __KEYS_ACS);
+    ejson_show(e);
 
-//    printf("sort by keys in Descending:\n"); fflush(stdout);
-//    ejso_sort(e, __KEYS_DES);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by keys in Descending:\n"); fflush(stdout);
+    ejson_sort(e, __KEYS_DES);
+    ejson_show(e);
 
-//    printf("sort by vali in Ascending:\n"); fflush(stdout);
-//    ejso_sort(e, __VALI_ACS);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by vali in Ascending:\n"); fflush(stdout);
+    ejson_sort(e, __VALI_ACS);
+    ejson_show(e);
 
-//    printf("sort by vali in Descending:\n"); fflush(stdout);
-//    ejso_sort(e, __VALI_DES);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by vali in Descending:\n"); fflush(stdout);
+    ejson_sort(e, __VALI_DES);
+    ejson_show(e);
 
     ejson_free(e);
-    estr_free(s);
+
+    return ETEST_OK;
 }
 
-void ejson_sort_arr_test(){
+static int  ejson_sort_arr_test()
+{
 
-    ejson e = ejson_new(EARR, 0); cstr s = 0;
+    ejson e = ejson_new(EARR, 0);
 
     ejson_addJ(e, 0, "\"1\":1");
     ejson_addJ(e, 0, "\"10\":10");
@@ -59,46 +63,57 @@ void ejson_sort_arr_test(){
     ejson_addJ(e, 0, "\"010\":10");
 
     printf("before sort:\n"); fflush(stdout);
-    ejson_toS(e, &s, PRETTY); printf("%s\n", s); fflush(stdout);
+    ejson_show(e);
 
-//    printf("sort by keys in Ascending:\n"); fflush(stdout);
-//    ejso_sort(e, __KEYS_ACS);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by keys in Ascending:\n"); fflush(stdout);
+    ejson_sort(e, __KEYS_ACS);
+    ejson_show(e);
 
-//    printf("sort by keys in Descending:\n"); fflush(stdout);
-//    ejso_sort(e, __KEYS_DES);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by keys in Descending:\n"); fflush(stdout);
+    ejson_sort(e, __KEYS_DES);
+    ejson_show(e);
 
-//    printf("sort by vali in Ascending:\n"); fflush(stdout);
-//    ejso_sort(e, __VALI_ACS);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by vali in Ascending:\n"); fflush(stdout);
+    ejson_sort(e, __VALI_ACS);
+    ejson_show(e);
 
-//    printf("sort by vali in Descending:\n"); fflush(stdout);
-//    ejso_sort(e, __VALI_DES);
-//    ejson_toS_p(e, &s); printf("%s\n", s); fflush(stdout);
+    printf("sort by vali in Descending:\n"); fflush(stdout);
+    ejson_sort(e, __VALI_DES);
+    ejson_show(e);
 
     ejson_free(e);
-    estr_free(s);
-}
-
-static int t6_sort_case1()
-{
-    eexpect_num(1, 1);      // passed
 
     return ETEST_OK;
 }
 
-static int t6_sort_case2()
+static int perftest(int cnt)
 {
-    eexpect_num(1, 0);      // will failed
+    int i; ejson e; char key[16];
+
+    e = ejson_new(EOBJ, 0);
+
+    for(i = 0; i < cnt; i++)
+    {
+        ll2str(i, key);
+
+        ejson_addI(e, key, i);
+    }
+
+    ejson_sort(e, __KEYS_DES);
+
+    ejson_free(e);
 
     return ETEST_OK;
 }
 
 int t6_sort(int argc, char* argv[])
 {
-    ETEST_RUN( t6_sort_case1() );
-    ETEST_RUN( t6_sort_case2() );
+    E_UNUSED(argc); E_UNUSED(argv);
+
+    ETEST_RUN( ejson_sort_obj_test() );
+    ETEST_RUN( ejson_sort_arr_test() );
+
+    ETEST_RUN( perftest(10000) );
 
     return ETEST_OK;
 }

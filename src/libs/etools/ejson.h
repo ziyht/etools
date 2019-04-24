@@ -263,6 +263,7 @@ int  ejson_kcmpF(eobj r, constr keys, f64    val);
 int  ejson_kcmpS(eobj r, constr keys, constr str);
 
 /** -----------------------------------------------------
+ * @brief
  *
  *  ejson iterationg
  *
@@ -270,7 +271,6 @@ int  ejson_kcmpS(eobj r, constr keys, constr str);
  *      for perfomance, we do not check type of o in
  *  ejson_next() and ejson_prev()
  *
- *  -----------------------------------------------------
  */
 eobj  ejson_first(eobj r);
 eobj  ejson_last (eobj r);
@@ -319,24 +319,6 @@ eobj ejson_setPk(eobj r, constr rawk, constr ptr);
 eobj ejson_setRk(eobj r, constr rawk, uint   len);
 
 
-ejson ejso_setT(ejson obj, uint  type);     // only support FALSE/TRUE/NULL obj
-ejson ejso_setF(ejson obj, double val);     // only support NUM obj
-ejson ejso_setS(ejson obj, constr val);     // only support STR obj
-void* ejso_setR(ejson obj, uint   len);     // only support RAW obj
-ejson ejso_setP(ejson obj, void*  ptr);     // only support PTR obj
-
-ejson ejsk_setT(ejson root, constr keys, uint  type);     // only support FALSE/TRUE/NULL obj
-ejson ejsk_setF(ejson root, constr keys, double val);     // only support NUM obj
-ejson ejsk_setS(ejson root, constr keys, constr val);     // only support STR obj
-void* ejsk_setR(ejson root, constr keys, uint   len);     // only support RAW obj
-ejson ejsk_setP(ejson root, constr keys, void*  ptr);     // only support PTR obj
-
-ejson ejsr_setT(ejson root, constr rawk, uint  type);     // only support FALSE/TRUE/NULL obj
-ejson ejsr_setF(ejson root, constr rawk, double val);     // only support NUM obj
-ejson ejsr_setS(ejson root, constr rawk, constr val);     // only support STR obj
-void* ejsr_setR(ejson root, constr rawk, uint   len);     // only support RAW obj
-ejson ejsr_setP(ejson root, constr rawk, void*  ptr);     // only support PTR obj
-
 /// -- ejson substitute string --
 ///
 /// @return - ejson: [NULL] set failed
@@ -362,16 +344,25 @@ ejson  ejsk_cntmm(ejson root, constr keys);     // only support NUM obj
 ejson  ejsr_cntpp(ejson root, constr rawk);     // only support NUM obj
 ejson  ejsr_cntmm(ejson root, constr rawk);     // only support NUM obj
 
-/// -- ejson sort --
-typedef int (*__ecompar_fn) (ejson* _e1, ejson* _e2);
-int    __KEYS_ACS(ejson* _e1, ejson* _e2);      // Ascending  via key string in all obj, dictionary sequence
-int    __KEYS_DES(ejson* _e1, ejson* _e2);      // Descending via key string in all obj, dictionary sequence
-int    __VALI_ACS(ejson* _e1, ejson* _e2);      // Ascending  via int value in NUM obj
-int    __VALI_DES(ejson* _e1, ejson* _e2);      // Descending via int value in NUM obj
+/** -----------------------------------------------
+ *  @brief
+ *      ejson sort operation
+ *
+ *  @note:
+ *      it only effect on EOBJ and EARR obj of ejson
+ *
+ *
+ */
 
-ejson  ejso_sort(ejson root, __ecompar_fn fn);
-ejson  ejsk_sort(ejson root, constr keys, __ecompar_fn fn);
-ejson  ejsr_sort(ejson root, constr rawk, __ecompar_fn fn);
+//! supplied default sort cb
+int    __KEYS_ACS(eobj a, eobj b);      // Ascending  via key string in all obj, dictionary sequence
+int    __KEYS_DES(eobj a, eobj b);      // Descending via key string in all obj, dictionary sequence
+int    __VALI_ACS(eobj a, eobj b);      // Ascending  via int value in NUM obj
+int    __VALI_DES(eobj a, eobj b);      // Descending via int value in NUM obj
+
+eobj  ejson_sort (eobj r,              eobj_cmp_cb cmp);
+eobj  ejson_rsort(eobj r, constr rawk, eobj_cmp_cb cmp);
+eobj  ejson_ksort(eobj r, constr keys, eobj_cmp_cb cmp);
 
 /// -- ejson version
 constr ejson_version();

@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.9"     // adjust some APIs
+#define EJSON_VERSION "ejson 0.9.10"     // acomplition of sort API
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2157,6 +2157,218 @@ static __always_inline void __ejson_free_arr(_ejsr r)
         _r_len (r) = 0;
         _r_head(r) = _r_tail(r) = 0;
     }
+}
+
+/** -----------------------------------------------------
+ *
+ *  ejson sort
+ *
+ *  -----------------------------------------------------
+ */
+
+static _ejsn __merg_sort(_ejsn a, _ejsn b, uint len, eobj_cmp_cb cmp)
+{
+    if(len == 2)
+    {
+        _n_lprev(a) = 0;
+        _n_lnext(b) = 0;
+
+        if(cmp(_n_o(a), _n_o(b)))
+        {
+            _n_lnext(a) = _n_lnext(b);
+            _n_lprev(b) = _n_lprev(a);
+            _n_lnext(b) = a;
+            _n_lprev(a) = b;
+
+            return b;
+        }
+        else
+        {
+            return a;
+        }
+    }
+    else if(len > 2)
+    {
+        _ejsn mid, midn; uint idx, midi;
+
+        _n_lprev(a) = 0;
+        _n_lnext(b) = 0;
+
+        midi = (len - 1) / 2;   // split to [0, midi] (midi, len - 1]
+        mid  = _n_lnext(a);
+        idx  = 1;
+
+        while(idx != midi)
+        {
+            mid = _n_lnext(mid);
+            idx++;
+        }
+        idx++;  // to count
+
+        //! do sort
+        midn = _n_lnext(mid);
+        a = __merg_sort(a   , mid,       idx, cmp);
+        b = __merg_sort(midn,   b, len - idx, cmp);
+
+        //! do merge
+        {
+            _ejsn_t h; mid = &h;
+
+            _n_lnext(mid) = a;
+
+            do
+            {
+                while(_n_lnext(mid))
+                {
+                    if(cmp(_n_o(_n_lnext(mid)), _n_o(b)))
+                    {
+                        _ejsn next = _n_lnext(b);
+
+                        _n_lnext(b)   = _n_lnext(mid);
+                        _n_lprev(b)   = _n_lprev(_n_lnext(mid));
+
+                        _n_lprev(_n_lnext(mid)) = b;
+                        _n_lnext(mid)           = b;
+
+                        b = next;
+
+                        if(!b)
+                            goto over;
+                    }
+
+                    mid = _n_lnext(mid);
+                }
+
+                if(cmp(_n_o(b), _n_o(mid)))
+                {
+                    _n_lnext(mid) = b;
+                    _n_lprev(b)   = mid;
+
+                    break;
+                }
+                else
+                {
+                    _ejsn next = _n_lnext(b);
+
+                    _n_lprev(b)   = _n_lprev(mid);
+                    _n_lnext(b)   = mid;
+
+                    _n_lnext(_n_lprev(b)) = b;
+                    _n_lprev(mid)         = b;
+
+                    b = next;
+
+                    if(!b)
+                        goto over;
+                }
+            }while(1);
+over:
+            return _n_lnext(&h);
+        }
+    }
+
+    _n_lprev(a) = 0;
+    _n_lnext(a) = 0;
+
+    return a;
+}
+
+static void __ejson_sort(_ejsr r, eobj_cmp_cb cmp)
+{
+    int len = _r_len(r);
+
+    is1_ret(len <= 1, );
+
+    _r_head(r) = __merg_sort(_r_head(r), _r_tail(r), _r_len(r), cmp);
+    while(_n_lnext(_r_tail(r))) _r_tail(r) = _n_lnext(_r_tail(r));
+}
+
+eobj  ejson_sort (eobj r,              eobj_cmp_cb cmp) { if(r) __ejson_sort(_eo_rn(r), cmp); return r; }
+eobj  ejson_rsort(eobj r, constr rawk, eobj_cmp_cb cmp) { return ejson_sort(_getObjByRawk(_eo_rn(r), rawk), cmp); }
+eobj  ejson_ksort(eobj r, constr keys, eobj_cmp_cb cmp) { return ejson_sort(_getObjByKeys(_eo_rn(r), keys), cmp); }
+
+int __KEYS_ACS(eobj a, eobj b)
+{
+    cstr k_a, k_b; char c1, c2;
+
+    k_a = _eo_keyS(a);
+    k_b = _eo_keyS(b);
+
+    if(k_a)
+    {
+        if(k_b)
+        {
+            c1 = *k_a; c2 = *k_b;
+            while( c1 && c2 )
+            {
+                if(c1 > c2) return 1;
+                if(c1 < c2) return 0;
+
+                c1 = *(++k_a); c2 = *(++k_b);
+            }
+
+            return c1 > c2;
+        }
+        else
+            return 0;
+    }
+
+    return k_b ? 1 : 0;
+}
+
+int __KEYS_DES(eobj a, eobj b)
+{
+    cstr k_a, k_b; char c1, c2;
+
+    k_a = _eo_keyS(a);
+    k_b = _eo_keyS(b);
+
+    if(k_a)
+    {
+        if(k_b)
+        {
+            c1 = *k_a; c2 = *k_b;
+            while( c1 && c2 )
+            {
+                if(c2 > c1) return 1;
+                if(c2 < c1) return 0;
+
+                c1 = *(++k_a); c2 = *(++k_b);
+            }
+
+            return c2 > c1;
+        }
+        else
+            return 0;
+    }
+
+    return k_b ? 1 : 0;
+}
+
+int __VALI_ACS(eobj a, eobj b)
+{
+    if(_eo_typeo(a) == ENUM)
+    {
+        if(_eo_typeo(b) == ENUM)
+            return _eo_valI(a) - _eo_valI(b) > 0;   // swap when return val > 0
+        else
+            return 0;
+    }
+
+    return _eo_typeo(b) == ENUM ? 1 : 0;
+}
+
+int __VALI_DES(eobj a, eobj b)
+{
+    if(_eo_typeo(a) == ENUM)
+    {
+        if(_eo_typeo(b) == ENUM)
+            return _eo_valI(b) - _eo_valI(a) > 0;
+        else
+            return 0;
+    }
+
+    return _eo_typeo(b) == ENUM ? 1 : 0;
 }
 
 // --------------------------- dict definition -----------------------
