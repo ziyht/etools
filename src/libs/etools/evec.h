@@ -1,3 +1,19 @@
+/// =====================================================================================
+///
+///       Filename:  evec.h
+///
+///    Description:  easy vector for c
+///
+///        Version:  0.1
+///        Created:  04/01/2019 08:51:34 AM
+///       Revision:  none
+///       Compiler:  gcc
+///
+///         Author:  Haitao Yang, joyhaitao@foxmail.com
+///        Company:
+///
+/// =====================================================================================
+
 #ifndef __EVEC_H__
 #define __EVEC_H__
 
@@ -74,26 +90,26 @@ bool evec_addR(evec v, uint i, uint   len);
 ///
 ///
 ///
-cptr evec_at  (evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
+cptr evec_at   (evec v, uint idx);      // Retruns the ptr of specific element, returns 0 if not exist, see evec_val()
+cptr evec_first(evec v);                // Retruns the ptr of first    element, returns 0 if not exist
+cptr evec_last (evec v);                // Retruns the ptr of last     element, returns 0 if not exist
 
-cptr evec_val (evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
-i64  evec_valI(evec v, uint idx);       // Retruns the val of element, returns 0 if not exist
-f64  evec_valF(evec v, uint idx);       // Retruns the val of element, returns 0 if not exist
-cstr evec_valS(evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
-cptr evec_valP(evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
-cptr evec_valR(evec v, uint idx);       // Retruns the ptr of element, returns 0 if not exist
+cptr evec_val (evec v, uint idx);       // Retruns the ptr of specific element, returns 0 if not exist, see evec_at()
+i64  evec_valI(evec v, uint idx);       // Retruns the val of specific element, returns 0 if not exist
+f64  evec_valF(evec v, uint idx);       // Retruns the val of specific element, returns 0 if not exist
+cstr evec_valS(evec v, uint idx);       // Retruns the ptr of specific element, returns 0 if not exist
+cptr evec_valP(evec v, uint idx);       // Retruns the ptr of specific element, returns 0 if not exist
+cptr evec_valR(evec v, uint idx);       // Retruns the ptr of specific element, returns 0 if not exist
 
 
-cptr evec_first();
-cptr evec_last();
 
 /// -----------------------------------------------------
 /// evec take
 ///
 ///
 
-evar evec_takeH(evec v);                // Takes the first element
-evar evec_takeT(evec v);                // Takes the last  element
+evar evec_takeH(evec v);                // Takes the first    element
+evar evec_takeT(evec v);                // Takes the last     element
 evar evec_takeI(evec v, uint idx);      // Takes the specific element
 
 
