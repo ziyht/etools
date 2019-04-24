@@ -36,7 +36,6 @@ typedef enum etypev_s{
     //! val
     E_NAV =  0,         // not a var
 
-#undef  _XX
 #define _XX(type, v)                            \
     E_ ## type       = v,                       \
     E_ ## type ## _a = v |  __ETYPEV_ARR_MASK,  \
@@ -64,6 +63,7 @@ typedef enum etypev_s{
     _XX(USER, 14),      // E_USER
 
 }etypev;
+#undef  _XX
 
 #define __EVAR_ITEM_LEN_MAP {0,  1, 2, 4, 8,  1, 2, 4, 8,  4, 8,  8, 8, 8}
 
@@ -134,17 +134,17 @@ bool evar_setS(evarp vp, uint idx, constr str);
 bool evar_setP(evarp vp, uint idx, conptr ptr);
 bool evar_setR(evarp vp, uint idx, conptr  in, int ilen);
 
-evar evar_at  (evarp v, uint idx);
+evar evar_at  (evarp vp, uint idx);
 
-evar evar_val (evarp v, uint idx);
-i64  evar_valI(evarp v, uint idx);
-f64  evar_valF(evarp v, uint idx);
-cstr evar_valS(evarp v, uint idx);
-cptr evar_valP(evarp v, uint idx);
-cptr evar_valR(evarp v, uint idx);
+evar evar_val (evarp vp, uint idx);         // do not free the returned var
+i64  evar_valI(evarp vp, uint idx);
+f64  evar_valF(evarp vp, uint idx);
+cstr evar_valS(evarp vp, uint idx);
+cptr evar_valP(evarp vp, uint idx);
+cptr evar_valR(evarp vp, uint idx);
 
-uint evar_lenS(evarp v, uint idx);
-uint evar_lenR(evarp v, uint idx);
+uint evar_lenS(evarp vp, uint idx);
+uint evar_lenR(evarp vp, uint idx);
 
 
 #ifdef __cplusplus

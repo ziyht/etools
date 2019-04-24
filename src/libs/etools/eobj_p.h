@@ -204,7 +204,7 @@ typedef enum _eo_type_map{
     _XX(EQL),
 
 }_eotype;
-
+#undef _XX
 
 //! ================================================
 //! macro definition
