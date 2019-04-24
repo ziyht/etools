@@ -39,6 +39,8 @@
 #include "estr.h"
 #include "estr_p.h"
 
+#define ESTR_VERSION "estr 1.2.10"       // do not free the src estr when alloc failed in __estr_replace_str, returned -2
+
 /// -- helper ------------------------------
 
 
@@ -1041,7 +1043,7 @@ i64 estr_subc (estr s, constr cset, constr to)
     return cnt;
 }
 
-/// \brief __cstr_replace - replace str @param from in s to str @param to
+/// \brief __cstr_replace_str - replace str @param from in s to str @param to
 ///
 /// \param s       : a _s type str, we assume it is valid
 /// \param end     : a cstr pointer, point to a pointer who point to the end '\0' of @param s now
@@ -1062,7 +1064,7 @@ i64 estr_subc (estr s, constr cset, constr to)
 ///                             |---------- end
 ///
 ///
-static void __str_replace(cstr s, cstr* end, cstr* last, constr from, size fromlen, constr to, size tolen)
+static void __cstr_replace_str(cstr s, cstr* end, cstr* last, constr from, size fromlen, constr to, size tolen)
 {
     cstr fd;
 
@@ -1070,7 +1072,7 @@ static void __str_replace(cstr s, cstr* end, cstr* last, constr from, size froml
     {
         cstr mv_from, mv_to; size mv_len;
 
-        __str_replace(fd + 1, end, last, from, fromlen, to, tolen);
+        __cstr_replace_str(fd + 1, end, last, from, fromlen, to, tolen);
 
         mv_from = fd + fromlen;
         mv_len  = *end  - fd - fromlen;
@@ -1087,6 +1089,164 @@ static void __str_replace(cstr s, cstr* end, cstr* last, constr from, size froml
     return ;
 }
 
+/**
+ * @brief __estr_replace_str
+ * @return  >= 0, the replaced cnt
+ *          -1  , not have enough space, only when @param enable_realloc == false may return this value
+ *          -2  , alloc failed         , only when @param enable_realloc == true  may return this value
+ *
+ */
+static i64 __estr_replace_str(estr*_s, constr from, constr to, bool enable_realloc)
+{
+    int flen, tlen, offlen, offnow; cstr fd_s, cp_s, end_p; i64 cnt;
+
+    estr s = *_s;
+
+    is0_ret(s, 0); is1_ret(!from || !to, 0);
+
+    flen   = strlen(from);
+    tlen   = strlen(to);
+    offlen = tlen - flen;
+
+    if(offlen < 0)
+    {
+        offlen = -offlen;
+        offnow = 0;
+        fd_s   = s;
+        end_p  = s + _s_len(s);
+
+        if((fd_s = strstr(fd_s, from)))
+        {
+            memcpy(fd_s, to, tlen);     // replace it
+
+            cp_s = (fd_s += flen);          // record the pos of str need copy
+            offnow += offlen;               // record the off of str need copy
+
+            while((fd_s = strstr(fd_s, from)))
+            {
+                memmove(cp_s - offnow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
+
+                memcpy(fd_s - offnow, to, tlen);
+                cp_s = (fd_s += flen);
+                offnow += offlen;
+            }
+
+            cnt = offnow / offlen;
+
+            memmove(cp_s - offnow, cp_s, end_p - cp_s);
+            _s_decLen(s, offnow);
+
+            *(end_p - offnow) = '\0';
+        }
+        else cnt = 0;
+    }
+    else if(offlen == 0)
+    {
+        cnt    = 0;
+        end_p  = s + _s_len(s);
+
+        fd_s = strstr(s, from);
+
+        while(fd_s)
+        {
+            cnt++;
+
+            memcpy(fd_s, to, tlen);
+            fd_s += flen;
+            fd_s =  strstr(fd_s, from);
+        }
+    }
+    else
+    {
+        offnow = _s_len(s);
+        end_p  = s + offnow;
+        fd_s   = s;
+
+        if((fd_s = strstr(fd_s, from)))
+        {
+
+            // -- get len need to expand
+            offnow += offlen; fd_s += flen;
+
+            while((fd_s = strstr(fd_s, from)))
+            {
+                offnow += offlen; fd_s += flen;
+            }
+
+            cnt = (offnow - (end_p - s)) / offlen;
+
+            // -- have enough place, let's do it
+            if((size)offnow <= _s_cap(s))
+            {
+                //! this operation is more efficient
+                //! we set the up limit of stack call to 128
+                if(cnt <= 128)
+                {
+                    cstr last = s + offnow;
+                    __cstr_replace_str(s, &end_p, &last, from, flen, to, tlen);
+                    _s_setLen(s, offnow);
+                }
+                else
+                {
+                    cstr last, lpos; int mlen;
+
+                    last = s + offnow;
+                    lpos = end_p - flen;
+
+                    while(lpos >= s)
+                    {
+                        if(lpos[0] == from[0] && 0 == memcmp(lpos, from, flen))
+                        {
+                            mlen  = end_p - lpos - flen;
+
+                            last -= mlen;
+                            memmove(last, lpos + flen, mlen);
+
+                            last -= tlen;
+                            memcpy(last, to, tlen);
+
+                            end_p = lpos;
+                        }
+
+                        lpos--;
+                    }
+                }
+
+                s[offnow] = '\0';
+            }
+            else if(enable_realloc)
+            {
+                cstr new_s, new_p; int len;
+
+                is0_ret(new_s = _s_new(offnow), -2);  // new str
+
+                // -- to new str
+                cp_s  = fd_s = s;
+                new_p = new_s;
+                while((fd_s = strstr(fd_s, from)))
+                {
+                    memcpy(new_p, cp_s, (len = fd_s - cp_s)); new_p += len;
+                    memcpy(new_p, to, tlen);                new_p += tlen;
+
+                    cp_s = (fd_s += flen);
+                }
+
+                memcpy(new_p, cp_s, end_p - cp_s);
+
+                efree((char*)s - _s_lenH(SDS_TYPE(s)));
+                _s_setLen(new_s, offnow);
+
+                *_s = new_s;
+            }
+            else
+                return -1;
+        }
+        else cnt = 0;
+    }
+
+    return cnt;
+}
+
 /// \brief _ssub - replace str @param from in s to str @param to
 ///
 /// \param s    : a _s type str, we assume it is valid
@@ -1099,127 +1259,7 @@ static void __str_replace(cstr s, cstr* end, cstr* last, constr from, size froml
 ///
 i64 __estr_subs (estr*_s, constr from, constr to)
 {
-    int oldLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p; i64 cnt;
-
-    estr s = *_s;
-
-    is0_ret(s, 0); is1_ret(!from || !to, 0);
-
-    oldLen = strlen(from);
-    newLen = strlen(to);
-    offLen = newLen - oldLen;
-
-    if(offLen < 0)
-    {
-        offLen = -offLen;
-        offNow = 0;
-        fd_s   = s;
-        end_p  = s + _s_len(s);
-
-        //if((fd_s = strstr(fd_s, from)))
-        if((fd_s = memmem(fd_s, end_p - fd_s, from, oldLen)))
-        {
-            memcpy(fd_s, to, newLen);     // replace it
-
-            cp_s = (fd_s += oldLen);        // record the pos of str need copy
-            offNow += offLen;               // record the off of str need copy
-
-            //while((fd_s = strstr(fd_s, from)))
-            while((fd_s = memmem(fd_s, end_p - fd_s, from, oldLen)))
-            {
-                memmove(cp_s - offNow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
-
-                memcpy(fd_s - offNow, to, newLen);
-                cp_s = (fd_s += oldLen);
-                offNow += offLen;
-            }
-
-            cnt = offNow / offLen;
-
-            memmove(cp_s - offNow, cp_s, end_p - cp_s);
-            _s_decLen(s, offNow);
-
-            *(end_p - offNow) = '\0';
-        }
-        else cnt = 0;
-    }
-    else if(offLen == 0)
-    {
-        cnt    = 0;
-        end_p  = s + _s_len(s);
-
-        //fd_s = strstr(s, from);
-        fd_s = memmem(s, end_p - s, from, oldLen);
-
-        while(fd_s)
-        {
-            cnt++;
-
-            memcpy(fd_s, to, newLen);
-            fd_s += oldLen;
-            //fd_s =  strstr(fd_s, from);
-            fd_s = memmem(fd_s, end_p - fd_s, from, oldLen);
-        }
-    }
-    else
-    {
-        offNow = _s_len(s);
-        end_p  = s + offNow;
-        fd_s   = s;
-
-        //if((fd_s   = strstr(fd_s, from)))
-        if((fd_s = memmem(fd_s, end_p - fd_s, from, oldLen)))
-        {
-
-            // -- get len need to expand
-            offNow += offLen; fd_s += oldLen;
-            //while((fd_s = strstr(fd_s, from)))
-            while((fd_s = memmem(fd_s, end_p - fd_s, from, oldLen)))
-            {
-                offNow += offLen; fd_s += oldLen;
-            }
-
-            cnt = (offNow - _s_len(s)) / offLen;
-
-            // -- have enough place, let's do it, we set the up limit of stack call is 4096
-            if((size)offNow <= _s_cap(s) && ((offNow - (end_p - s)) / offLen) <= 4096)
-            {
-                cstr last = s + offNow;
-                __str_replace(s, &end_p, &last, from, oldLen, to, newLen);
-                _s_setLen(s, offNow);
-
-                s[offNow] = '\0';
-            }
-            else
-            {
-                cstr new_s, new_p; int len;
-
-                //is0_exeret(new_s = estr_newLen(0, offNow), efree((char*)s - _estr_lenH(SDS_TYPE(s)));, 0);  // new str
-                is0_exeret(new_s = _s_new(offNow), efree((char*)s - _s_lenH(SDS_TYPE(s)));, 0);  // new str
-
-                // -- to new str
-                cp_s  = fd_s = s;
-                new_p = new_s;
-                while((fd_s = strstr(fd_s, from)))
-                {
-                    memcpy(new_p, cp_s, (len = fd_s - cp_s)); new_p += len;
-                    memcpy(new_p, to, newLen);                new_p += newLen;
-
-                    cp_s = (fd_s += oldLen);
-                }
-
-                memcpy(new_p, cp_s, end_p - cp_s);
-
-                efree((char*)s - _s_lenH(SDS_TYPE(s)));
-                _s_setLen(new_s, offNow);
-
-                *_s = new_s;
-            }
-        }
-        else cnt = 0;
-    }
-
-    return cnt;
+    return __estr_replace_str(_s, from, to, 1);
 }
 
 void estr_cntc (estr s, u8 cnts[256], char end)
@@ -2276,81 +2316,9 @@ inline void sstr_show(sstr s)  { _show("sstr", s); }
 
 sstr sstr_subs (sstr s, constr from, constr to)
 {
-    int subLen, newLen, offLen, offNow; cstr fd_s, cp_s, end_p;
+    is0_ret(s, 0);
 
-    is0_ret(s, 0); is1_ret(!from || !to, s);
-
-    subLen = strlen(from);
-    newLen = strlen(to);
-    offLen = newLen - subLen;
-
-    if(offLen < 0)
-    {
-        offLen = -offLen;
-        offNow = 0;
-        fd_s   = s;
-        end_p  = s + _s_len(s);
-
-        if((fd_s = strstr(fd_s, from)))
-        {
-            memcpy(fd_s, to, newLen);     // replace it
-
-            cp_s = (fd_s += subLen);        // record the pos of str need copy
-            offNow += offLen;               // record the off of str need copy
-
-            while((fd_s = strstr(fd_s, from)))
-            {
-                memmove(cp_s - offNow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
-
-                memcpy(fd_s - offNow, to, newLen);
-                cp_s = (fd_s += subLen);
-                offNow += offLen;
-            }
-
-            memmove(cp_s - offNow, cp_s, end_p - cp_s);
-            _s_decLen(s, offNow);;
-            *(end_p - offNow) = '\0';
-        }
-    }
-    else if(offLen == 0)
-    {
-        fd_s = strstr(s, from);
-
-        while(fd_s)
-        {
-            memcpy(fd_s, to, newLen);
-            fd_s += subLen;
-            fd_s = strstr(fd_s, from);
-        }
-    }
-    else
-    {
-        offNow = _s_len(s);
-        fd_s   = s;
-
-        if((fd_s   = strstr(fd_s, from)))
-        {
-            end_p = s + _s_len(s);
-
-            // -- get len need to expand
-            offNow += offLen; fd_s += subLen;
-            while((fd_s = strstr(fd_s, from)))
-            {
-                offNow += offLen; fd_s += subLen;
-            }
-
-            // -- have enough place, let's do it
-            if((size)offNow <= _s_cap(s))
-            {
-                cstr last = s + offNow;
-                __str_replace(s, &end_p, &last, from, subLen, to, newLen);
-                _s_setLen(s, offNow);
-                s[offNow] = '\0';
-            }
-        }
-    }
-
-    return s;
+    return __estr_replace_str(&s, from, to, 0) >= 0 ? s : 0;
 }
 
 void sstr_decrLen(sstr s, size_t decr)

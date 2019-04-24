@@ -25,8 +25,6 @@
 
 #include "etype.h"
 
-#define ESTR_VERSION "estr 1.2.9"       // fix bugs when esplt split the splited str
-
 #ifdef  __GNUC__
 #define __format_printf __attribute__((format(printf, 2, 3)))
 #else

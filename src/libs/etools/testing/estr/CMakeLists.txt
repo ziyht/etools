@@ -23,3 +23,10 @@ ETestAddTestSet(estr
            test_perf.c
     )
 
+ETestAddTestSet(cmpQString OFF
+
+    CASES   subs_cmp.cpp
+
+    DEPENDS Qt5::Core
+
+    )
