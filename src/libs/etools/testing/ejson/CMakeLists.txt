@@ -43,7 +43,3 @@ ETestAddTestSet(ejson
 ETestAddTestSet(ejson-perf
     CASES   test_performance.c
     )
-
-ETestAddTestSet(tests
-    CASES   ptr_raw.c
-    )

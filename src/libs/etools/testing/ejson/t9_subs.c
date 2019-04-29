@@ -28,31 +28,31 @@ static int t9_subs_case1()
 
     //! 1
     key = "s";
-    ejson_rsubS(r, key, "******", "123456");
-    eexpect_str(ejson_valrS(r, key), "abcdefg123456abcdefg");
+    ejson_subSr(r, key, "******", "123456");
+    eexpect_str(ejsonr_valS(r, key), "abcdefg123456abcdefg");
 
-    ejson_rsubS(r, key, "123456", "**");
-    eexpect_str(ejson_valrS(r, key), "abcdefg**abcdefg");
+    ejson_subSr(r, key, "123456", "**");
+    eexpect_str(ejsonr_valS(r, key), "abcdefg**abcdefg");
 
-    ejson_rsubS(r, key, "a", "[i am a]");
-    eexpect_str(ejson_valrS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
+    ejson_subSr(r, key, "a", "[i am a]");
+    eexpect_str(ejsonr_valS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
 
-    ejson_rsubS(r, key, "b", "");
-    eexpect_str(ejson_valrS(r, key), "[i am a]cdefg**[i am a]cdefg");
+    ejson_subSr(r, key, "b", "");
+    eexpect_str(ejsonr_valS(r, key), "[i am a]cdefg**[i am a]cdefg");
 
     //! 2
     key = "obj.s";
-    ejson_ksubS(r, key, "******", "123456");
-    eexpect_str(ejson_valkS(r, key), "abcdefg123456abcdefg");
+    ejson_subSk(r, key, "******", "123456");
+    eexpect_str(ejsonk_valS(r, key), "abcdefg123456abcdefg");
 
-    ejson_ksubS(r, key, "123456", "**");
-    eexpect_str(ejson_valkS(r, key), "abcdefg**abcdefg");
+    ejson_subSk(r, key, "123456", "**");
+    eexpect_str(ejsonk_valS(r, key), "abcdefg**abcdefg");
 
-    ejson_ksubS(r, key, "a", "[i am a]");
-    eexpect_str(ejson_valkS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
+    ejson_subSk(r, key, "a", "[i am a]");
+    eexpect_str(ejsonk_valS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
 
-    ejson_ksubS(r, key, "b", "");
-    eexpect_str(ejson_valkS(r, key), "[i am a]cdefg**[i am a]cdefg");
+    ejson_subSk(r, key, "b", "");
+    eexpect_str(ejsonk_valS(r, key), "[i am a]cdefg**[i am a]cdefg");
 
     ejson_free(r);
 
@@ -81,31 +81,31 @@ static int t9_subs_case2()
 
     //! 1
     key = "[1]";
-    ejson_ksubS(r, key, "******", "123456");
-    eexpect_str(ejson_valkS(r, key), "abcdefg123456abcdefg");
+    ejson_subSk(r, key, "******", "123456");
+    eexpect_str(ejsonk_valS(r, key), "abcdefg123456abcdefg");
 
-    ejson_ksubS(r, key, "123456", "**");
-    eexpect_str(ejson_valkS(r, key), "abcdefg**abcdefg");
+    ejson_subSk(r, key, "123456", "**");
+    eexpect_str(ejsonk_valS(r, key), "abcdefg**abcdefg");
 
-    ejson_ksubS(r, key, "a", "[i am a]");
-    eexpect_str(ejson_valkS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
+    ejson_subSk(r, key, "a", "[i am a]");
+    eexpect_str(ejsonk_valS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
 
-    ejson_ksubS(r, key, "b", "");
-    eexpect_str(ejson_valkS(r, key), "[i am a]cdefg**[i am a]cdefg");
+    ejson_subSk(r, key, "b", "");
+    eexpect_str(ejsonk_valS(r, key), "[i am a]cdefg**[i am a]cdefg");
 
     //! 3
     key = "[3][1]";
-    ejson_ksubS(r, key, "******", "123456");
-    eexpect_str(ejson_valkS(r, key), "abcdefg123456abcdefg");
+    ejson_subSk(r, key, "******", "123456");
+    eexpect_str(ejsonk_valS(r, key), "abcdefg123456abcdefg");
 
-    ejson_ksubS(r, key, "123456", "**");
-    eexpect_str(ejson_valkS(r, key), "abcdefg**abcdefg");
+    ejson_subSk(r, key, "123456", "**");
+    eexpect_str(ejsonk_valS(r, key), "abcdefg**abcdefg");
 
-    ejson_ksubS(r, key, "a", "[i am a]");
-    eexpect_str(ejson_valkS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
+    ejson_subSk(r, key, "a", "[i am a]");
+    eexpect_str(ejsonk_valS(r, key), "[i am a]bcdefg**[i am a]bcdefg");
 
-    ejson_ksubS(r, key, "b", "");
-    eexpect_str(ejson_valkS(r, key), "[i am a]cdefg**[i am a]cdefg");
+    ejson_subSk(r, key, "b", "");
+    eexpect_str(ejsonk_valS(r, key), "[i am a]cdefg**[i am a]cdefg");
 
     ejson_free(r);
 

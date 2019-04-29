@@ -797,7 +797,7 @@ static inline void __enats_stats(enats trans, constr subj, enats_stats_t* stats,
     s = natsConnection_GetStats(trans->conn.nc, (natsStatistics*)stats);
 
     mutex_lock(trans->sub_mu);
-    ntSub = ejson_valrR(trans->sub_dic, subj);
+    ntSub = ejsonr_valR(trans->sub_dic, subj);
     mutex_ulck(trans->sub_mu);
     if ((s == NATS_OK) && (ntSub != NULL))
     {

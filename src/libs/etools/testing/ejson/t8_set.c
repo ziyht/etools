@@ -82,7 +82,7 @@ static int test_resetTr(ejson r, etypeo type)
                     {
                         ejson_setTr(r, &key[i], type);
 
-                        eexpect_num(ejson_valrType(r, &key[i]),  type);
+                        eexpect_num(ejsonr_type(r, &key[i]),  type);
                     }
                     break;
 
@@ -93,7 +93,7 @@ static int test_resetTr(ejson r, etypeo type)
                         if(!ejson_len(r))
                             continue;
 
-                        eexpect_num(ejson_valrType(r, itostr(i)),  type);
+                        eexpect_num(ejsonr_type(r, itostr(i)),  type);
                     }
                     break;
 
@@ -113,8 +113,8 @@ static int test_resetIr(ejson r)
                     {
                         ejson_setIr(r, &key[i], 123);
 
-                        eexpect_num(ejson_valrType(r, &key[i]),  ENUM);
-                        eexpect_num(ejson_valrI   (r, &key[i]),  123);
+                        eexpect_num(ejsonr_type(r, &key[i]),  ENUM);
+                        eexpect_num(ejsonr_valI   (r, &key[i]),  123);
                     }
                     break;
 
@@ -125,8 +125,8 @@ static int test_resetIr(ejson r)
                         if(!ejson_len(r))
                             continue;
 
-                        eexpect_num(ejson_valrType(r, itostr(i)),  ENUM);
-                        eexpect_num(ejson_valrI   (r, itostr(i)),  123);
+                        eexpect_num(ejsonr_type(r, itostr(i)),  ENUM);
+                        eexpect_num(ejsonr_valI   (r, itostr(i)),  123);
                     }
                     break;
 
@@ -146,8 +146,8 @@ static int test_resetFr(ejson r)
                     {
                         ejson_setFr(r, &key[i], 123.12);
 
-                        eexpect_num(ejson_valrType(r, &key[i]),  ENUM);
-                        eexpect_num(ejson_valrF   (r, &key[i]),  123.12);
+                        eexpect_num(ejsonr_type(r, &key[i]),  ENUM);
+                        eexpect_num(ejsonr_valF   (r, &key[i]),  123.12);
                     }
                     break;
 
@@ -158,8 +158,8 @@ static int test_resetFr(ejson r)
                         if(!ejson_len(r))
                             continue;
 
-                        eexpect_num(ejson_valrType(r, itostr(i)),  ENUM);
-                        eexpect_num(ejson_valrF   (r, itostr(i)),  123.12);
+                        eexpect_num(ejsonr_type(r, itostr(i)),  ENUM);
+                        eexpect_num(ejsonr_valF   (r, itostr(i)),  123.12);
                     }
                     break;
 
@@ -183,9 +183,9 @@ static int test_resetSr(ejson r)
                     {
                         ejson_setSr(r, &key[i], STR);
 
-                        eexpect_num(ejson_valrType(r, &key[i]),  ESTR);
-                        eexpect_num(ejson_valrLen (r, &key[i]),  STR_LEN);
-                        eexpect_str(ejson_valrS   (r, &key[i]),  STR );
+                        eexpect_num(ejsonr_type(r, &key[i]),  ESTR);
+                        eexpect_num(ejsonr_len (r, &key[i]),  STR_LEN);
+                        eexpect_str(ejsonr_valS   (r, &key[i]),  STR );
                     }
                     break;
 
@@ -196,9 +196,9 @@ static int test_resetSr(ejson r)
                         if(!ejson_len(r))
                             continue;
 
-                        eexpect_num(ejson_valrType(r, itostr(i)),  ESTR);
-                        eexpect_num(ejson_valrLen (r, itostr(i)),  STR_LEN);
-                        eexpect_str(ejson_valrS   (r, itostr(i)),  STR );
+                        eexpect_num(ejsonr_type(r, itostr(i)),  ESTR);
+                        eexpect_num(ejsonr_len (r, itostr(i)),  STR_LEN);
+                        eexpect_str(ejsonr_valS   (r, itostr(i)),  STR );
                     }
                     break;
 
@@ -218,8 +218,8 @@ static int test_resetPr(ejson r)
                     {
                         ejson_setPr(r, &key[i], &key[i]);
 
-                        eexpect_num(ejson_valrType(r, &key[i]),  EPTR);
-                        eexpect_ptr(ejson_valrP   (r, &key[i]),  &key[i]);
+                        eexpect_num(ejsonr_type(r, &key[i]),  EPTR);
+                        eexpect_ptr(ejsonr_valP   (r, &key[i]),  &key[i]);
                     }
                     break;
 
@@ -230,8 +230,8 @@ static int test_resetPr(ejson r)
                         if(!ejson_len(r))
                             continue;
 
-                        eexpect_num(ejson_valrType(r, itostr(i)),  EPTR);
-                        eexpect_ptr(ejson_valrP   (r, itostr(i)),  &key[i]);
+                        eexpect_num(ejsonr_type(r, itostr(i)),  EPTR);
+                        eexpect_ptr(ejsonr_valP   (r, itostr(i)),  &key[i]);
                     }
                     break;
 
@@ -251,9 +251,9 @@ static int test_resetRr(ejson r)
                     {
                         ejson_setRr(r, &key[i], i);
 
-                        eexpect_num(ejson_valrType(r, &key[i]),  ERAW);
-                        eexpect_num(ejson_valrLen (r, &key[i]),  i);
-                        eexpect_raw(ejson_valrR   (r, &key[i]),  vals, i);
+                        eexpect_num(ejsonr_type(r, &key[i]),  ERAW);
+                        eexpect_num(ejsonr_len (r, &key[i]),  i);
+                        eexpect_raw(ejsonr_valR   (r, &key[i]),  vals, i);
                     }
                     break;
 
@@ -264,9 +264,9 @@ static int test_resetRr(ejson r)
                         if(!ejson_len(r))
                             continue;
 
-                        eexpect_num(ejson_valrType(r, itostr(i)),  ERAW);
-                        eexpect_num(ejson_valrLen (r, itostr(i)),  i);
-                        eexpect_raw(ejson_valrR   (r, itostr(i)),  vals, i);
+                        eexpect_num(ejsonr_type(r, itostr(i)),  ERAW);
+                        eexpect_num(ejsonr_len (r, itostr(i)),  i);
+                        eexpect_raw(ejsonr_valR   (r, itostr(i)),  vals, i);
                     }
                     break;
 
@@ -389,16 +389,16 @@ static int test_create_in_obj_k()
 
     i = -1;
 
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
 
     ejson_free(r);
 
@@ -438,16 +438,16 @@ static int test_create_in_arr_k()
 
     i = -1;
 
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
-    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejson_valkType(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
+    i++;  ejson_setTk(r, map[i].keys, map[i].t); eexpect_num( ejsonk_type(r, map[i].keys),  map[i].t);
 
     ejson_free(r);
 
@@ -463,15 +463,15 @@ static int test_reset_particular_k()
     // 1. create automatically when path not exsit, we only create EOBJ obj
     ejson_setTk(r, "obj.obj", EOBJ);
     ejson_setTk(r, "obj.arr", EARR);
-    eexpect_num(ejson_valkType(r, "obj"    ), EOBJ);
-    eexpect_num(ejson_valkType(r, "obj.obj"), EOBJ);
-    eexpect_num(ejson_valkType(r, "obj.arr"), EARR);
+    eexpect_num(ejsonk_type(r, "obj"    ), EOBJ);
+    eexpect_num(ejsonk_type(r, "obj.obj"), EOBJ);
+    eexpect_num(ejsonk_type(r, "obj.arr"), EARR);
 
     // 2. if EOBJ obj not contains the specific obj, create automatically, but not for EARR obj
     ejson_setTk(r, "obj.obj.false", EFALSE);        // create
     ejson_setTk(r, "obj.arr[0]"   , EFALSE);        // failed, not create EFALSE in 'obj.arr'
-    eexpect_num(ejson_valkType(r, "obj.obj.false"), EFALSE);
-    eexpect_num(ejson_valkType(r, "obj.arr[0]"   ), EOBJ_UNKNOWN);
+    eexpect_num(ejsonk_type(r, "obj.obj.false"), EFALSE);
+    eexpect_num(ejsonk_type(r, "obj.arr[0]"   ), EOBJ_UNKNOWN);
 
     // 3. can not create or reset when expect obj can not be found because of a val obj
     ejson_setTk(r, "obj.obj.false.true", ETRUE);    // failed, 'obj.obj.false' is invalid to create path
@@ -481,15 +481,15 @@ static int test_reset_particular_k()
     // 4. you can reset any obj which can be found no matter what it is, so be careful
     ejson_setTk(r, "obj.obj", EARR);    // ok, now 'obj.obj' is a EARR obj, objs in prev one will be delete automatically
     //ejson_show(r);
-    eexpect_num(ejson_valkType(r, "obj.obj"), EARR);
+    eexpect_num(ejsonk_type(r, "obj.obj"), EARR);
 
     // 5. the created obj in path is EOBJ type
     ejson_setTk(r, "[1][2][3][4]", ETRUE);
     //ejson_show(r);
-    eexpect_num(ejson_valkType(r, "1"), EOBJ);
-    eexpect_num(ejson_valkType(r, "1.2"), EOBJ);
-    eexpect_num(ejson_valkType(r, "1.2.3"), EOBJ);
-    eexpect_num(ejson_valkType(r, "1.2.3.4"), ETRUE);
+    eexpect_num(ejsonk_type(r, "1"), EOBJ);
+    eexpect_num(ejsonk_type(r, "1.2"), EOBJ);
+    eexpect_num(ejsonk_type(r, "1.2.3"), EOBJ);
+    eexpect_num(ejsonk_type(r, "1.2.3.4"), ETRUE);
 
     ejson_free(r);
 
