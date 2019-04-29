@@ -66,6 +66,8 @@ static int t7_cmp_case1()
     eexpect_num(ejson_cmpS(0 , ""), -2);
     eexpect_num(ejson_cmpS(r , ""), -3);
 
+    ejson_free(r);
+
     return ETEST_OK;
 }
 

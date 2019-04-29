@@ -319,30 +319,39 @@ eobj ejson_setPk(eobj r, constr rawk, constr ptr);
 eobj ejson_setRk(eobj r, constr rawk, uint   len);
 
 
-/// -- ejson substitute string --
+/// -----------------------------------------------------
+//! @brief ejson substitute string
 ///
-/// @return - ejson: [NULL] set failed
-///                  [obj] set ok
+/// @return the modified obj if setted
 ///
-ejson ejso_subk(ejson obj , constr subS, constr newS);
+eobj ejson_rsubS(eobj root, constr keys, constr from, constr to);
+eobj ejson_ksubS(eobj root, constr rawk, constr from, constr to);
 
-ejson ejso_subS(ejson obj , constr subS, constr newS);
-ejson ejsk_subS(ejson root, constr keys, constr subS, constr newS);
-ejson ejsr_subS(ejson root, constr rawk, constr subS, constr newS);
+#define ejson_subSr ejsonr_subS
+#define ejson_subSk ejsonk_subS
 
-/// -- ejson counter --
+/// -----------------------------------------------------
+/// @brief ejson counter
 ///
-/// @note: 1. if NUM obj not exsit in root, will auto create one, use all keys as rawk
-///        2. the val of NUM obj will always >= 0
+/// @note:
+///     1. if NUM obj not exsit in root, will auto create one
+///     2. only support NUM obj if target obj exist
+///     3. return LLONG_MIN if failed
 ///
-ejson  ejso_cntpp(ejson obj);                   // only support NUM obj
-ejson  ejso_cntmm(ejson obj);                   // only support NUM obj
+i64  ejson_pp  (eobj o);                // increase 1
+i64  ejson_mm  (eobj o);                // decrease 1
+i64  ejson_incr(eobj o, i64 v);         // increase v
+i64  ejson_decr(eobj o, i64 v);         // decrease v
 
-ejson  ejsk_cntpp(ejson root, constr keys);     // only support NUM obj
-ejson  ejsk_cntmm(ejson root, constr keys);     // only support NUM obj
+i64  ejsonr_pp  (eobj r, constr rawk);
+i64  ejsonr_mm  (eobj r, constr rawk);
+i64  ejsonr_incr(eobj r, constr rawk, i64 v);
+i64  ejsonr_decr(eobj r, constr rawk, i64 v);
 
-ejson  ejsr_cntpp(ejson root, constr rawk);     // only support NUM obj
-ejson  ejsr_cntmm(ejson root, constr rawk);     // only support NUM obj
+i64  ejsonk_pp  (eobj r, constr rawk);
+i64  ejsonk_mm  (eobj r, constr rawk);
+i64  ejsonk_incr(eobj r, constr keys, i64 v);
+i64  ejsonk_decr(eobj r, constr keys, i64 v);
 
 /** -----------------------------------------------
  *  @brief
@@ -361,8 +370,11 @@ int    __VALI_ACS(eobj a, eobj b);      // Ascending  via int value in NUM obj
 int    __VALI_DES(eobj a, eobj b);      // Descending via int value in NUM obj
 
 eobj  ejson_sort (eobj r,              eobj_cmp_cb cmp);
-eobj  ejson_rsort(eobj r, constr rawk, eobj_cmp_cb cmp);
-eobj  ejson_ksort(eobj r, constr keys, eobj_cmp_cb cmp);
+eobj  ejson_sortr(eobj r, constr rawk, eobj_cmp_cb cmp);
+eobj  ejson_sortk(eobj r, constr keys, eobj_cmp_cb cmp);
+
+#define ejsonr_sort  ejson_sortr
+#define ejsonk_sort  ejson_sortk
 
 /// -- ejson version
 constr ejson_version();

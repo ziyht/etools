@@ -10,37 +10,48 @@
 
 static int ejson_sort_obj_test(){
 
+    int i ;
+
     ejson e = ejson_new(EOBJ, 0);
 
-    ejson_addI(e, "9", 1);
+    ejson_addI(e, "9", 0);
     ejson_addI(e, "8", 1);
-    ejson_addI(e, "7", 10);
-    ejson_addI(e, "6", 0);
-    ejson_addI(e, "5", 1);
-    ejson_addI(e, "4", 101);
-    ejson_addI(e, "3", 100);
-    ejson_addI(e, "2", 1);
-    ejson_addI(e, "1", 111);
-    ejson_addI(e, "0", 10);
+    ejson_addI(e, "7", 2);
+    ejson_addI(e, "6", 3);
+    ejson_addI(e, "5", 4);
+    ejson_addI(e, "4", 5);
+    ejson_addI(e, "3", 6);
+    ejson_addI(e, "2", 7);
+    ejson_addI(e, "1", 8);
+    ejson_addI(e, "0", 9);
 
-    printf("before sort:\n"); fflush(stdout);
-    ejson_show(e);
-
-    printf("sort by keys in Ascending:\n"); fflush(stdout);
     ejson_sort(e, __KEYS_ACS);
-    ejson_show(e);
+    i = 9;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i--);
+    }
 
-    printf("sort by keys in Descending:\n"); fflush(stdout);
     ejson_sort(e, __KEYS_DES);
-    ejson_show(e);
+    i = 0;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i++);
+    }
 
-    printf("sort by vali in Ascending:\n"); fflush(stdout);
     ejson_sort(e, __VALI_ACS);
-    ejson_show(e);
+    i = 0;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i++);
+    }
 
-    printf("sort by vali in Descending:\n"); fflush(stdout);
     ejson_sort(e, __VALI_DES);
-    ejson_show(e);
+    i = 9;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i--);
+    }
 
     ejson_free(e);
 
@@ -49,57 +60,47 @@ static int ejson_sort_obj_test(){
 
 static int  ejson_sort_arr_test()
 {
-
+    int i;
     ejson e = ejson_new(EARR, 0);
 
-    ejson_addJ(e, 0, "\"1\":1");
-    ejson_addJ(e, 0, "\"10\":10");
-    ejson_addJ(e, 0, "100000");      //  no key, this obj should put in tail when sort by keys
-    ejson_addJ(e, 0, "100001");
-    ejson_addJ(e, 0, "\"101\":101");
-    ejson_addJ(e, 0, "\"100\":100");
-    ejson_addJ(e, 0, "\"001\":1");
-    ejson_addJ(e, 0, "\"111\":111");
-    ejson_addJ(e, 0, "\"010\":10");
+    ejson_addJ(e, 0, "\"9\":0");
+    ejson_addJ(e, 0, "\"8\":1");
+    ejson_addJ(e, 0, "\"7\":2");
+    ejson_addJ(e, 0, "\"6\":3");
+    ejson_addJ(e, 0, "\"5\":4");
+    ejson_addJ(e, 0, "\"4\":5");
+    ejson_addJ(e, 0, "\"3\":6");
+    ejson_addJ(e, 0, "\"2\":7");
+    ejson_addJ(e, 0, "\"1\":8");
+    ejson_addJ(e, 0, "\"0\":9");
 
-    printf("before sort:\n"); fflush(stdout);
-    ejson_show(e);
-
-    printf("sort by keys in Ascending:\n"); fflush(stdout);
     ejson_sort(e, __KEYS_ACS);
-    ejson_show(e);
-
-    printf("sort by keys in Descending:\n"); fflush(stdout);
-    ejson_sort(e, __KEYS_DES);
-    ejson_show(e);
-
-    printf("sort by vali in Ascending:\n"); fflush(stdout);
-    ejson_sort(e, __VALI_ACS);
-    ejson_show(e);
-
-    printf("sort by vali in Descending:\n"); fflush(stdout);
-    ejson_sort(e, __VALI_DES);
-    ejson_show(e);
-
-    ejson_free(e);
-
-    return ETEST_OK;
-}
-
-static int perftest(int cnt)
-{
-    int i; ejson e; char key[16];
-
-    e = ejson_new(EOBJ, 0);
-
-    for(i = 0; i < cnt; i++)
+    i = 9;
+    ejson_foreach_s(e, itr)
     {
-        ll2str(i, key);
-
-        ejson_addI(e, key, i);
+        eexpect_num(eobj_valI(itr), i--);
     }
 
     ejson_sort(e, __KEYS_DES);
+    i = 0;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i++);
+    }
+
+    ejson_sort(e, __VALI_ACS);
+    i = 0;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i++);
+    }
+
+    ejson_sort(e, __VALI_DES);
+    i = 9;
+    ejson_foreach_s(e, itr)
+    {
+        eexpect_num(eobj_valI(itr), i--);
+    }
 
     ejson_free(e);
 
@@ -112,8 +113,6 @@ int t6_sort(int argc, char* argv[])
 
     ETEST_RUN( ejson_sort_obj_test() );
     ETEST_RUN( ejson_sort_arr_test() );
-
-    ETEST_RUN( perftest(10000) );
 
     return ETEST_OK;
 }

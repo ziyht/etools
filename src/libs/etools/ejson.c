@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.10"     // acomplition of sort API
+#define EJSON_VERSION "ejson 0.9.11"     // acomplition of subs API
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -905,11 +905,11 @@ static _ejsn __parse_OBJ(cstr key, constr* _src, constr* _err, __lstrip_cb lstri
         is1_exe(**_src != ':', goto err_set);
         *_src = lstrip(*_src + 1);
         c_n   = __parse_obj(&c_key, _src, _err, lstrip);
-        is0_exe(c_n, _cur_freekeyS(c_key); goto rls_ret);
+        is0_exe(c_n, goto rls_ret);
         _n_keyS(c_n) = c_key;
 
         // -- link to dict
-        is0_exe(_obj_add(r, c_key, c_n), __ejson_free(r); __ejson_free((_ejsr)c_n); goto rls_ret);
+        is0_exe(_obj_add(r, c_key, c_n), __ejson_free((_ejsr)c_n); goto rls_ret);
     }
 
     //! check complited
@@ -937,14 +937,17 @@ static _ejsn __parse_ARR(cstr key, constr* _src, constr* _err, __lstrip_cb lstri
 
     do{
         c_n   = __parse_obj(0, _src, _err, lstrip);
-        is0_exeret(c_n, __ejson_free(r), 0);
+        is0_exe(c_n, goto err_ret;);
         _arr_appd(r, c_n);
 
-    }while(**_src == ',' && (*_src = lstrip(*_src + 1)));
+    }while(**_src == ',' && (*_src = lstrip(*_src + 1)) && **_src != ']');
 
     //! check complited
-    is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), (_ejsn)r);
+    //is1_exeret(**_src == ']', *_src = lstrip(*_src + 1), (_ejsn)r);
+    *_src = lstrip(*_src + 1);
+    return (_ejsn)r;
 
+err_ret:
     *_err = *_src;
     __ejson_free(r);
 
@@ -2091,7 +2094,7 @@ static eobj __ejson_makeRoom_set_k(_ejsr r, eobj in)
 
         switch (_r_typeo(r))
         {
-            case EOBJ:  if(!_obj_getBL_ex(r, key, klen, &l)) //! already exit
+            case EOBJ:  if(!_obj_getBL_ex(r, key, klen, &l)) //! already exist
                         {
                             if(_n_typeo(*l._prev) != EOBJ)
                             {
@@ -2161,11 +2164,214 @@ static __always_inline void __ejson_free_arr(_ejsr r)
 
 /** -----------------------------------------------------
  *
- *  ejson sort
+ *  ejson sub str
  *
  *  -----------------------------------------------------
  */
 
+static eobj  __ejson_new_obj_s(eobj o, int newolen)
+{
+    _ejsn n;
+
+    _n_newSm(n, newolen);
+
+    _n_l(n)    = _eo_l(o);
+    _n_keyS(n) = _eo_keyS(o);
+    _n_h(n)    = _eo_h(o);
+
+    return _n_o(n);
+}
+
+static ejson __ejson_subS_r(_ejsr r, constr rawk, constr from, constr to)
+{
+    _ejsn n; dictLink_t l; eobj new_o;
+
+    switch (_r_typeo(r))
+    {
+        case EOBJ:  if(!_obj_getSL_ex(r, rawk, &l))     //! found
+                    {
+                        n = *l._prev;
+
+                        is1_ret(_n_typeo(n) != ESTR, 0);
+
+                        new_o = __eobj_subS(_n_o(n), from, to, __ejson_new_obj_s);
+
+                        if(new_o)
+                        {
+                            if(new_o != _n_o(n))
+                            {
+                                _ejsn new_n = _eo_dn(new_o);
+
+                                _n_free(n);
+                                _obj_update_node(r, n, new_n, l);
+                            }
+
+                            return _n_o(n);
+                        }
+                    }
+
+                    return 0;
+
+        case EARR:  {
+                        cstr endp; int id;
+
+                        id = strtol(rawk, &endp, 10);
+
+                        is1_ret(*endp, NULL);
+
+                        if((n = _arr_find(r, id)))
+                        {
+                            is1_ret(_n_typeo(n) != ESTR, 0);
+
+                            new_o = __eobj_subS(_n_o(n), from, to, __ejson_new_obj_s);
+
+                            if(new_o)
+                            {
+                                if(new_o != _n_o(n))
+                                {
+                                    _ejsn new_n = _eo_dn(new_o);
+
+                                    _n_free(n);
+                                    _arr_update_node(r, n, new_n);
+                                }
+
+                                return _n_o(n);
+                            }
+                        }
+                    }
+
+                    return 0;
+    }
+
+    return 0;
+}
+
+eobj ejson_rsubS(eobj r, constr rawk, constr from, constr to)
+{
+    is1_ret(!r || _eo_typec(r) != EJSON || !_key_is_valid(rawk), 0);
+
+    return __ejson_subS_r(_eo_rn(r), rawk, from, to);
+}
+
+eobj ejson_ksubS(eobj _r, constr keys, constr from, constr to)
+{
+    constr key; constr p; int klen; int id; dictLink_t l; eobj new_o;
+
+    _ejsn n; _ejsr r;
+
+    is1_ret(!_r || _eo_typec(_r) != EJSON || !_key_is_valid(keys), 0);
+
+    p = keys;
+
+    r = _eo_rn(_r);
+    n = (_ejsn)r;
+
+    do{
+        klen = __getAKey(p, &key, &p);
+
+        is1_ret(klen < 0, 0);
+
+        r = (_ejsr)n;
+
+        switch (_r_typeo(r))
+        {
+            case EOBJ:  if(!_obj_getBL_ex(r, key, klen, &l))    //! found
+                        {
+                            n = *l._prev;
+
+                            if(!*p)
+                            {
+                                is1_ret(_n_typeo(n) != ESTR, 0);
+
+                                new_o = __eobj_subS(_n_o(n), from, to, __ejson_new_obj_s);
+
+                                if(new_o)
+                                {
+                                    if(new_o != _n_o(n))
+                                    {
+                                        _ejsn new_n = _eo_dn(new_o);
+
+                                        _n_free(n);
+                                        _obj_update_node(r, n, new_n, l);
+                                    }
+
+                                    return _n_o(n);
+                                }
+
+                                return 0;
+                            }
+
+                            continue;
+                        }
+                        return 0;
+
+            case EARR:  {
+                            cstr endp;
+
+                            is1_ret(klen == 0, 0);
+
+                            id = strtol(key, &endp, 10);
+
+                            //! must parse over then is a valid number
+                            if(*endp && *endp != ']' && *endp != '.')
+                                return 0;
+
+                            n = _arr_find(r, id);
+
+                            is1_ret(!n, 0);
+
+                            if(!*p)
+                            {
+                                is1_ret(_n_typeo(n) != ESTR, 0);
+
+                                new_o = __eobj_subS(_n_o(n), from, to, __ejson_new_obj_s);
+
+                                if(new_o)
+                                {
+                                    if(new_o != _n_o(n))
+                                    {
+                                        _ejsn new_n = _eo_dn(new_o);
+
+                                        _n_free(n);
+                                        _arr_update_node(r, n, new_n);
+                                    }
+
+                                    return _n_o(n);
+                                }
+
+                                return 0;
+                            }
+                        }
+
+                        break;
+
+            default  :  return 0;
+        }
+
+    }while(*p);
+
+    return 0;
+}
+
+/** -----------------------------------------------------
+ *
+ *  ejson counter
+ *
+ *  -----------------------------------------------------
+ */
+i64  ejson_pp  (eobj o)        { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) += 1;  case _EJSON_COE_NUM_F: return _eo_valF(o) += 1; }} return LLONG_MIN; }
+i64  ejson_mm  (eobj o)        { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) -= 1;  case _EJSON_COE_NUM_F: return _eo_valF(o) -= 1; }} return LLONG_MIN; }
+i64  ejson_incr(eobj o, i64 v) { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) += v;  case _EJSON_COE_NUM_F: return _eo_valF(o) += v; }} return LLONG_MIN; }
+i64  ejson_decr(eobj o, i64 v) { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) -= v;  case _EJSON_COE_NUM_F: return _eo_valF(o) -= v; }} return LLONG_MIN; }
+
+
+
+/** -----------------------------------------------------
+ *
+ *  ejson sort
+ *
+ *  -----------------------------------------------------
+ */
 static _ejsn __merg_sort(_ejsn a, _ejsn b, uint len, eobj_cmp_cb cmp)
 {
     if(len == 2)
@@ -2284,8 +2490,8 @@ static void __ejson_sort(_ejsr r, eobj_cmp_cb cmp)
 }
 
 eobj  ejson_sort (eobj r,              eobj_cmp_cb cmp) { if(r) __ejson_sort(_eo_rn(r), cmp); return r; }
-eobj  ejson_rsort(eobj r, constr rawk, eobj_cmp_cb cmp) { return ejson_sort(_getObjByRawk(_eo_rn(r), rawk), cmp); }
-eobj  ejson_ksort(eobj r, constr keys, eobj_cmp_cb cmp) { return ejson_sort(_getObjByKeys(_eo_rn(r), keys), cmp); }
+eobj  ejson_sortr(eobj r, constr rawk, eobj_cmp_cb cmp) { return ejson_sort(_getObjByRawk(_eo_rn(r), rawk), cmp); }
+eobj  ejson_sortk(eobj r, constr keys, eobj_cmp_cb cmp) { return ejson_sort(_getObjByKeys(_eo_rn(r), keys), cmp); }
 
 int __KEYS_ACS(eobj a, eobj b)
 {

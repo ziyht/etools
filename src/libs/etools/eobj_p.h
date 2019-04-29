@@ -275,6 +275,8 @@ typedef struct _enode_s{
 #define _n_newRc(n, l)      do{ n = _n_newc((l) + 1);                    _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_RAW  ); _n_len(n) = l;  }while(0)
 #define _n_newOc(n)         do{ n = _n_newc(sizeof(_RNODE_TYPE));        _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_OBJ  );                 }while(0)
 
+#define _n_newSm(n, l)      do{ n = _n_newm((l) + 1);                    _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_STR  ); _n_len(n) = l;  }while(0)
+
 #define _n_newN(n, v, t)    do{ n = _n_newm(8);             _n_init(n);  _n_typecoe(n) = t;                                 _n_setV(n, v);                          }while(0)
 #define _n_newI(n, v)       do{ n = _n_newm(8);             _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NUM_I); _n_setI(n, v);                          }while(0)
 #define _n_newF(n, v)       do{ n = _n_newm(8);             _n_init(n);  _n_typecoe(n) = _cur_type(_CUR_C_TYPE, COE_NUM_F); _n_setF(n, v);                          }while(0)
@@ -425,6 +427,10 @@ static __always_inline i64 __eobj_valI(eobj o) { switch(_eo_typeoe(o)){ case _EN
 static __always_inline i64 __eobj_valF(eobj o) { switch(_eo_typeoe(o)){ case _ENUM_I: return _eo_valI(o); case _ENUM_F: return _eo_valF(o); } return 0;}
 
 constr __eobj_typeS(eobj o, bool beauty);
+
+typedef eobj (*__eobj_alloc)(eobj o, int olen);
+
+eobj   __eobj_subS(eobj o, constr from, constr to, __eobj_alloc alloc);
 
 
 #endif

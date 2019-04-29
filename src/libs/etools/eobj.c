@@ -156,3 +156,189 @@ constr eobj_typeS(eobj o)
 {
     return __eobj_typeS(o, 1);
 }
+
+/// \brief __cstr_replace_str - replace str @param from in s to str @param to
+///
+/// \param s       : a _s type str, we assume it is valid
+/// \param end     : a cstr pointer, point to a pointer who point to the end '\0' of @param s now
+/// \param last    : a cstr pointer, point to a pointer who point to the end '\0' of @param s when finish replacing, this ptr is predicted before call this func
+/// \param from    : the cstr you want to be replaced, we assume it is valid
+/// \param fromlen : the length of @param from, it must < tolen
+/// \param to      : the cstr you want to replace to, we assume it is valid
+/// \param tolen   : the length of @param to, it must > fromlen
+///
+/// @note:
+///     1. fromlen < tolen needed, or you will not get the correct result, and you do not need this func if fromlen <= tolen
+///     2. s must have enough place to hold the whole str when after
+///
+/// from: aaa        fromlen: 3
+/// to  : abcdefg    tolen  : 7
+/// s   : 11111aaa111aaa11111111_____________________
+///                             |       |-- last = end + (7 - 3)*2
+///                             |---------- end
+///
+///
+static void __cstr_replace_str(cstr s, cstr* end, cstr* last, constr from, size fromlen, constr to, size tolen)
+{
+    cstr fd;
+
+    if((fd = strstr(s, from)))
+    {
+        cstr mv_from, mv_to; size mv_len;
+
+        __cstr_replace_str(fd + 1, end, last, from, fromlen, to, tolen);
+
+        mv_from = fd + fromlen;
+        mv_len  = *end  - fd - fromlen;
+        mv_to   = *last - mv_len;
+
+        memmove(mv_to, mv_from, mv_len);
+
+        *last = mv_to - tolen;
+        memcpy(*last, to, tolen);
+
+        *end = fd;
+    }
+
+    return ;
+}
+
+eobj   __eobj_subS(eobj o, constr from, constr to, __eobj_alloc alloc)
+{
+    int flen, tlen, offlen, offnow; cstr fd_s, cp_s, end_p;
+
+    cstr s = EOBJ_VALS(o);
+
+    is1_ret(!from || !to, 0);
+
+    flen   = strlen(from);
+    tlen   = strlen(to);
+    offlen = tlen - flen;
+
+    if(offlen < 0)
+    {
+        offlen = -offlen;
+        offnow = 0;
+        fd_s   = s;
+        end_p  = s + _eo_len(o);
+
+        if((fd_s = strstr(fd_s, from)))
+        {
+            memcpy(fd_s, to, tlen);     // replace it
+
+            cp_s = (fd_s += flen);          // record the pos of str need copy
+            offnow += offlen;               // record the off of str need copy
+
+            while((fd_s = strstr(fd_s, from)))
+            {
+                memmove(cp_s - offnow, cp_s, fd_s - cp_s);   // move the str-need-copy ahead
+
+                memcpy(fd_s - offnow, to, tlen);
+                cp_s = (fd_s += flen);
+                offnow += offlen;
+            }
+
+            memmove(cp_s - offnow, cp_s, end_p - cp_s);
+            _eo_len(o) -= offnow;
+
+            *(end_p - offnow) = '\0';
+        }
+    }
+    else if(offlen == 0)
+    {
+        end_p  = s + _eo_len(o);
+
+        fd_s = strstr(s, from);
+
+        while(fd_s)
+        {
+            memcpy(fd_s, to, tlen);
+            fd_s += flen;
+            fd_s =  strstr(fd_s, from);
+        }
+    }
+    else
+    {
+        offnow = _eo_len(o);
+        end_p  = s + offnow;
+        fd_s   = s;
+
+        if((fd_s = strstr(fd_s, from)))
+        {
+
+            // -- get len need to expand
+            offnow += offlen; fd_s += flen;
+
+            while((fd_s = strstr(fd_s, from)))
+            {
+                offnow += offlen; fd_s += flen;
+            }
+
+            // -- have enough place, let's do it
+            if((size)offnow <= _eo_len(o))
+            {
+                //! this operation is more efficient
+                //! we set the up limit of stack call to 128
+                if(((offnow - (end_p - s)) / offlen) <= 128)
+                {
+                    cstr last = s + offnow;
+                    __cstr_replace_str(s, &end_p, &last, from, flen, to, tlen);
+                    _eo_len(o) = offnow;
+                }
+                else
+                {
+                    cstr last, lpos; int mlen;
+
+                    last = s + offnow;
+                    lpos = end_p - flen;
+
+                    while(lpos >= s)
+                    {
+                        if(lpos[0] == from[0] && 0 == memcmp(lpos, from, flen))
+                        {
+                            mlen  = end_p - lpos - flen;
+
+                            last -= mlen;
+                            memmove(last, lpos + flen, mlen);
+
+                            last -= tlen;
+                            memcpy(last, to, tlen);
+
+                            end_p = lpos;
+                        }
+
+                        lpos--;
+                    }
+                }
+
+                s[offnow] = '\0';
+            }
+            else
+            {
+                eobj new_o; cstr new_p; int len;
+
+                is0_ret(new_o = alloc(o, offnow), 0);  // new str
+
+                // -- to new str
+                cp_s  = fd_s = s;
+                new_p = EOBJ_VALS(new_o);
+                while((fd_s = strstr(fd_s, from)))
+                {
+                    memcpy(new_p, cp_s, (len = fd_s - cp_s)); new_p += len;
+                    memcpy(new_p, to, tlen);                  new_p += tlen;
+
+                    cp_s = (fd_s += flen);
+                }
+
+                memcpy(new_p, cp_s, end_p - cp_s);
+                new_p[end_p - cp_s] = '\0';
+
+                _eo_len(new_o) = offnow;
+
+                return new_o;
+            }
+        }
+    }
+
+    return o;
+}
