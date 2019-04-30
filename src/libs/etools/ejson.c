@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.12"     // adjust API
+#define EJSON_VERSION "ejson 0.9.12"     // adjust API names
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1351,23 +1351,23 @@ eobj   ejson_addP(eobj r, constr key, conptr ptr ) { _ejsn_t b = {{0}, {.s = (cs
 eobj   ejson_addR(eobj r, constr key, uint   len ) { _ejsn_t b = {{0}, {.s = (cstr)key}, {._len =       len + 1, ._typ = {.t_coe = _EJSON_COE_RAW   }}, {0}}; eobj o = __ejson_makeRoom(_eo_rn(r), _n_o(&b), 0, 0);  if(o) {               _eo_wipeR(o, len );             _eo_typeco (o) = _EJSON_CO_RAW   ; } return o; }
 eobj   ejson_addO(eobj r, constr key, eobj   o   ) { is0_ret(r, 0); return __ejson_addO(_eo_rn(r), key, o); }
 
-eobj   ejson_raddJ(eobj r, constr rawk, constr key, constr json) { return ejson_addJ(_getObjByRawk(_eo_rn(r), rawk), key, json); }
-eobj   ejson_raddT(eobj r, constr rawk, constr key, etypeo type) { return ejson_addT(_getObjByRawk(_eo_rn(r), rawk), key, type); }
-eobj   ejson_raddI(eobj r, constr rawk, constr key, i64    val ) { return ejson_addI(_getObjByRawk(_eo_rn(r), rawk), key, val ); }
-eobj   ejson_raddF(eobj r, constr rawk, constr key, f64    val ) { return ejson_addF(_getObjByRawk(_eo_rn(r), rawk), key, val ); }
-eobj   ejson_raddS(eobj r, constr rawk, constr key, constr str ) { return ejson_addS(_getObjByRawk(_eo_rn(r), rawk), key, str ); }
-eobj   ejson_raddP(eobj r, constr rawk, constr key, conptr ptr ) { return ejson_addP(_getObjByRawk(_eo_rn(r), rawk), key, ptr ); }
-eobj   ejson_raddR(eobj r, constr rawk, constr key, uint   len ) { return ejson_addR(_getObjByRawk(_eo_rn(r), rawk), key, len ); }
-eobj   ejson_raddO(eobj r, constr rawk, constr key, eobj   o   ) { return ejson_addO(_getObjByRawk(_eo_rn(r), rawk), key, o   ); }
+eobj   ejsonr_addJ(eobj r, constr rawk, constr key, constr json) { return ejson_addJ(_getObjByRawk(_eo_rn(r), rawk), key, json); }
+eobj   ejsonr_addT(eobj r, constr rawk, constr key, etypeo type) { return ejson_addT(_getObjByRawk(_eo_rn(r), rawk), key, type); }
+eobj   ejsonr_addI(eobj r, constr rawk, constr key, i64    val ) { return ejson_addI(_getObjByRawk(_eo_rn(r), rawk), key, val ); }
+eobj   ejsonr_addF(eobj r, constr rawk, constr key, f64    val ) { return ejson_addF(_getObjByRawk(_eo_rn(r), rawk), key, val ); }
+eobj   ejsonr_addS(eobj r, constr rawk, constr key, constr str ) { return ejson_addS(_getObjByRawk(_eo_rn(r), rawk), key, str ); }
+eobj   ejsonr_addP(eobj r, constr rawk, constr key, conptr ptr ) { return ejson_addP(_getObjByRawk(_eo_rn(r), rawk), key, ptr ); }
+eobj   ejsonr_addR(eobj r, constr rawk, constr key, uint   len ) { return ejson_addR(_getObjByRawk(_eo_rn(r), rawk), key, len ); }
+eobj   ejsonr_addO(eobj r, constr rawk, constr key, eobj   o   ) { return ejson_addO(_getObjByRawk(_eo_rn(r), rawk), key, o   ); }
 
-eobj   ejson_kaddJ(eobj r, constr keys, constr key, constr json) { return ejson_addJ(_getObjByKeys(_eo_rn(r), keys), key, json); }
-eobj   ejson_kaddT(eobj r, constr keys, constr key, etypeo type) { return ejson_addT(_getObjByKeys(_eo_rn(r), keys), key, type); }
-eobj   ejson_kaddI(eobj r, constr keys, constr key, i64    val ) { return ejson_addI(_getObjByKeys(_eo_rn(r), keys), key, val ); }
-eobj   ejson_kaddF(eobj r, constr keys, constr key, f64    val ) { return ejson_addF(_getObjByKeys(_eo_rn(r), keys), key, val ); }
-eobj   ejson_kaddS(eobj r, constr keys, constr key, constr str ) { return ejson_addS(_getObjByKeys(_eo_rn(r), keys), key, str ); }
-eobj   ejson_kaddP(eobj r, constr keys, constr key, conptr ptr ) { return ejson_addP(_getObjByKeys(_eo_rn(r), keys), key, ptr ); }
-eobj   ejson_kaddR(eobj r, constr keys, constr key, uint   len ) { return ejson_addR(_getObjByKeys(_eo_rn(r), keys), key, len ); }
-eobj   ejson_kaddO(eobj r, constr keys, constr key, eobj   o   ) { return ejson_addO(_getObjByKeys(_eo_rn(r), keys), key, o   ); }
+eobj   ejsonk_addJ(eobj r, constr keys, constr key, constr json) { return ejson_addJ(_getObjByKeys(_eo_rn(r), keys), key, json); }
+eobj   ejsonk_addT(eobj r, constr keys, constr key, etypeo type) { return ejson_addT(_getObjByKeys(_eo_rn(r), keys), key, type); }
+eobj   ejsonk_addI(eobj r, constr keys, constr key, i64    val ) { return ejson_addI(_getObjByKeys(_eo_rn(r), keys), key, val ); }
+eobj   ejsonk_addF(eobj r, constr keys, constr key, f64    val ) { return ejson_addF(_getObjByKeys(_eo_rn(r), keys), key, val ); }
+eobj   ejsonk_addS(eobj r, constr keys, constr key, constr str ) { return ejson_addS(_getObjByKeys(_eo_rn(r), keys), key, str ); }
+eobj   ejsonk_addP(eobj r, constr keys, constr key, conptr ptr ) { return ejson_addP(_getObjByKeys(_eo_rn(r), keys), key, ptr ); }
+eobj   ejsonk_addR(eobj r, constr keys, constr key, uint   len ) { return ejson_addR(_getObjByKeys(_eo_rn(r), keys), key, len ); }
+eobj   ejsonk_addO(eobj r, constr keys, constr key, eobj   o   ) { return ejson_addO(_getObjByKeys(_eo_rn(r), keys), key, o   ); }
 
 static eobj __ejson_makeRoom(_ejsr r, eobj in, bool overwrite, bool find)
 {

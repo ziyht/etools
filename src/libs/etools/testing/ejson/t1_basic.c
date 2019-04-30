@@ -202,7 +202,7 @@ static int ejson_add_test2()
 }
 
 
-static int ejson_radd_test()
+static int ejsonr_add_test()
 {
     ejson e, o; int i; char key[32] = "012345678901234567890", zero[32] = {0};
 
@@ -227,16 +227,16 @@ static int ejson_radd_test()
       */
 
     i = -1;
-    i++; ejson_raddT(r, RKEY, &key[i], EFALSE);
-    i++; ejson_raddT(r, RKEY, &key[i], ETRUE);
-    i++; ejson_raddT(r, RKEY, &key[i], ENULL);
-    i++; ejson_raddI(r, RKEY, &key[i], 1);
-    i++; ejson_raddF(r, RKEY, &key[i], 2.0);
-    i++; ejson_raddS(r, RKEY, &key[i], &key[i]);
-    i++; ejson_raddP(r, RKEY, &key[i], &key[i]);
-    i++; ejson_raddR(r, RKEY, &key[i], 9);
-    i++; ejson_raddT(r, RKEY, &key[i], EOBJ);
-    i++; ejson_raddT(r, RKEY, &key[i], EARR);
+    i++; ejsonr_addT(r, RKEY, &key[i], EFALSE);
+    i++; ejsonr_addT(r, RKEY, &key[i], ETRUE);
+    i++; ejsonr_addT(r, RKEY, &key[i], ENULL);
+    i++; ejsonr_addI(r, RKEY, &key[i], 1);
+    i++; ejsonr_addF(r, RKEY, &key[i], 2.0);
+    i++; ejsonr_addS(r, RKEY, &key[i], &key[i]);
+    i++; ejsonr_addP(r, RKEY, &key[i], &key[i]);
+    i++; ejsonr_addR(r, RKEY, &key[i], 9);
+    i++; ejsonr_addT(r, RKEY, &key[i], EOBJ);
+    i++; ejsonr_addT(r, RKEY, &key[i], EARR);
 
     eexpect_num(ejson_isEmpty(e), 0);
     eexpect_num(ejson_len(e), ++i);
@@ -308,7 +308,7 @@ static int ejson_radd_test()
     return ETEST_OK;
 }
 
-static int ejson_kadd_test()
+static int ejsonk_add_test()
 {
     ejson e, o; int i; char key[32] = "012345678901234567890", zero[32] = {0};
 
@@ -333,16 +333,16 @@ static int ejson_kadd_test()
       */
 
     i = -1;
-    i++; ejson_kaddT(r, KEYS, &key[i], EFALSE);
-    i++; ejson_kaddT(r, KEYS, &key[i], ETRUE);
-    i++; ejson_kaddT(r, KEYS, &key[i], ENULL);
-    i++; ejson_kaddI(r, KEYS, &key[i], 1);
-    i++; ejson_kaddF(r, KEYS, &key[i], 2.0);
-    i++; ejson_kaddS(r, KEYS, &key[i], &key[i]);
-    i++; ejson_kaddP(r, KEYS, &key[i], &key[i]);
-    i++; ejson_kaddR(r, KEYS, &key[i], 9);
-    i++; ejson_kaddT(r, KEYS, &key[i], EOBJ);
-    i++; ejson_kaddT(r, KEYS, &key[i], EARR);
+    i++; ejsonk_addT(r, KEYS, &key[i], EFALSE);
+    i++; ejsonk_addT(r, KEYS, &key[i], ETRUE);
+    i++; ejsonk_addT(r, KEYS, &key[i], ENULL);
+    i++; ejsonk_addI(r, KEYS, &key[i], 1);
+    i++; ejsonk_addF(r, KEYS, &key[i], 2.0);
+    i++; ejsonk_addS(r, KEYS, &key[i], &key[i]);
+    i++; ejsonk_addP(r, KEYS, &key[i], &key[i]);
+    i++; ejsonk_addR(r, KEYS, &key[i], 9);
+    i++; ejsonk_addT(r, KEYS, &key[i], EOBJ);
+    i++; ejsonk_addT(r, KEYS, &key[i], EARR);
 
     eexpect_num(ejson_isEmpty(e), 0);
     eexpect_num(ejson_len(e), ++i);
@@ -496,7 +496,7 @@ static int ejson_addJ_test()
 }
 
 
-static int ejson_raddJ_test()
+static int ejsonr_addJ_test()
 {
     typedef struct { cstr key; cstr json; etypeo t;} _IN_;
 
@@ -536,14 +536,14 @@ static int ejson_raddJ_test()
     map = map1;
 
     i = -1;
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
     eexpect_num(ejson_clear(e), ++i);
     eexpect_num(ejson_isEmpty(e), 1);
 
@@ -561,14 +561,14 @@ static int ejson_raddJ_test()
     map = map2;
 
     i = -1;
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
     eexpect_num(ejson_clear(e), ++i);
     eexpect_num(ejson_isEmpty(e), 1);
 
@@ -586,14 +586,14 @@ static int ejson_raddJ_test()
     map = map3;
 
     i = -1;
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_raddJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonr_addJ(r, RKEY, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
     eexpect_num(ejson_clear(e), ++i);
     eexpect_num(ejson_isEmpty(e), 1);
 
@@ -602,7 +602,7 @@ static int ejson_raddJ_test()
     return ETEST_OK;
 }
 
-static int ejson_kaddJ_test()
+static int ejsonk_addJ_test()
 {
     typedef struct { cstr key; cstr json; etypeo t;} _IN_;
 
@@ -642,14 +642,14 @@ static int ejson_kaddJ_test()
     map = map1;
 
     i = -1;
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, 0, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
     eexpect_num(ejson_clear(e), ++i);
     eexpect_num(ejson_isEmpty(e), 1);
 
@@ -667,14 +667,14 @@ static int ejson_kaddJ_test()
     map = map2;
 
     i = -1;
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
     eexpect_num(ejson_clear(e), ++i);
     eexpect_num(ejson_isEmpty(e), 1);
 
@@ -692,14 +692,14 @@ static int ejson_kaddJ_test()
     map = map3;
 
     i = -1;
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
-    i++; ejson_kaddJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
+    i++; ejsonk_addJ(r, KEYS, map[i].key, map[i].json); eexpect_num(ejson_len(e), i + 1); eexpect_num(ejsonr_type(e, map[i].key), map[i].t );
     eexpect_num(ejson_clear(e), ++i);
     eexpect_num(ejson_isEmpty(e), 1);
 
@@ -716,12 +716,12 @@ int t1_basic(int argc, char* argv[])
 
     ETEST_RUN( ejson_add_test1() ); // obj
     ETEST_RUN( ejson_add_test2() ); // arr
-    ETEST_RUN( ejson_radd_test() );
-    ETEST_RUN( ejson_kadd_test() );
+    ETEST_RUN( ejsonr_add_test() );
+    ETEST_RUN( ejsonk_add_test() );
 
     ETEST_RUN( ejson_addJ_test () );
-    ETEST_RUN( ejson_raddJ_test() );
-    ETEST_RUN( ejson_kaddJ_test() );
+    ETEST_RUN( ejsonr_addJ_test() );
+    ETEST_RUN( ejsonk_addJ_test() );
 
     return ETEST_OK;
 }

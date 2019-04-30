@@ -90,24 +90,6 @@ eobj ejson_addS(eobj r, constr key, constr str );                 // add a  STR 
 eobj ejson_addR(eobj r, constr key, uint   len );                 // add a  RAW obj to root, alloc a new space(len) for data
 eobj ejson_addO(eobj r, constr key, eobj   o   );                 // add an exist obj to obj
 
-eobj ejson_raddJ(eobj r, constr rawk, constr key, constr json);   // add an json  obj to specific obj in root via rawk
-eobj ejson_raddT(eobj r, constr rawk, constr key, etypeo type);   // add an type  obj to specific obj in root via rawk, only support EFLASE, ETURE, ENULL, EARR, EOBJ
-eobj ejson_raddI(eobj r, constr rawk, constr key, i64    val );   // add an NUM   obj to specific obj in root via rawk
-eobj ejson_raddF(eobj r, constr rawk, constr key, f64    val );   // add an NUM   obj to specific obj in root via rawk
-eobj ejson_raddP(eobj r, constr rawk, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via rawk
-eobj ejson_raddS(eobj r, constr rawk, constr key, constr str );   // add a  STR   obj to specific obj in root via rawk
-eobj ejson_raddR(eobj r, constr rawk, constr key, uint   len );   // add a  RAW   obj to specific obj in root via rawk, alloc a new space(len) for data
-eobj ejson_raddO(eobj r, constr rawk, constr key, eobj   o   );   // add an exist obj to specific obj in root via rawk
-
-eobj ejson_kaddJ(eobj r, constr keys, constr key, constr json);   // add an json  obj to specific obj in root via path
-eobj ejson_kaddT(eobj r, constr keys, constr key, etypeo type);   // add an type  obj to specific obj in root via path, only support EFLASE, ETURE, ENULL, EARR, EOBJ
-eobj ejson_kaddI(eobj r, constr keys, constr key, i64    val );   // add an NUM   obj to specific obj in root via path
-eobj ejson_kaddF(eobj r, constr keys, constr key, f64    val );   // add an NUM   obj to specific obj in root via path
-eobj ejson_kaddP(eobj r, constr keys, constr key, conptr ptr );   // add a  PTR   obj to specific obj in root via path
-eobj ejson_kaddS(eobj r, constr keys, constr key, constr str );   // add a  STR   obj to specific obj in root via path
-eobj ejson_kaddR(eobj r, constr keys, constr key, uint   len );   // add a  RAW   obj to specific obj in root via path, alloc a new space(len) for data
-eobj ejson_kaddO(eobj r, constr keys, constr key, eobj   o   );   // add an exist obj to specific obj in root via path
-
 eobj ejsonr_addJ(eobj r, constr rawk, constr key, constr json);   // add an json  obj to specific obj in root via rawk
 eobj ejsonr_addT(eobj r, constr rawk, constr key, etypeo type);   // add an type  obj to specific obj in root via rawk, only support EFLASE, ETURE, ENULL, EARR, EOBJ
 eobj ejsonr_addI(eobj r, constr rawk, constr key, i64    val );   // add an NUM   obj to specific obj in root via rawk
