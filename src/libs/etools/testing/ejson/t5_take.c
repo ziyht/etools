@@ -121,28 +121,28 @@ static int test_takeO()
     r = ejson_parseS(str);
     eunexpc_ptr(r, 0);
 
-    e1 = ejson_valr(r, "false"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "false"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), EFALSE); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "true"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "true"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), ETRUE ); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "null"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "null"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), ENULL ); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "int"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "int"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), ENUM); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "double"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "double"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), ENUM); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "str"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "str"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), ESTR); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "obj"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "obj"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), EOBJ); eexpect_num(ejson_free(e1), 1);
 
-    e1 = ejson_valr(r, "arr1"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "arr1"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), EARR);
 
     {
@@ -150,28 +150,28 @@ static int test_takeO()
 
         r = e1;
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), EFALSE); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ETRUE ); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ENULL ); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ENUM); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ENUM); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ESTR); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), EOBJ); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), EARR); eexpect_num(ejson_free(e1), 1);
 
         eexpect_num(ejson_free(r), 1);
@@ -179,7 +179,7 @@ static int test_takeO()
         r = _r;
     }
 
-    e1 = ejson_valr(r, "arr2"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+    e1 = ejsonk(r, "arr2"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
     eexpect_num(ejson_type(e1), EARR);
 
     {
@@ -187,28 +187,28 @@ static int test_takeO()
 
         r = e1;
 
-        e1 = ejson_valk(r, "[7]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[7]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), EARR); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[6]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[6]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), EOBJ ); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[5]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[5]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ESTR ); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[4]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[4]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ENUM); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[3]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[3]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ENUM); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[2]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[2]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ENULL); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[1]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[1]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), ETRUE); eexpect_num(ejson_free(e1), 1);
 
-        e1 = ejson_valk(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
+        e1 = ejsonp(r, "[0]"); eunexpc_ptr(e1, 0); e2 = ejson_takeO(r, e1); eunexpc_ptr(e2, 0); eexpect_ptr(e1, e2);
         eexpect_num(ejson_type(e1), EFALSE); eexpect_num(ejson_free(e1), 1);
 
         eexpect_num(ejson_free(r), 1);
@@ -221,7 +221,7 @@ static int test_takeO()
     return ETEST_OK;
 }
 
-static int test_takeK()
+static int test_takeP()
 {
     ejson r, e; int i;
 
@@ -279,7 +279,7 @@ static int test_takeK()
         if(map[i].keys == 0)
             break;
 
-        e = ejson_takeK(r, map[i].keys);
+        e = ejson_takeP(r, map[i].keys);
         eunexpc_ptr(e, 0);
         eexpect_num(ejson_type(e), map[i].t);
         eexpect_num(ejson_free(e), 1);
@@ -290,7 +290,7 @@ static int test_takeK()
     return ETEST_OK;
 }
 
-static int test_takeR()
+static int test_takeK()
 {
     ejson r, e; int i;
 
@@ -351,8 +351,8 @@ int t5_take(int argc, char* argv[])
     ETEST_RUN( test_takeH() );
     ETEST_RUN( test_takeT() );
     ETEST_RUN( test_takeO() );
+    ETEST_RUN( test_takeP() );
     ETEST_RUN( test_takeK() );
-    ETEST_RUN( test_takeR() );
 
     return ETEST_OK;
 }

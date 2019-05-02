@@ -205,7 +205,7 @@ static inline void __ert_task_cache(ert tp, TASK t)
         else
         {    llog("[thread%s]: rm %s ok, %d, %s", th->id, tag, ejso_len(tp->tasks_tag), s = ejso_toUStr(tp->tasks_tag));ejss_free(s);}
 #else
-        ejson_freeR(tp->tasks_tags, t->tag);
+        ejson_freeK(tp->tasks_tags, t->tag);
 #endif
     }
 
@@ -519,7 +519,7 @@ int  ert_query(ert tp, constr tag)
     is0_ret(tp->status == _INITED, 0);
 
     tasks_lock();
-    ret = ejson_valr(tp->tasks_tags, tag) ? 1 : 0;
+    ret = ejsonk(tp->tasks_tags, tag) ? 1 : 0;
     tasks_ulck();
 
     return ret;

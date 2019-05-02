@@ -307,7 +307,7 @@ static int __unregister_wakeup(etloop loop)
     snprintf(key, 64, "%p", (void*)loop);
 
     mutex_lock(_wakeup_mu);
-    ejson_freeR(_all_loops, key);
+    ejson_freeK(_all_loops, key);
 
     if(0 == ejson_len(_all_loops))
     {

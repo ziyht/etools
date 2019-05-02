@@ -203,7 +203,7 @@ int    earg_parse(earg h, int argc, cstr argv[])
         }
 
         short_arg[0] = (u8)opt;
-        arg = ejson_valRr(h->args_d, short_arg);
+        arg = ejsonk_valR(h->args_d, short_arg);
         if(!arg)
         {
             fprintf (stderr, "%s    option unknown: %c\n", h->desc, *short_arg);
@@ -246,5 +246,5 @@ arg    earg_find(earg h, char tag)
     char short_arg[4] = {0};
     short_arg[0] = tag;
 
-    return h ? ejson_valRr(h->args_d, short_arg) : 0;
+    return h ? ejsonk_valR(h->args_d, short_arg) : 0;
 }

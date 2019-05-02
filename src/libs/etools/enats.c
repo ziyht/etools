@@ -474,7 +474,7 @@ static inline ejson __enats_makeRoomForSubs(enats e, constr subj, enats_msgHandl
     mutex_ulck(e->sub_mu);
     is0_exeret(subs, errfmt(e, "subs of \"%s\" already exist", subj), 0);
 
-    assert(sroom = ejson_valr(e->sub_dic, subj));
+    assert(sroom = ejsonk(e->sub_dic, subj));
 
     subs->e           = e;
     subs->msg_handler = onMsg;
@@ -559,7 +559,7 @@ static inline void __enats_unSub(enats e, constr subj)
 
     mutex_lock(e->sub_mu);
 
-    if((sroom = ejson_takeR(e->sub_dic, subj)))
+    if((sroom = ejson_takeK(e->sub_dic, subj)))
     {
         subs = EOBJ_VALR(sroom);
 
@@ -797,7 +797,7 @@ static inline void __enats_stats(enats trans, constr subj, enats_stats_t* stats,
     s = natsConnection_GetStats(trans->conn.nc, (natsStatistics*)stats);
 
     mutex_lock(trans->sub_mu);
-    ntSub = ejsonr_valR(trans->sub_dic, subj);
+    ntSub = ejsonk_valR(trans->sub_dic, subj);
     mutex_ulck(trans->sub_mu);
     if ((s == NATS_OK) && (ntSub != NULL))
     {
@@ -1110,13 +1110,13 @@ constr enats_err(enats trans)
 #define enatp_ulck(p)           mutex_ulck((p)->mutex)
 
 #define enatp_add_conntrans(p, add) ejson_addP(p->conn_transs, add->name, add)
-#define enatp_get_conntrans(p,name) ejson_valrP(p->conn_transs, name)
-#define enatp_del_conntrans(p, del) ejson_freeR(p->conn_transs, del->name)
+#define enatp_get_conntrans(p,name) ejson_valPk(p->conn_transs, name)
+#define enatp_del_conntrans(p, del) ejson_freeK(p->conn_transs, del->name)
 #define enatp_cnt_conntrans(p     ) eobj_len (p->conn_transs)
 
 #define enatp_add_lazytrans(p, add) ejson_addP(p->lazy_transs, add->name, add)
-#define enatp_get_lazytrans(p,name) ejson_valrP(p->lazy_transs, name)
-#define enatp_del_lazytrans(p, del) ejson_freeR(p->lazy_transs, del->name)
+#define enatp_get_lazytrans(p,name) ejson_valPk(p->lazy_transs, name)
+#define enatp_del_lazytrans(p, del) ejson_freeK(p->lazy_transs, del->name)
 #define enatp_cnt_lazytrans(p     ) ejson_len (p->lazy_transs)
 
 #define enatp_add_url(p,url,ntname) ejso_addS(p->urls, url, ntname)
@@ -1371,7 +1371,7 @@ static void __enatp_exeLazyThread(enatp p)
 
 static inline int __enatp_chkName(enatp p, constr name)
 {
-    return !ejson_valr(p->name_groups, name);
+    return !ejsonk(p->name_groups, name);
 }
 
 static inline ejson __enatp_getGroup(enatp p, constr name)
@@ -1380,7 +1380,7 @@ static inline ejson __enatp_getGroup(enatp p, constr name)
 
     enatp_lock(p);
 
-    egroup = ejson_valr(p->name_groups, name);
+    egroup = ejsonk(p->name_groups, name);
 
     if(!egroup)
     {
@@ -1401,7 +1401,7 @@ static inline int __enatp_getAvailNameIdForGroup(enatp p, ejson egroup, char ena
     do
     {
         snprintf(ename, 64, "%s.%d", eobj_keyS(egroup),++id);
-    }while(ejson_valr(egroup, ename));
+    }while(ejsonk(egroup, ename));
 
     enatp_ulck(p);
 
@@ -1532,7 +1532,7 @@ static inline ejson __enatp_getEnatsRooms(enatp p, constr name)
     else if(name == ENATP_ALL_TRANS)  eroom = p->name_groups;
     else {
         enatp_lock(p);
-        eroom = ejson_valr(p->name_groups, name);
+        eroom = ejsonk(p->name_groups, name);
         enatp_ulck(p);
     }
 

@@ -15,14 +15,14 @@ static int __obj_check(ejson r)
     eexpect_num(ejson_type(r), EOBJ);
     eexpect_num(ejson_len(r), 8);
 
-    e = ejson_valr(r, "false" ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EFALSE);
-    e = ejson_valr(r, "true"  ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ETRUE);
-    e = ejson_valr(r, "null"  ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ENULL);
-    e = ejson_valr(r, "int"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ENUM);  eexpect_num(eobj_valI(e), 100);
-    e = ejson_valr(r, "double"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ENUM);  eexpect_num(eobj_valF(e), 100.123);
-    e = ejson_valr(r, "str"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);  eexpect_str(eobj_valS(e), "str");
-    e = ejson_valr(r, "arr"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);  eexpect_num(eobj_len(e), 8);
-    e = ejson_valr(r, "obj"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);  eexpect_num(eobj_len(e), 8);
+    e = ejsonk(r, "false" ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EFALSE);
+    e = ejsonk(r, "true"  ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ETRUE);
+    e = ejsonk(r, "null"  ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ENULL);
+    e = ejsonk(r, "int"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ENUM);  eexpect_num(eobj_valI(e), 100);
+    e = ejsonk(r, "double"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ENUM);  eexpect_num(eobj_valF(e), 100.123);
+    e = ejsonk(r, "str"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);  eexpect_str(eobj_valS(e), "str");
+    e = ejsonk(r, "arr"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);  eexpect_num(eobj_len(e), 8);
+    e = ejsonk(r, "obj"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);  eexpect_num(eobj_len(e), 8);
 
     return ETEST_OK;
 }
