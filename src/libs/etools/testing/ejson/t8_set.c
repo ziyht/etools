@@ -72,7 +72,7 @@ static ejson gen_test_ejson(etypeo type, int deep)
     return 0;
 }
 
-static int test_resetTr(ejson r, etypeo type)
+static int test_resetTk(ejson r, etypeo type)
 {
     uint i;
 
@@ -103,7 +103,35 @@ static int test_resetTr(ejson r, etypeo type)
     return ETEST_OK;
 }
 
-static int test_resetIr(ejson r)
+static int test_resetTi(ejson r, etypeo type)
+{
+    uint i;
+
+    switch (ejson_type(r))
+    {
+        case EOBJ:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsonk_setT(r, &key[i], type);
+
+                        eexpect_num(ejsonk_type(r, &key[i]),  type);
+                    }
+                    break;
+
+        case EARR:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsoni_setT(r, i, type);
+
+                        eexpect_num(ejsoni_type(r, i),  type);
+                    }
+                    break;
+
+        default:    return ETEST_ERR;
+    }
+
+    return ETEST_OK;
+}
+
+static int test_resetIk(ejson r)
 {
     uint i;
 
@@ -136,7 +164,37 @@ static int test_resetIr(ejson r)
     return ETEST_OK;
 }
 
-static int test_resetFr(ejson r)
+static int test_resetIi(ejson r)
+{
+    uint i;
+
+    switch (ejson_type(r))
+    {
+        case EOBJ:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsonk_setI(r, &key[i], 123);
+
+                        eexpect_num(ejsonk_type(r, &key[i]),  ENUM);
+                        eexpect_num(ejsonk_valI(r, &key[i]),  123);
+                    }
+                    break;
+
+        case EARR:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsoni_setI(r, i, 123);
+
+                        eexpect_num(ejsoni_type(r, i),  ENUM);
+                        eexpect_num(ejsoni_valI(r, i),  123);
+                    }
+                    break;
+
+        default :   return ETEST_ERR;
+    }
+
+    return ETEST_OK;
+}
+
+static int test_resetFk(ejson r)
 {
     uint i;
 
@@ -147,7 +205,7 @@ static int test_resetFr(ejson r)
                         ejsonk_setF(r, &key[i], 123.12);
 
                         eexpect_num(ejsonk_type(r, &key[i]),  ENUM);
-                        eexpect_num(ejsonk_valF   (r, &key[i]),  123.12);
+                        eexpect_num(ejsonk_valF(r, &key[i]),  123.12);
                     }
                     break;
 
@@ -159,7 +217,7 @@ static int test_resetFr(ejson r)
                             continue;
 
                         eexpect_num(ejsonk_type(r, itostr(i)),  ENUM);
-                        eexpect_num(ejsonk_valF   (r, itostr(i)),  123.12);
+                        eexpect_num(ejsonk_valF(r, itostr(i)),  123.12);
                     }
                     break;
 
@@ -169,7 +227,37 @@ static int test_resetFr(ejson r)
     return ETEST_OK;
 }
 
-static int test_resetSr(ejson r)
+static int test_resetFi(ejson r)
+{
+    uint i;
+
+    switch (ejson_type(r))
+    {
+        case EOBJ:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsonk_setF(r, &key[i], 123.12);
+
+                        eexpect_num(ejsonk_type(r, &key[i]),  ENUM);
+                        eexpect_num(ejsonk_valF(r, &key[i]),  123.12);
+                    }
+                    break;
+
+        case EARR:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsoni_setF(r, i, 123.12);
+
+                        eexpect_num(ejsoni_type(r, i),  ENUM);
+                        eexpect_num(ejsoni_valF(r, i),  123.12);
+                    }
+                    break;
+
+        default :   return ETEST_ERR;
+    }
+
+    return ETEST_OK;
+}
+
+static int test_resetSk(ejson r)
 {
 
 #define STR      "123456"
@@ -198,7 +286,7 @@ static int test_resetSr(ejson r)
 
                         eexpect_num(ejsonk_type(r, itostr(i)),  ESTR);
                         eexpect_num(ejsonk_len (r, itostr(i)),  STR_LEN);
-                        eexpect_str(ejsonk_valS   (r, itostr(i)),  STR );
+                        eexpect_str(ejsonk_valS(r, itostr(i)),  STR );
                     }
                     break;
 
@@ -208,7 +296,43 @@ static int test_resetSr(ejson r)
     return ETEST_OK;
 }
 
-static int test_resetPr(ejson r)
+static int test_resetSi(ejson r)
+{
+
+#define STR      "123456"
+#define STR_LEN  strlen(STR)
+
+    uint i;
+
+    switch (ejson_type(r))
+    {
+        case EOBJ:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsonk_setS(r, &key[i], STR);
+
+                        eexpect_num(ejsonk_type(r, &key[i]),  ESTR);
+                        eexpect_num(ejsonk_len (r, &key[i]),  STR_LEN);
+                        eexpect_str(ejsonk_valS   (r, &key[i]),  STR );
+                    }
+                    break;
+
+        case EARR:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsoni_setS(r, i, STR);
+
+                        eexpect_num(ejsoni_type(r, i),  ESTR);
+                        eexpect_num(ejsoni_len (r, i),  STR_LEN);
+                        eexpect_str(ejsoni_valS(r, i),  STR );
+                    }
+                    break;
+
+        default :   return ETEST_ERR;
+    }
+
+    return ETEST_OK;
+}
+
+static int test_resetPk(ejson r)
 {
     uint i;
 
@@ -219,7 +343,7 @@ static int test_resetPr(ejson r)
                         ejsonk_setP(r, &key[i], &key[i]);
 
                         eexpect_num(ejsonk_type(r, &key[i]),  EPTR);
-                        eexpect_ptr(ejsonk_valP   (r, &key[i]),  &key[i]);
+                        eexpect_ptr(ejsonk_valP(r, &key[i]),  &key[i]);
                     }
                     break;
 
@@ -231,7 +355,7 @@ static int test_resetPr(ejson r)
                             continue;
 
                         eexpect_num(ejsonk_type(r, itostr(i)),  EPTR);
-                        eexpect_ptr(ejsonk_valP   (r, itostr(i)),  &key[i]);
+                        eexpect_ptr(ejsonk_valP(r, itostr(i)),  &key[i]);
                     }
                     break;
 
@@ -241,7 +365,37 @@ static int test_resetPr(ejson r)
     return ETEST_OK;
 }
 
-static int test_resetRr(ejson r)
+static int test_resetPi(ejson r)
+{
+    uint i;
+
+    switch (ejson_type(r))
+    {
+        case EOBJ:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsonk_setP(r, &key[i], &key[i]);
+
+                        eexpect_num(ejsonk_type(r, &key[i]),  EPTR);
+                        eexpect_ptr(ejsonk_valP(r, &key[i]),  &key[i]);
+                    }
+                    break;
+
+        case EARR:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsoni_setP(r, i, &key[i]);
+
+                        eexpect_num(ejsoni_type(r, i),  EPTR);
+                        eexpect_ptr(ejsoni_valP(r, i),  &key[i]);
+                    }
+                    break;
+
+        default :   return ETEST_ERR;
+    }
+
+    return ETEST_OK;
+}
+
+static int test_resetRk(ejson r)
 {
     uint i;
 
@@ -276,87 +430,159 @@ static int test_resetRr(ejson r)
     return ETEST_OK;
 }
 
-static int test_create_in_obj_r()
+static int test_resetRi(ejson r)
 {
-    ejson r; int deep; etypeo t = EOBJ;
+    uint i;
 
-    deep = 0;
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EFALSE) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ETRUE ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ENULL ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EOBJ  ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EARR  ) ); ejson_free(r);
+    switch (ejson_type(r))
+    {
+        case EOBJ:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsonk_setR(r, &key[i], i);
 
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRr(r        ) ); ejson_free(r);
+                        eexpect_num(ejsonk_type(r, &key[i]),  ERAW);
+                        eexpect_num(ejsonk_len (r, &key[i]),  i);
+                        eexpect_raw(ejsonk_valR(r, &key[i]),  vals, i);
+                    }
+                    break;
 
-    return ETEST_OK;
-}
+        case EARR:  for(i = 0; i < CHILD_CNT; i++)
+                    {
+                        ejsoni_setR(r, i, i);
 
-static int test_create_in_arr_r()
-{
-    ejson r; int deep; etypeo t = EARR;
+                        eexpect_num(ejsoni_type(r, i),  ERAW);
+                        eexpect_num(ejsoni_len (r, i),  i);
+                        eexpect_raw(ejsoni_valR(r, i),  vals, i);
+                    }
+                    break;
 
-    deep = 0;
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EFALSE) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ETRUE ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ENULL ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EOBJ  ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EARR  ) ); ejson_free(r);
-
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRr(r        ) ); ejson_free(r);
-
-    return ETEST_OK;
-}
-
-static int test_reset_in_obj_r()
-{
-    ejson r; int deep; etypeo t = EOBJ;
-
-    deep = 1;
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EFALSE) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ETRUE ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ENULL ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EOBJ  ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EARR  ) ); ejson_free(r);
-
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRr(r        ) ); ejson_free(r);
-
-    return ETEST_OK;
-}
-
-static int test_reset_in_arr_r()
-{
-    ejson r; int deep; etypeo t = EARR;
-
-    deep = 1;
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EFALSE) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ETRUE ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, ENULL ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EOBJ  ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTr(r, EARR  ) ); ejson_free(r);
-
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPr(r        ) ); ejson_free(r);
-    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRr(r        ) ); ejson_free(r);
+        default :   return ETEST_ERR;
+    }
 
     return ETEST_OK;
 }
 
 static int test_create_in_obj_k()
+{
+    ejson r; int deep; etypeo t = EOBJ;
+
+    deep = 0;
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EFALSE) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ETRUE ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ENULL ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EOBJ  ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EARR  ) ); ejson_free(r);
+
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRk(r        ) ); ejson_free(r);
+
+    return ETEST_OK;
+}
+
+static int test_create_in_arr_k()
+{
+    ejson r; int deep; etypeo t = EARR;
+
+    deep = 0;
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EFALSE) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ETRUE ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ENULL ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EOBJ  ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EARR  ) ); ejson_free(r);
+
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRk(r        ) ); ejson_free(r);
+
+    return ETEST_OK;
+}
+
+static int test_reset_in_obj_k()
+{
+    ejson r; int deep; etypeo t = EOBJ;
+
+    deep = 1;
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EFALSE) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ETRUE ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ENULL ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EOBJ  ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EARR  ) ); ejson_free(r);
+
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRk(r        ) ); ejson_free(r);
+
+    return ETEST_OK;
+}
+
+static int test_reset_in_arr_k()
+{
+    ejson r; int deep; etypeo t = EARR;
+
+    deep = 1;
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EFALSE) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ETRUE ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, ENULL ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EOBJ  ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTk(r, EARR  ) ); ejson_free(r);
+
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPk(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRk(r        ) ); ejson_free(r);
+
+    return ETEST_OK;
+}
+
+static int test_reset_in_obj_i()
+{
+    ejson r; int deep; etypeo t = EOBJ;
+
+    deep = 1;
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, EFALSE) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, ETRUE ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, ENULL ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, EOBJ  ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, EARR  ) ); ejson_free(r);
+
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRi(r        ) ); ejson_free(r);
+
+    return ETEST_OK;
+}
+
+static int test_reset_in_arr_i()
+{
+    ejson r; int deep; etypeo t = EARR;
+
+    deep = 1;
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, EFALSE) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, ETRUE ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, ENULL ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, EOBJ  ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetTi(r, EARR  ) ); ejson_free(r);
+
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetIi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetFi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetSi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetPi(r        ) ); ejson_free(r);
+    r = gen_test_ejson(t, deep); ETEST_RUN( test_resetRi(r        ) ); ejson_free(r);
+
+    return ETEST_OK;
+}
+
+static int test_create_in_obj_p()
 {
     typedef struct {constr keys; etypeo t; } _IN_;
 
@@ -405,7 +631,7 @@ static int test_create_in_obj_k()
     return ETEST_OK;
 }
 
-static int test_create_in_arr_k()
+static int test_create_in_arr_p()
 {
     typedef struct {constr keys; etypeo t; } _IN_;
 
@@ -500,14 +726,17 @@ int t8_set(int argc, char* argv[])
 {
     E_UNUSED(argc); E_UNUSED(argv);
 
-    ETEST_RUN( test_create_in_obj_r() );
-    ETEST_RUN( test_create_in_arr_r() );
-
-    ETEST_RUN( test_reset_in_obj_r() );
-    ETEST_RUN( test_reset_in_arr_r() );
-
     ETEST_RUN( test_create_in_obj_k() );
     ETEST_RUN( test_create_in_arr_k() );
+
+    ETEST_RUN( test_reset_in_obj_k() );
+    ETEST_RUN( test_reset_in_arr_k() );
+
+    ETEST_RUN( test_reset_in_obj_i() );
+    ETEST_RUN( test_reset_in_arr_i() );
+
+    ETEST_RUN( test_create_in_obj_p() );
+    ETEST_RUN( test_create_in_arr_p() );
 
     ETEST_RUN( test_reset_particular_k() );
 

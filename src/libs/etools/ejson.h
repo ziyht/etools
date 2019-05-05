@@ -144,12 +144,12 @@ eobj ejsonp_addO(eobj r, constr keys, constr key, eobj   o   );   // add an exis
  *
  *     {
  *          "fruits[0].name" : "tomato",
- *          ---------------------------
- *                      ^-------------------------------------- k found this
+ *                             --------
+ *                                ^---------------------------- k found this
  *
  *          "fruits": [ {"name":"apple"}, {"name":"pear"} ]
- *                       --------------
- *                          ^---------------------------------- p found this
+ *                              -------
+ *                                 ^--------------------------- p found this
  *     }
  *
  *     3. for p race APIs, you can split a key with '.' or '[]',
@@ -215,7 +215,7 @@ bool   ejson_valIsTruep(eobj r, constr keys);   // Returns true if the val in eo
 
 #define ejsonk          ejson_valk
 #define ejsonk_valI     ejson_valIk
-#define ejsonk_valF     ejson_valIk
+#define ejsonk_valF     ejson_valFk
 #define ejsonk_valS     ejson_valSk
 #define ejsonk_valP     ejson_valPk
 #define ejsonk_valR     ejson_valRk
@@ -226,7 +226,7 @@ bool   ejson_valIsTruep(eobj r, constr keys);   // Returns true if the val in eo
 
 #define ejsoni          ejson_vali
 #define ejsoni_valI     ejson_valIi
-#define ejsoni_valF     ejson_valIi
+#define ejsoni_valF     ejson_valFi
 #define ejsoni_valS     ejson_valSi
 #define ejsoni_valP     ejson_valPi
 #define ejsoni_valR     ejson_valRi
@@ -237,7 +237,7 @@ bool   ejson_valIsTruep(eobj r, constr keys);   // Returns true if the val in eo
 
 #define ejsonp          ejson_valp
 #define ejsonp_valI     ejson_valIp
-#define ejsonp_valF     ejson_valIp
+#define ejsonp_valF     ejson_valFp
 #define ejsonp_valS     ejson_valSp
 #define ejsonp_valP     ejson_valPp
 #define ejsonp_valR     ejson_valRp
@@ -405,6 +405,13 @@ eobj ejson_setSk(eobj r, constr rawk, constr str);
 eobj ejson_setPk(eobj r, constr rawk, constr ptr);
 eobj ejson_setRk(eobj r, constr rawk, uint   len);
 
+eobj ejson_setTi(eobj r, u32    idx , etypeo   t);
+eobj ejson_setIi(eobj r, u32    idx , i64    val);
+eobj ejson_setFi(eobj r, u32    idx , f64    val);
+eobj ejson_setSi(eobj r, u32    idx , constr str);
+eobj ejson_setPi(eobj r, u32    idx , constr ptr);
+eobj ejson_setRi(eobj r, u32    idx , uint   len);
+
 eobj ejson_setTp(eobj r, constr rawk, etypeo   t);
 eobj ejson_setIp(eobj r, constr rawk, i64    val);
 eobj ejson_setFp(eobj r, constr rawk, f64    val);
@@ -418,6 +425,13 @@ eobj ejson_setRp(eobj r, constr rawk, uint   len);
 #define ejsonk_setS     ejson_setSk
 #define ejsonk_setP     ejson_setPk
 #define ejsonk_setR     ejson_setRk
+
+#define ejsoni_setT     ejson_setTi
+#define ejsoni_setI     ejson_setIi
+#define ejsoni_setF     ejson_setFi
+#define ejsoni_setS     ejson_setSi
+#define ejsoni_setP     ejson_setPi
+#define ejsoni_setR     ejson_setRi
 
 #define ejsonp_setT     ejson_setTp
 #define ejsonp_setI     ejson_setIp
@@ -441,7 +455,7 @@ eobj ejson_subSp(eobj root, constr rawk, constr from, constr to);
 /// @brief ejson counter
 ///
 /// @note:
-///     1. if NUM obj not exsit in root, will auto create one
+///     1. if NUM obj not exsit in EOBJ, will create automatically
 ///     2. only support NUM obj if target obj exist
 ///     3. return LLONG_MIN if failed
 ///
@@ -455,8 +469,13 @@ i64  ejsonk_mm  (eobj r, constr rawk);
 i64  ejsonk_incr(eobj r, constr rawk, i64 v);
 i64  ejsonk_decr(eobj r, constr rawk, i64 v);
 
-i64  ejsonp_pp  (eobj r, constr rawk);
-i64  ejsonp_mm  (eobj r, constr rawk);
+i64  ejsoni_pp  (eobj r, u32    idx );
+i64  ejsoni_mm  (eobj r, u32    idx );
+i64  ejsoni_incr(eobj r, u32    idx , i64 v);
+i64  ejsoni_decr(eobj r, u32    idx , i64 v);
+
+i64  ejsonp_pp  (eobj r, constr keys);
+i64  ejsonp_mm  (eobj r, constr keys);
 i64  ejsonp_incr(eobj r, constr keys, i64 v);
 i64  ejsonp_decr(eobj r, constr keys, i64 v);
 

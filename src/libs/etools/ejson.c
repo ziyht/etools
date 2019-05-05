@@ -4,7 +4,7 @@
 ///
 ///    Description:  a easier way to handle json, you can also using it as a simple dic
 ///
-///        Version:  0.8
+///        Version:  1.0.0
 ///        Created:  12/18/2016 08:51:34 PM
 ///       Revision:  none
 ///       Compiler:  gcc
@@ -18,7 +18,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define EJSON_VERSION "ejson 0.9.13"     // adjust API names
+#define EJSON_VERSION "ejson 1.0.0"     // accomplishment of APIs
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -203,7 +203,7 @@ static constr err_p;
 #define             _obj_clear(  r)          _dict_clear(_obj_hd(r))
 #define             _obj_bzero( r)           memset(_r_o(r), 0, _R_OLEN)
 #define             _obj_findS(   r,k  )     _dict_findS(_obj_hd(r), k)
-#define             _obj_findS_ex(r,k,  rm)  _dict_findS_ex(_obj_hd(r), k, rm)
+//#define             _obj_findS_ex(r,k,  rm)  _dict_findS_ex(_obj_hd(r), k, rm)
 #define             _obj_findB(   r,k,l)     _dict_findB(_obj_hd(r), k, l)
 #define             _obj_findB_ex(r,k,l,rm)  _dict_findB_ex(_obj_hd(r), k, l, rm)
 #define             _obj_getSL(   r,k  ,lp)  _dict_getSL   (_obj_hd(r), k,    lp)
@@ -216,6 +216,7 @@ static inline void  _obj_link (_ejsr r, _ejsn n, L l);
 static inline eobj  _obj_popH (_ejsr r);
 static inline eobj  _obj_popT (_ejsr r);
 static inline eobj  _obj_takeN(_ejsr r, _ejsn n);
+static inline eobj  _obj_findS_ex(_ejsr r, constr k, bool rm);
 
 // -- arr's manager
 #define             _arr_hd(    r)   _r_list(r)
@@ -252,9 +253,7 @@ static inline eobj __objByRawk(_ejsr r, constr rawk, bool rm)
 
     switch (_r_typeo(r))
     {
-        case EOBJ:  n = _obj_findS_ex(r, rawk, rm);
-
-                    return n ? _n_o(n) : 0;
+        case EOBJ:  return _obj_findS_ex(r, rawk, rm);
 
         case EARR:  {
                         cstr endp; int id;
@@ -1866,8 +1865,9 @@ int  ejson_freeIEx(eobj r, int     idx, eobj_rls_ex_cb rls, eval prvt) { return 
 static __always_inline void __ejson_free_obj(_ejsr r);
 static __always_inline void __ejson_free_arr(_ejsr r);
 
-static eobj __ejson_makeRoom_set_r(_ejsr r, eobj in);
 static eobj __ejson_makeRoom_set_k(_ejsr r, eobj in);
+static eobj __ejson_makeRoom_set_i(_ejsr r, eobj in);
+static eobj __ejson_makeRoom_set_p(_ejsr r, eobj in);
 
 #define _INITED     1
 #undef  _eo_setT
@@ -1877,19 +1877,26 @@ if(!inited){                                                            \
     else if(t == EARR){ _arr_bzero(_eo_rn(o));                      }   \
 }
 
-eobj ejson_setTk(eobj r, constr rawk, etypeo type) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len = _t_olen(type), ._typ = {.__1 = {EJSON, type, 0, 0}}}, {0}}; o = __ejson_makeRoom_set_r(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setT (o, type, b.obj.r[0]);    _eo_typeco (o) = _n_typeco(&b)   ; } return o; }
-eobj ejson_setIk(eobj r, constr rawk, i64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_I }}, {0}}; o = __ejson_makeRoom_set_r(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_I; } return o; }
-eobj ejson_setFk(eobj r, constr rawk, f64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_F }}, {0}}; o = __ejson_makeRoom_set_r(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_F; } return o; }
-eobj ejson_setSk(eobj r, constr rawk, constr str ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =  _s_olen(str), ._typ = {.t_coe = _EJSON_COE_STR   }}, {0}}; o = __ejson_makeRoom_set_r(_eo_rn(r), _n_o(&b)); if(o) { _n_len(&b)--; _eo_setS (o, str, _n_len(&b));     _eo_typeco (o) = _EJSON_CO_STR   ; } return o; }
-eobj ejson_setPk(eobj r, constr rawk, constr ptr ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_PTR   }}, {0}}; o = __ejson_makeRoom_set_r(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setP (o, ptr   );              _eo_typeco (o) = _EJSON_CO_PTR   ; } return o; }
-eobj ejson_setRk(eobj r, constr rawk, uint   len ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =       len + 1, ._typ = {.t_coe = _EJSON_COE_RAW   }}, {0}}; o = __ejson_makeRoom_set_r(_eo_rn(r), _n_o(&b)); if(o) {               _eo_wipeR(o, len   );              _eo_typeco (o) = _EJSON_CO_RAW   ; } return o; }
+eobj ejson_setTk(eobj r, constr rawk, etypeo type) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len = _t_olen(type), ._typ = {.__1 = {EJSON, type, 0, 0}}}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setT (o, type, b.obj.r[0]);    _eo_typeco (o) = _n_typeco(&b)   ; } return o; }
+eobj ejson_setIk(eobj r, constr rawk, i64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_I }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_I; } return o; }
+eobj ejson_setFk(eobj r, constr rawk, f64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_F }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setF (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_F; } return o; }
+eobj ejson_setSk(eobj r, constr rawk, constr str ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =  _s_olen(str), ._typ = {.t_coe = _EJSON_COE_STR   }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) { _n_len(&b)--; _eo_setS (o, str, _n_len(&b));     _eo_typeco (o) = _EJSON_CO_STR   ; } return o; }
+eobj ejson_setPk(eobj r, constr rawk, constr ptr ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_PTR   }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setP (o, ptr   );              _eo_typeco (o) = _EJSON_CO_PTR   ; } return o; }
+eobj ejson_setRk(eobj r, constr rawk, uint   len ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =       len + 1, ._typ = {.t_coe = _EJSON_COE_RAW   }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_wipeR(o, len   );              _eo_typeco (o) = _EJSON_CO_RAW   ; } return o; }
 
-eobj ejson_setTp(eobj r, constr rawk, etypeo type) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len = _t_olen(type), ._typ = {.__1 = {EJSON, type, 0, 0}}}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setT (o, type, b.obj.r[0]);    _eo_typeco (o) = _n_typeco(&b)   ; } return o; }
-eobj ejson_setIp(eobj r, constr rawk, i64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_I }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_I; } return o; }
-eobj ejson_setFp(eobj r, constr rawk, f64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_F }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_F; } return o; }
-eobj ejson_setSp(eobj r, constr rawk, constr str ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =  _s_olen(str), ._typ = {.t_coe = _EJSON_COE_STR   }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) { _n_len(&b)--; _eo_setS (o, str, _n_len(&b));     _eo_typeco (o) = _EJSON_CO_STR   ; } return o; }
-eobj ejson_setPp(eobj r, constr rawk, constr ptr ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_PTR   }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setP (o, ptr   );              _eo_typeco (o) = _EJSON_CO_PTR   ; } return o; }
-eobj ejson_setRp(eobj r, constr rawk, uint   len ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =       len + 1, ._typ = {.t_coe = _EJSON_COE_RAW   }}, {0}}; o = __ejson_makeRoom_set_k(_eo_rn(r), _n_o(&b)); if(o) {               _eo_wipeR(o, len   );              _eo_typeco (o) = _EJSON_CO_RAW   ; } return o; }
+eobj ejson_setTi(eobj r, u32    idx , etypeo type) { eobj o; _ejsn_t b = {{0}, {.i =        idx}, {._len = _t_olen(type), ._typ = {.__1 = {EJSON, type, 0, 0}}}, {0}}; o = __ejson_makeRoom_set_i(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setT (o, type, b.obj.r[0]);    _eo_typeco (o) = _n_typeco(&b)   ; } return o; }
+eobj ejson_setIi(eobj r, u32    idx , i64    val ) { eobj o; _ejsn_t b = {{0}, {.i =        idx}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_I }}, {0}}; o = __ejson_makeRoom_set_i(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_I; } return o; }
+eobj ejson_setFi(eobj r, u32    idx , f64    val ) { eobj o; _ejsn_t b = {{0}, {.i =        idx}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_F }}, {0}}; o = __ejson_makeRoom_set_i(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setF (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_F; } return o; }
+eobj ejson_setSi(eobj r, u32    idx , constr str ) { eobj o; _ejsn_t b = {{0}, {.i =        idx}, {._len =  _s_olen(str), ._typ = {.t_coe = _EJSON_COE_STR   }}, {0}}; o = __ejson_makeRoom_set_i(_eo_rn(r), _n_o(&b)); if(o) { _n_len(&b)--; _eo_setS (o, str, _n_len(&b));     _eo_typecoe(o) = _EJSON_COE_STR  ; } return o; }
+eobj ejson_setPi(eobj r, u32    idx , constr ptr ) { eobj o; _ejsn_t b = {{0}, {.i =        idx}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_PTR   }}, {0}}; o = __ejson_makeRoom_set_i(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setP (o, ptr   );              _eo_typecoe(o) = _EJSON_COE_PTR  ; } return o; }
+eobj ejson_setRi(eobj r, u32    idx , uint   len ) { eobj o; _ejsn_t b = {{0}, {.i =        idx}, {._len =       len + 1, ._typ = {.t_coe = _EJSON_COE_RAW   }}, {0}}; o = __ejson_makeRoom_set_i(_eo_rn(r), _n_o(&b)); if(o) {               _eo_wipeR(o, len   );              _eo_typecoe(o) = _EJSON_COE_RAW  ; } return o; }
+
+eobj ejson_setTp(eobj r, constr rawk, etypeo type) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len = _t_olen(type), ._typ = {.__1 = {EJSON, type, 0, 0}}}, {0}}; o = __ejson_makeRoom_set_p(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setT (o, type, b.obj.r[0]);    _eo_typeco (o) = _n_typeco(&b)   ; } return o; }
+eobj ejson_setIp(eobj r, constr rawk, i64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_I }}, {0}}; o = __ejson_makeRoom_set_p(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setI (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_I; } return o; }
+eobj ejson_setFp(eobj r, constr rawk, f64    val ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_NUM_F }}, {0}}; o = __ejson_makeRoom_set_p(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setF (o, val   );              _eo_typecoe(o) = _EJSON_COE_NUM_F; } return o; }
+eobj ejson_setSp(eobj r, constr rawk, constr str ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =  _s_olen(str), ._typ = {.t_coe = _EJSON_COE_STR   }}, {0}}; o = __ejson_makeRoom_set_p(_eo_rn(r), _n_o(&b)); if(o) { _n_len(&b)--; _eo_setS (o, str, _n_len(&b));     _eo_typeco (o) = _EJSON_CO_STR   ; } return o; }
+eobj ejson_setPp(eobj r, constr rawk, constr ptr ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =             8, ._typ = {.t_coe = _EJSON_COE_PTR   }}, {0}}; o = __ejson_makeRoom_set_p(_eo_rn(r), _n_o(&b)); if(o) {               _eo_setP (o, ptr   );              _eo_typeco (o) = _EJSON_CO_PTR   ; } return o; }
+eobj ejson_setRp(eobj r, constr rawk, uint   len ) { eobj o; _ejsn_t b = {{0}, {.s = (cstr)rawk}, {._len =       len + 1, ._typ = {.t_coe = _EJSON_COE_RAW   }}, {0}}; o = __ejson_makeRoom_set_p(_eo_rn(r), _n_o(&b)); if(o) {               _eo_wipeR(o, len   );              _eo_typeco (o) = _EJSON_CO_RAW   ; } return o; }
 
 #define _get_curlen(n, cur_len)                                         \
 do{                                                                     \
@@ -1933,7 +1940,7 @@ if(_o != n)                                                             \
     _o = n;                                                             \
 }
 
-static eobj __ejson_makeRoom_set_r(_ejsr r, eobj in)
+static eobj __ejson_makeRoom_set_k(_ejsr r, eobj in)
 {
     dictLink_t l; _ejsn n; //uint len;
 
@@ -2018,7 +2025,38 @@ static eobj __ejson_makeRoom_set_r(_ejsr r, eobj in)
     return 0;
 }
 
-static eobj __ejson_makeRoom_set_k(_ejsr r, eobj in)
+static eobj __ejson_makeRoom_set_i(_ejsr r, eobj in)
+{
+    _ejsn n;
+
+    is1_ret(!_r_o(r) || _r_typeco(r) != _EJSON_CO_ARR, 0);
+
+    if((n = _arr_find(r, _eo_keyI(in))))
+    {
+        uint cur_len;
+
+        if(_eo_typeo(in) == _n_typeo(n))
+        {
+            in->r[0] = _INITED;                 // used by ejson_setT, setted so it will not be reinited later
+            return _n_o(n);
+        }
+
+        _get_curlen(n, cur_len);
+
+        if(cur_len < _eo_len(in))
+        {
+            _ejsn newn = _n_newr(n, _eo_len(in));
+
+            _arr_update_node(r, n, newn);
+        }
+
+        return _n_o(n);
+    }
+
+    return 0;
+}
+
+static eobj __ejson_makeRoom_set_p(_ejsr r, eobj in)
 {
     constr key; constr p; int klen; int id; dictLink_t l;
 
@@ -2386,20 +2424,233 @@ eobj ejson_subSp(eobj _r, constr keys, constr from, constr to)
  *
  *  -----------------------------------------------------
  */
-i64  ejson_pp  (eobj o)        { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) += 1;  case _EJSON_COE_NUM_F: return _eo_valF(o) += 1; }} return LLONG_MIN; }
-i64  ejson_mm  (eobj o)        { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) -= 1;  case _EJSON_COE_NUM_F: return _eo_valF(o) -= 1; }} return LLONG_MIN; }
-i64  ejson_incr(eobj o, i64 v) { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) += v;  case _EJSON_COE_NUM_F: return _eo_valF(o) += v; }} return LLONG_MIN; }
-i64  ejson_decr(eobj o, i64 v) { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) -= v;  case _EJSON_COE_NUM_F: return _eo_valF(o) -= v; }} return LLONG_MIN; }
 
-i64  ejsonr_pp  (eobj r, constr rawk);
-i64  ejsonr_mm  (eobj r, constr rawk);
-i64  ejsonr_incr(eobj r, constr rawk, i64 v);
-i64  ejsonr_decr(eobj r, constr rawk, i64 v);
+#define _ERR_COUNTOR    LLONG_MIN
 
-i64  ejsonk_pp  (eobj r, constr rawk);
-i64  ejsonk_mm  (eobj r, constr rawk);
-i64  ejsonk_incr(eobj r, constr keys, i64 v);
-i64  ejsonk_decr(eobj r, constr keys, i64 v);
+static i64 __ejson_makeRoom_counter_k(_ejsr r, constr rawk, i64 val);
+static i64 __ejson_makeRoom_counter_i(_ejsr r, u32    idx , i64 val);
+static i64 __ejson_makeRoom_counter_p(_ejsr r, constr keys, i64 val);
+
+i64  ejson_pp  (eobj o)        { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) += 1;  case _EJSON_COE_NUM_F: return _eo_valF(o) += 1; }} return _ERR_COUNTOR; }
+i64  ejson_mm  (eobj o)        { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) -= 1;  case _EJSON_COE_NUM_F: return _eo_valF(o) -= 1; }} return _ERR_COUNTOR; }
+i64  ejson_incr(eobj o, i64 v) { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) += v;  case _EJSON_COE_NUM_F: return _eo_valF(o) += v; }} return _ERR_COUNTOR; }
+i64  ejson_decr(eobj o, i64 v) { if(o) { switch (_eo_typecoe(o)) { case _EJSON_COE_NUM_I: return _eo_valI(o) -= v;  case _EJSON_COE_NUM_F: return _eo_valF(o) -= v; }} return _ERR_COUNTOR; }
+
+i64  ejsonk_pp  (eobj r, constr rawk)       { return __ejson_makeRoom_counter_k(_eo_rn(r), rawk,  1); }
+i64  ejsonk_mm  (eobj r, constr rawk)       { return __ejson_makeRoom_counter_k(_eo_rn(r), rawk, -1); }
+i64  ejsonk_incr(eobj r, constr rawk, i64 v){ return __ejson_makeRoom_counter_k(_eo_rn(r), rawk,  v); }
+i64  ejsonk_decr(eobj r, constr rawk, i64 v){ return __ejson_makeRoom_counter_k(_eo_rn(r), rawk, -v); }
+
+i64  ejsoni_pp  (eobj r, u32    idx )       { return __ejson_makeRoom_counter_i(_eo_rn(r), idx,  1);  }
+i64  ejsoni_mm  (eobj r, u32    idx )       { return __ejson_makeRoom_counter_i(_eo_rn(r), idx, -1);  }
+i64  ejsoni_incr(eobj r, u32    idx , i64 v){ return __ejson_makeRoom_counter_i(_eo_rn(r), idx,  v);  }
+i64  ejsoni_decr(eobj r, u32    idx , i64 v){ return __ejson_makeRoom_counter_i(_eo_rn(r), idx, -v);  }
+
+i64  ejsonp_pp  (eobj r, constr keys)       { return __ejson_makeRoom_counter_p(_eo_rn(r), keys,  1); }
+i64  ejsonp_mm  (eobj r, constr keys)       { return __ejson_makeRoom_counter_p(_eo_rn(r), keys, -1); }
+i64  ejsonp_incr(eobj r, constr keys, i64 v){ return __ejson_makeRoom_counter_p(_eo_rn(r), keys,  v); }
+i64  ejsonp_decr(eobj r, constr keys, i64 v){ return __ejson_makeRoom_counter_p(_eo_rn(r), keys, -v); }
+
+
+static i64 __ejson_makeRoom_counter_k(_ejsr r, constr rawk, i64 val)
+{
+    dictLink_t l; _ejsn n; //uint len;
+
+    is1_ret(!_r_o(r) || !_key_is_valid(rawk), _ERR_COUNTOR);
+
+    switch (_r_typeo(r))
+    {
+        case EOBJ:  if(!_obj_getSL_ex(r, rawk, &l))     //! found
+                    {
+                        n = *l._prev;
+
+                        switch (_n_typeoe(n)) {
+                            case _ENUM_I: return _n_valI(n) += val;
+                            case _ENUM_F: return _n_valF(n) += val;
+                        }
+
+                        return _ERR_COUNTOR;
+                    }
+                    else
+                    {
+                        _n_newI(n, val);
+                        _n_keyS(n) = _cur_dupkeyS(rawk);
+                        _obj_link(r, n, &l);
+
+                        return val;
+                    }
+
+                    break;
+
+        case EARR:  {
+                        cstr endp; int id;
+
+                        is0_ret(*rawk, _ERR_COUNTOR);
+
+                        id = strtol(rawk, &endp, 10);
+
+                        is1_ret(*endp, _ERR_COUNTOR);
+
+                        //! already exist
+                        if((n = _arr_find(r, id)))
+                        {
+                            switch (_n_typeoe(n)) {
+                                case _ENUM_I: return _n_valI(n) += val;
+                                case _ENUM_F: return _n_valF(n) += val;
+                            }
+                        }
+                        else
+                        {
+                            //! for arr obj, we do not create new obj
+
+                            return _ERR_COUNTOR;
+                        }
+                    }
+
+                    break;
+    }
+
+    return _ERR_COUNTOR;
+}
+
+static i64 __ejson_makeRoom_counter_i(_ejsr r, u32 idx, i64 val)
+{
+    _ejsn n;
+
+    is1_ret(!_r_o(r) || _r_typeco(r) != _EJSON_CO_ARR, _ERR_COUNTOR);
+
+    if((n = _arr_find(r, idx)))
+    {
+        switch (_n_typeoe(n)) {
+            case _ENUM_I: return _n_valI(n) += val;
+            case _ENUM_F: return _n_valF(n) += val;
+        }
+    }
+
+    return _ERR_COUNTOR;
+}
+
+i64 __ejson_makeRoom_counter_p(_ejsr r, constr keys, i64 val)
+{
+    constr key; constr p; int klen; int id; dictLink_t l;
+
+    _ejsn n;
+
+    is1_ret(!_r_o(r) || _r_typec(r) != EJSON || !_key_is_valid(keys), 0);
+
+    p = keys;
+    n = (_ejsn)r;
+
+    do{
+        klen = __getAKey(p, &key, &p);
+
+        is1_ret(klen < 0, 0);
+
+        r = (_ejsr)n;
+
+        if(!*p)
+        {
+            switch (_r_typeo(r))
+            {
+                case EOBJ:  if(!_obj_getBL_ex(r, key, klen, &l))     //! founds
+                            {
+                                n = *l._prev;
+
+                                switch (_n_typeoe(n)) {
+                                    case _ENUM_I: return _n_valI(n) += val;
+                                    case _ENUM_F: return _n_valF(n) += val;
+                                }
+
+                                return _ERR_COUNTOR;
+                            }
+                            else
+                            {
+                                _n_newI(n, val);
+                                _n_keyS(n) = _cur_newkeyS(klen); memcpy(_n_keyS(n), key, klen); _n_keyS(n)[klen] = '\0';
+                                _obj_link(r, n, &l);
+
+                                return val;
+                            }
+
+                case EARR:  {
+                                cstr endp; int id;
+
+                                is0_ret(*key, _ERR_COUNTOR);
+
+                                id = strtol(key, &endp, 10);
+
+                                if(*endp && *endp != ']')
+                                    return _ERR_COUNTOR;
+
+                                //! already exist
+                                if((n = _arr_find(r, id)))
+                                {
+                                    switch (_n_typeoe(n)) {
+                                        case _ENUM_I: return _n_valI(n) += val;
+                                        case _ENUM_F: return _n_valF(n) += val;
+                                    }
+                                }
+                                else
+                                {
+                                    //! for arr obj, we do not create new obj
+                                    return _ERR_COUNTOR;
+                                }
+                            }
+
+                            break;
+            }
+
+            return _ERR_COUNTOR;
+        }
+
+        switch (_r_typeo(r))
+        {
+            case EOBJ:  if(!_obj_getBL_ex(r, key, klen, &l)) //! already exist
+                        {
+                            if(_n_typeo(*l._prev) != EOBJ)
+                            {
+                                return _ERR_COUNTOR;
+                            }
+
+                            n = *l._prev;
+                        }
+                        else
+                        {
+                            _n_newO(n); _obj_init(n);
+
+                            _n_keyS(n) = _cur_newkeyS(klen); memcpy(_n_keyS(n), key, klen); _n_keyS(n)[klen] = '\0';
+
+                            _obj_link(r, n, &l);
+                        }
+
+                        break;
+
+            case EARR:  {
+                            cstr endp;
+
+                            is1_ret(klen == 0, _ERR_COUNTOR);
+
+                            id = strtol(key, &endp, 10);
+
+                            //! must parse over then is a valid number
+                            if(*endp && *endp != ']' && *endp != '.')
+                                return 0;
+
+                            n = _arr_find(r, id);
+                        }
+
+                        if(!n || _n_typeo(n) != EOBJ)
+                            return _ERR_COUNTOR;
+
+                        break;
+
+            default  :  return _ERR_COUNTOR;
+        }
+
+    }while(*p);
+
+    return _ERR_COUNTOR;
+}
 
 /** -----------------------------------------------------
  *
@@ -3251,6 +3502,36 @@ static inline eobj  _obj_takeN(_ejsr r, _ejsn n)
     _r_len(r)--;
 
     return _n_o(n);
+}
+
+static inline eobj  _obj_findS_ex(_ejsr r, constr k, bool rm)
+{
+    _ejsn n;
+
+    if(rm)
+    {
+        n = _dict_findS_ex(_r_dict(r), k, rm);
+
+        if(n)
+        {
+            if   (_n_lprev(n))  _n_lnext(_n_lprev(n)) = _n_lnext(n);
+            else                _r_head(r)            = _n_lnext(n);
+
+            if   (_n_lnext(n))  _n_lprev(_n_lnext(n)) = _n_lprev(n);
+            else                _r_tail(r)            = _n_lprev(n);
+
+            _n_lprev(n) = _n_lnext(n) = NULL;
+            _n_linked(n) = 0;
+
+            _r_len(r)--;
+        }
+    }
+    else
+    {
+        n = _obj_findS(r , k);
+    }
+
+    return n ? _n_o(n) : 0;
 }
 
 /// -------------------------------- inner ARR operation
