@@ -94,7 +94,7 @@ static void performance_keyS_test(uint scale)
     for(i64 i = 0; i < scale; i++)
     {
         sprintf(keyS, "%"PRIi64"", i);
-        if(erb_find(h, ekey_s(keyS))) j++;
+        if(erb_val(h, ekey_s(keyS))) j++;
     }
 
     if(erb_len(h) != j)

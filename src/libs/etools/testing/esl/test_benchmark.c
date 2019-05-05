@@ -32,11 +32,11 @@ static void performance_keyI_test(uint scale)
     t = eutils_nowms();
     j = 0; scale ++;
     tn = eutils_nowns(); i = 0;
-    if(esl_find(h, (ekey){i})) j++;
+    if(esl_val(h, (ekey){i})) j++;
     printf("find  1   \telem: %6"PRIu64"ns\n", eutils_nowns() - tn); fflush(stdout);
     for(i = 1; i < scale; i++)
     {
-        if(esl_find(h, (ekey){i})) j++;
+        if(esl_val(h, (ekey){i})) j++;
     }
 
     if(esl_len(h) != j)
@@ -95,7 +95,7 @@ static void performance_keyS_test(uint scale)
     for(i64 i = 0; i < scale; i++)
     {
         sprintf(keyS, "%"PRIi64"", i);
-        if(esl_find(h, ekey_s(keyS))) j++;
+        if(esl_val(h, ekey_s(keyS))) j++;
     }
 
     if(esl_len(h) != j)
@@ -142,7 +142,7 @@ void performance_keyI_rand_test(int scale)
     {
         key = (uint)eutils_rand() % scale;
         tn1 = eutils_nowns();
-        if(esl_find(h, (ekey){key}))j++;
+        if(esl_val(h, (ekey){key}))j++;
         tn  = eutils_nowns() - tn1;
 
         tn_total += tn;
