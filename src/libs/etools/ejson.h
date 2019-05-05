@@ -8,7 +8,7 @@
 ///             2. we recorded the item which you accessed last time in list, we'll search
 ///                from the recorded item in next time
 ///
-///        Version:  0.8
+///        Version:  1.0
 ///        Created:  12/18/2016 08:51:34 PM
 ///       Revision:  none
 ///       Compiler:  gcc
@@ -33,7 +33,6 @@ extern "C" {
  *
  *  ejson basic
  *
- *  -----------------------------------------------------
  */
 
 eobj   ejson_new(etypeo type, uint len);                        // create a ejson obj
@@ -79,7 +78,6 @@ constr ejson_err ();
  *      3. see 'ejson val's note to get the meaning of 'r',
  *  'k' APIs.
  *
- *  -----------------------------------------------------
  */
 eobj ejson_addJ(eobj r, constr key, constr json);                 // parse a json to obj and add it to root
 eobj ejson_addT(eobj r, constr key, etypeo type);                 // add an obj to root, the obj can be defined as EFLASE, ETURE, ENULL, EARR, EOBJ
@@ -120,7 +118,7 @@ eobj ejsonp_addO(eobj r, constr keys, constr key, eobj   o   );   // add an exis
 
 /** -----------------------------------------------------
  *
- * @brief ejson val
+ * ejson val
  *
  *      get obj or val from a ejson obj
  *
@@ -162,7 +160,6 @@ eobj ejsonp_addO(eobj r, constr keys, constr key, eobj   o   );   // add an exis
  *     4. for p race APIs, the key in '[]' can not be split again
  *
  *      fruits[0.name]      : fruits -> 0.name
- *
  *
  */
 eobj   ejson_valk      (eobj r, constr rawk);   // Returns the eobj with the specific rawk
@@ -255,7 +252,6 @@ bool   ejson_valIsTruep(eobj r, constr keys);   // Returns true if the val in eo
  *      if passed in 'out' is 0, create and returned a new
  *  buf, else write to it;
  *
- *  -----------------------------------------------------
  */
 estr ejson_toS (eobj o,              estr* out, eopts opts);
 
@@ -272,7 +268,6 @@ estr ejson_toSp(eobj o, constr keys, estr* out, eopts opts);
  *
  *  ejson take and free
  *
- *  -----------------------------------------------------
  */
 eobj ejson_takeH(eobj r);               // for EOBJ, EARR
 eobj ejson_takeT(eobj r);               // for EOBJ, EARR
@@ -314,7 +309,6 @@ int  ejson_freePEx(eobj r, constr pkey, eobj_rls_ex_cb rls, eval prvt);
  *      -2: obj is NULL
  *      -3: type not match
  *      -4: val of cstr is null
- *  -----------------------------------------------------
  */
 
 #define ejson_cmpI eobj_cmpI
@@ -346,7 +340,6 @@ int  ejson_cmpSp(eobj r, constr keys, constr str);
 #define ejsonp_cmpS     ejson_cmpSp
 
 /** -----------------------------------------------------
- * @brief
  *
  *  ejson iterationg
  *
@@ -386,18 +379,20 @@ eobj  ejson_lastp (eobj r, constr keys);
 #define ejsonp_foreach      ejson_foreachp
 #define ejsonp_foreach_s    ejson_foreachp_s
 
-/// -----------------------------------------------------
-//! @brief ejson set
-///
-/// @note:
-/// 1. if target not exsit, create automatically if the last
-///    found obj is a EOBJ obj
-/// 2. the found obj will be reset always, any children of it
-///    will be delete automatically, be careful by using it,
-///    it may cause memleak when have EPTR or ERAW obj associated
-///    with the delete obj
-/// 3. we do not create any not exsit obj for EARR obj
-///
+/** -----------------------------------------------------
+ *
+ *  ejson set
+ *
+ *  @note
+ *      1. if target not exsit, create automatically if the last
+ *         found obj is a EOBJ obj
+ *      2. the found obj will be reset always, any children of it
+ *         will be delete automatically, be careful by using it,
+ *         it may cause memleak when have EPTR or ERAW obj associated
+ *         with the delete obj
+ *      3. we do not create any not exsit obj for EARR obj
+ *
+ */
 eobj ejson_setTk(eobj r, constr rawk, etypeo   t);
 eobj ejson_setIk(eobj r, constr rawk, i64    val);
 eobj ejson_setFk(eobj r, constr rawk, f64    val);
@@ -485,7 +480,6 @@ i64  ejsonp_decr(eobj r, constr keys, i64 v);
  *
  *  @note:
  *      it only effect on EOBJ and EARR obj of ejson
- *
  *
  */
 
