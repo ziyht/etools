@@ -26,7 +26,7 @@
 
 #include "evec.h"
 
-#define EVEC_VERSION "evec 0.1.0"
+#define EVEC_VERSION "evec 0.1.3"       // return eval in val get API
 
 #define _EVEC_CHECK 1   // debug using
 
@@ -35,25 +35,20 @@
 typedef struct _evec_split_s * _evec_split, * _split;
 typedef struct _evec_split_s{
 
-    _split      prev;
-    _split      next;
-
     //!
-    //!              |-------------- front: 3
-    //!              |           |-- rear : 7
+    //!              |-------------- fpos: 3
+    //!              |           |-- rpos: 7
     //!              |           |
     //!     |  |  |  |**|**|**|**|  |  |
     //!     0  1  2  3  4  5  6  7  8  9    cap : 10
     //!
+    u32         cap;        // current capacity of this split
+    u32         fpos;       // pos of first elem
+    u32         rpos;       // pos after the last elem
 
-    u16         esize;       // elem size
-    u16         cap;        // current capacity of this split
-    int         mask;
-    int         front;      // pos of first elem
-    int         rear;       // pos after the last elem
+    u16         esize;      // elem size
 
-    char*       base;
-
+    eval        base;
 }_evev_split_t;
 
 typedef struct _pos_s
@@ -61,85 +56,39 @@ typedef struct _pos_s
     //! input
     evec        v;      // evec handle
     constr      in;
-    int         inlen;
-    int         cnt;
+    uint        inlen;
+    uint        cnt;
 
     //! target
     _split      s;      // split
-    int         pos;    // postion (direct)
+    uint        pos;    // postion (direct)
 }_pos_t, * _pos;
 
 #pragma pack()
 
-#define _split_prev(s)          s->prev
-#define _split_next(s)          s->next
-#define _split_esize(s)         s->esize
-#define _split_fpos(s)          s->front
-#define _split_rpos(s)          s->rear
-#define _split_cap(s)           s->cap
-#define _split_base(s)          s->base
-#define _split_mask(s)          s->mask
+#define _split_esize(s)         (s)->esize
+#define _split_fpos(s)          (s)->fpos
+#define _split_rpos(s)          (s)->rpos
+#define _split_cap(s)           (s)->cap
+#define _split_base(_s)        (_s)->base.s
 
-#define _split_len(s)           (s->rear - s->front)
+#define _split_len(s)           (_split_rpos(s) - _split_fpos(s))
 #define _split_avail(s)         (_split_cap(s) - (_split_len(s)))
+
+#define _split_ppos(s, p)       ((p) % _split_cap(s))
 
 #define _split_fptr(s)          (_split_base(s) + (_split_fpos(s) * _split_esize(s)))                        // ptr of front (first element)
 #define _split_rptr(s)          (_split_base(s) + (_split_rpos(s) * _split_esize(s)))                        // ptr of rear
-#define _split_lptr(s)          (_split_base(s) + (((_split_rear(s) - 1) % _split_cap(s)) * _split_esize(s)))// ptr of last element
+#define _split_lptr(s)          (_split_base(s) + (_split_ppos(s, (_split_rpos(s) - 1) * _split_esize(s))))  // ptr of last element
 #define _split_eptr(s)          (_split_base(s) + (_split_cap(s) * _split_esize(s)))                         // ptr of base end
 
-#define _split_csize(s, cnt)    ((cnt) * _split_esize(s))
-#define _split_pptr(s, p)       (_split_base(s) + ((p) & _split_mask(s)) * _split_esize(s))
-
-#pragma pack(1)
-
-typedef struct evec_s
-{
-    //! data
-    u32         cnt;                // all element count
-    u32         cap;                // all buffer  cap
-
-    _split      head;               // point to the first split
-    _split      tail;               // point to the last  split
-    u32         splits;             // splits count
-    u32         factor;             // factor for create, expand, shrink, merging, delete splits operations
-    u16         esize;              // element size
-
-    //! setting
-    u16         max_cap;            // the max cap of a split can hold
-    u32         reserves;           // how many items cap wanted to reserve
-
-    u8          type;               // etypev
-    uint        need_merging : 1;
-}evec_t;
-
-#pragma pack()
-
-#define _v_head(v)          (v)->head
-#define _v_tail(v)          (v)->tail
-#define _v_cnt(v)           (v)->cnt
-#define _v_cap(v)           (v)->cap
-#define _v_esize(v)         (v)->esize
-#define _v_splits(v)        (v)->splits
-#define _v_factor(v)        (v)->factor
-#define _v_reserve(v)       (v)->reserves
-#define _v_type(v)          (v)->type
-
-#define EVEC_MAX_PREALLOC   (1024 * 1024)       // bytes
-#define EVEC_MAX_FACTOR     16
-
-
-//!  factor setting
-#define _merge_factor(f)    (f * 2)
-#define _split_factor(f)    0
-#define _incre_factor(f)    (f > 8 ? 8 * 8 * 8 : f * f * f)
-
-#define _expand_ceiling(f)  (f * f * f)
+#define _split_msize(s, cnt)    ((cnt) * _split_esize(s))
+#define _split_pptr(s, p)       (_split_base(s) + _split_ppos(s, p) * _split_esize(s))
 
 #define __split_fpos_decr(s, cnt)           \
 do{                                         \
     _split_fpos(s) -= cnt;                  \
-    if(_split_fpos(s) < 0)                  \
+    if(_split_fpos(s) == UINT_MAX)          \
     {                                       \
         _split_fpos(s) += _split_cap(s);    \
         _split_rpos(s) += _split_cap(s);    \
@@ -166,47 +115,102 @@ do{                                         \
     _split_rpos(s) += cnt;                  \
 }while(0)
 
+#pragma pack(1)
 
-static _split __split_new(int need_rooms, int esize)
+typedef struct evec_s
 {
-    _split s = ecalloc(1, sizeof(*s));
+    _evev_split_t   s;
 
-    while(need_rooms * esize < 8)
+    //! data
+    u32             reserves;           // how many item rooms wanted to reserve
+    u8              type;               // etypev
+}evec_t;
+
+#pragma pack()
+
+#define _v_cnt(v)           _split_len((&v->s))
+#define _v_cap(v)           _split_cap((&v->s))
+#define _v_esize(v)         _split_esize((&v->s))
+#define _v_reserve(v)       (v)->reserves
+#define _v_type(v)          (v)->type
+
+#define EVEC_MAX_PREALLOC   (1024 * 1024)       // 1M
+
+static void __split_init(_split s, int need_rooms, int esize)
+{
+    if(need_rooms * esize < 8)
     {
-        need_rooms = pow2gt(need_rooms);
+        need_rooms = pow2gt(8 / esize);
     }
 
     _split_cap(  s) = need_rooms;
     _split_esize(s) = esize;
     _split_base( s) = ecalloc(need_rooms, esize);
-    _split_mask( s) = need_rooms - 1;
-
-    return s;
 }
 
-static bool __split_expand(_split s, int need_rooms, int factor)
+static __always_inline void __split_adjust_data(_split s, int appd_rooms, _pos p)
 {
-    int new_space; cstr new_base;
+    int movef = _split_cap(s)  - _split_fpos(s);
+    int mover = _split_rpos(s) - _split_cap(s);
+
+    if(movef <= mover)
+    {
+        if(movef <= appd_rooms)
+        {
+            memcpy (_split_base(s) + (_split_cap(s) + appd_rooms - movef) * _split_esize(s), _split_fptr(s) ,_split_msize(s, movef));
+        }
+        else
+        {
+            memmove(_split_base(s) + (_split_cap(s) + appd_rooms - movef) * _split_esize(s) ,_split_fptr(s) ,_split_msize(s, movef));
+        }
+
+        _split_fpos(s) += appd_rooms;
+        _split_rpos(s) += appd_rooms;
+        p->pos         += appd_rooms;
+    }
+    else
+    {
+        if(mover <= appd_rooms)
+        {
+            memcpy(_split_eptr(s), _split_base(s), _split_msize(s, mover));
+        }
+        else
+        {
+            memcpy(_split_eptr(s), _split_base(s), _split_msize(s, appd_rooms));
+
+            mover -= appd_rooms;
+
+            memmove(_split_base(s), _split_pptr(s, appd_rooms), _split_msize(s, appd_rooms));
+
+            _split_rpos(s) -= appd_rooms;   // wrong
+        }
+    }
+}
+
+static uint __split_expand(_split s, int need_rooms, _pos p)
+{
+    uint new_space; cstr new_base;
 
     new_space =  _split_esize(s) * (need_rooms + _split_cap(s));
 
     if(new_space < EVEC_MAX_PREALLOC) new_space  = pow2gt(new_space);
     else                              new_space += EVEC_MAX_PREALLOC;
 
-    if(new_space < _expand_ceiling(factor))
-        return false;
-
-    new_base = erealloc(s->base, new_space);
+    new_base = erealloc(_split_base(s), new_space);
 
     if(!new_base)
     {
-        return false;
+        return 0;
     }
+    _split_base(s) = new_base;
 
-    s->base = new_base;
-    s->cap  = new_space / _split_esize(s);
+    need_rooms = new_space / _split_esize(s) - _split_cap (s);    // record appd rooms
+    if( _split_rpos(s) >  _split_cap (s))
+        __split_adjust_data(s, need_rooms, p);
 
-    return true;
+    _split_cap (s) = new_space / _split_esize(s);
+
+    return need_rooms;
 }
 
 /**
@@ -219,12 +223,12 @@ static bool __split_expand(_split s, int need_rooms, int factor)
  * @param cnt - the elements count wanted to write
  * @return    - the pos for write
  */
-static int __split_squeeze_in_self(_split s, int pos, int cnt)
+static int __split_squeeze_in_self(_split s, uint pos, uint cnt)
 {
     //! 1. no need to move
     if(pos == _split_rpos(s))
     {
-        _split_rpos(s) += cnt;
+        __split_rpos_incr(s, cnt);
 
         return pos;
     }
@@ -232,80 +236,128 @@ static int __split_squeeze_in_self(_split s, int pos, int cnt)
     //! 2. no need to move
     if(pos == _split_fpos(s))
     {
-        pos -= cnt;
-
-        if(pos < 0)
-        {
-            _split_fpos(s) += _split_cap(s);
-            _split_rpos(s) += _split_cap(s);
-        }
+        __split_fpos_decr(s, cnt);
 
         return _split_fpos(s);
     }
 
-    //! 3. move prev is more wisely
+    //! 3. move front is more wisely
     if(pos - _split_fpos(s) <= _split_rpos(s) - pos)
     {
-        int target = _split_fpos(s) - cnt;
+        int front = _split_fpos(s) - cnt;
 
-        if(target >= 0)
+        if(front >= 0)
         {
-            //!            <--| |
-            //!    |*| | | |*|*|*|*|*|*|
-            //!
+            if(pos <= _split_cap(s))
+            {
+                //!    |*    ******|
+                //!           ^^^
 
-            memmove(_split_pptr(s, target), _split_fptr(s),  cnt * _split_esize(s));
+                //! -> |* *___*****|
+                memmove(_split_pptr(s, front), _split_fptr(s), _split_msize(s, pos - _split_fpos(s)));
+                pos -= cnt;
+            }
+            else if(pos > _split_cap(s))
+            {
+                //!     |*********    *|       |*********    *|
+                //!          ^^                      ^
 
-            _split_fpos(s) = target;
+                //! ->  |*********  *__|       |*********   *_|
+                //!          ^^                      ^
+                memmove(_split_pptr(s, front)              , _split_fptr(s), _split_msize(s, _split_cap(s) - _split_fpos(s)));
+
+                //! ->  |__*******  ***|       |_********   **|
+                //!          ^^                      ^
+                memcpy (_split_pptr(s, _split_cap(s) - cnt), _split_base(s), _split_msize(s, cnt));
+
+                //! ->  |__*******  ***|       |_********   **|
+                //!        ^^                       ^
+                pos = pos - cnt;
+
+                //! ->  |**__*****  ***|       |****_****   **|
+                //!        ^^                       ^
+                memmove(_split_base(s), _split_pptr(s, pos), _split_msize(s, cnt));
+            }
+
+             _split_fpos(s) = front;
         }
         else
         {
-            //!    | |-|-|-|-|-|-| | | |
-            //!   ----|               |<-|
-            //!   |----------------------|
+            //!    | ********  |
+            //!       ^^^
 
             //! first step
-            memcpy (_split_fptr(s),  _split_pptr(s, _split_cap(s) + target), -target * _split_esize(s));
+            memcpy (_split_pptr(s, _split_cap(s) + front), _split_fptr(s), _split_msize(s, -front));
 
             //! second step
-            memmove(_split_pptr(s, _split_fpos(s) - target), _split_base(s), (cnt + target) * _split_esize(s));
+            memmove(_split_base(s), _split_pptr(s, _split_fpos(s) - front), _split_msize(s, pos + front));
 
-            _split_fpos(s) = _split_cap(s) + target;
+            pos -= _split_fpos(s);  // convert to idx
+
+            _split_fpos(s) = _split_cap(s) + front;
             _split_rpos(s) = _split_cap(s) + _split_rpos(s);
+
+            return pos += _split_fpos(s);   // convert to pos
         }
     }
 
-    //! 4. move next is more wisely
+    //! 4. move rear is more wisely
     else
     {
-        int target = _split_rpos(s) + cnt;
+        uint rear = _split_rpos(s) + cnt;
 
-        if(target <= _split_cap(s))
+        if(rear > _split_cap(s))
         {
-            //!               | |-->
-            //!    | |-|-|-|-|-|-|-| | | | |
-            //!
+            if(pos >= _split_cap(s))
+            {
+                //!    |*******      **|
+                //!        ^^^
 
-            memmove(_split_rptr(s), _split_pptr(s, _split_rpos(s) - cnt), cnt * _split_esize(s));
+                memmove(_split_pptr(s, pos + cnt), _split_pptr(s, pos), _split_msize(s, _split_rpos(s) - pos));
+            }
+            else if(_split_rpos(s) > _split_cap(s))
+            {
+                //!    |**     *****|
+                //!             ^^^
 
-            _split_rpos(s) = target;
+                //! -> |___**  *****|
+                //!             ^^^
+                memmove(_split_pptr(s, cnt), _split_base(s), _split_msize(s, _split_rpos(s) % _split_cap(s)));
+
+                //! -> |*****  **___|
+                //!             ^^^
+                memcpy(_split_base(s),       _split_pptr(s, _split_cap(s) - cnt), _split_msize(s, cnt));
+
+                //! -> |*****  *___*|
+                //!             ^^^
+                int move3 =  _split_cap(s) - pos - cnt;
+                memmove(_split_pptr(s, _split_cap(s) - move3), _split_pptr(s, pos), _split_msize(s, move3));
+            }
+            else
+            {
+                //!    |   *******  |
+                //!          ^^^
+
+                //! -> |*  ******   |
+                //!          ^^^
+                int move1 = rear % _split_cap(s);
+                memcpy(_split_base(s),   _split_pptr(s, _split_rpos(s) - move1), _split_msize(s, move1));
+
+                //! -> |*  **___****|
+                //!          ^^^
+                memmove(_split_pptr(s, pos + cnt), _split_pptr(s, pos), _split_msize(s, _split_rpos(s) - pos - move1));
+            }
         }
         else
         {
-            //!               | |-->
-            //!    | | | |-|-|-|-|-| |
-            //!
+            //!    |  *******   |
+            //!          ^^^
 
-            target = target % _split_cap(s);
-
-            //! first step
-            memcpy (_split_base(s), _split_pptr(s, _split_rpos(s) - target), target         * _split_esize(s));
-
-            //! second step
-            memmove(_split_rptr(s), _split_pptr(s, _split_rpos(s) - cnt   ), (cnt - target) * _split_esize(s));
-
-            _split_rpos(s) = _split_cap(s) + target;
+            //! -> |  ******___*|
+            memmove(_split_pptr(s, pos + cnt), _split_pptr(s, pos), _split_msize(s, _split_rpos(s) - pos));
         }
+
+        _split_rpos(s) = rear;
     }
 
     return pos;
@@ -323,21 +375,23 @@ static int __split_squeeze_in_self(_split s, int pos, int cnt)
  * @param cnt   - element cnt to write
  */
 
-static void __split_write_hard(_split s, int pos, constr in, int inlen, int cnt)
+static void __split_write_hard(_split s, int pos, constr in, uint inlen, uint cnt)
 {
     pos = __split_squeeze_in_self(s, pos, cnt);
 
     if(!in)
         return;
 
+    pos = _split_ppos(s, pos);
+
     if(pos + cnt <= s->cap)
     {
-        memcpy(_split_pptr(s, pos), in, inlen > _split_esize(s) * cnt ? _split_esize(s) * cnt : inlen);
+        memcpy(_split_pptr(s, pos), in, inlen > (_split_esize(s) * cnt) ? (_split_esize(s) * cnt) : inlen);
     }
     else
     {
         //! first step
-        int can_copy = _split_esize(s) * (s->cap - pos);
+        uint can_copy = _split_esize(s) * (s->cap - pos);
 
         //! second step
         if(can_copy >= inlen)
@@ -353,459 +407,41 @@ static void __split_write_hard(_split s, int pos, constr in, int inlen, int cnt)
     }
 }
 
-static void __split_appd_hard(_split s, constr in, int cnt)
-{
-    __split_write_hard(s, _split_rpos(s), in, INT_MAX, cnt);
-}
-
-static int __split_appd_safe(_split s, constr in, int cnt)
-{
-    if(cnt > _split_avail(s))
-        cnt = _split_avail(s);
-
-    __split_appd_hard(s, in, cnt);
-
-    return cnt;
-}
-
-static void __split_push_hard(_split s, constr in, int cnt)
-{
-    __split_write_hard(s, _split_fpos(s), in, INT_MAX, cnt);
-}
-
-static int __split_push_safe(_split s, constr in, int cnt)
-{
-    if(cnt > _split_avail(s))
-        cnt = _split_avail(s);
-
-    __split_push_hard(s, in, cnt);
-
-    return cnt;
-}
-
-static int __split_squeeze_to_prev(_split s, int cnt)
-{
-    int transfered;
-
-    if(_split_fpos(s) + cnt <= _split_cap(s))
-    {
-        transfered = __split_appd_safe(_split_prev(s), _split_fptr(s), cnt);
-        __split_fpos_incr(s, cnt);
-
-        return transfered;
-    }
-    else
-    {
-        int now_transfer = _split_cap(s) - _split_fpos(s);
-
-        //! step 1:
-        transfered  = __split_appd_safe(_split_prev(s), _split_fptr(s), now_transfer);
-        __split_fpos_incr(s, now_transfer);
-
-        //! step 2:
-        transfered += __split_squeeze_to_prev(s, cnt - now_transfer);
-    }
-
-    return transfered;
-}
-
-static int __split_squeeze_to_next(_split s, int cnt)
-{
-    int transfered;
-
-    if(_split_rpos(s) < _split_cap(s))
-    {
-        transfered = __split_push_safe(_split_next(s), _split_pptr(s, -cnt), cnt);
-        __split_rpos_decr(s, cnt);
-
-        return transfered;
-    }
-    else
-    {
-        if(_split_rpos(s) - cnt >= _split_cap(s))
-        {
-            transfered = __split_push_safe(_split_next(s), _split_pptr(s, -cnt), cnt);
-            __split_rpos_decr(s, cnt);
-
-            return transfered;
-        }
-        else
-        {
-            int now_transfer = _split_rpos(s) - _split_cap(s);
-
-            //! step 1:
-            transfered  = __split_push_safe(_split_next(s), _split_base(s), now_transfer);
-            __split_rpos_decr(s, cnt);
-
-            //! step 2:
-            transfered += __split_squeeze_to_next(s, cnt - now_transfer);
-        }
-    }
-
-    return transfered;
-}
-
-/**
- * @brief __split_squeeze_room
- *
- *
- *
- */
-static bool __split_squeeze_room(_split s, int pos, int cnt, _pos info)
-{
-    if(_split_avail(s) >= cnt)
-    {
-        info->s   = s;
-        info->pos = pos;
-
-        return true;
-    }
-    else
-    {
-        int prev_avail, next_avail, prev_moves, next_moves, need_rooms;
-
-        prev_moves = pos - _split_fpos(s);
-        next_moves = _split_rpos(s) - pos;
-        prev_avail = _split_prev(s) ? _split_avail(_split_prev(s)) : 0;
-        next_avail = _split_next(s) ? _split_avail(_split_next(s)) : 0;
-
-        //! not have enough space, quited
-        if(cnt > _split_avail(s) + prev_avail + next_avail)
-        {
-            return false;
-        }
-
-        need_rooms = cnt - _split_avail(s);     // need_rooms >= 1
-
-        if(0 == prev_moves)
-        {
-            if(prev_avail >= need_rooms)
-            {
-                info->s   = _split_prev(s);
-                info->pos = _split_fpos(_split_prev(s));
-                return true;
-            }
-            else
-            {
-                __split_squeeze_to_next(s, need_rooms - prev_avail);
-                return __split_squeeze_room(s, pos, cnt, info);
-            }
-        }
-        else if(0 == next_moves)
-        {
-            if(next_avail >= need_rooms)
-            {
-                info->s   = s;
-                info->pos = pos;
-
-                return true;
-            }
-            else
-            {
-                __split_squeeze_to_prev(s, need_rooms - next_avail);
-                return __split_squeeze_room(s, pos, cnt, info);
-            }
-        }
-
-        if(prev_moves <= next_moves)
-        {
-            need_rooms -= __split_squeeze_to_prev(s, prev_moves);
-
-            if(need_rooms)
-            {
-#if _EVEC_CHECK
-                need_rooms -= __split_squeeze_to_next(s, need_rooms);
-                assert(need_rooms == 0);
-#else
-                __split_squeeze_to_next(s, need_rooms);
-#endif
-            }
-
-            return __split_squeeze_room(s, pos, cnt, info);
-        }
-        else
-        {
-            need_rooms -= __split_squeeze_to_next(s, next_moves);
-
-            if(need_rooms)
-            {
-#if _EVEC_CHECK
-                need_rooms -= __split_squeeze_to_next(s, need_rooms);
-                assert(need_rooms == 0);
-#else
-                __split_squeeze_to_next(s, need_rooms)
-#endif
-            }
-
-            return __split_squeeze_room(s, pos, cnt, info);
-        }
-    }
-
-    return 0;
-}
-
-#define _elist_join_prev(n, i)          \
-do{                                     \
-    _n_prev(i) = _n_prev(n);            \
-    _n_next(i) = n;                     \
-    _n_prev(n) = i;                     \
-                                        \
-    if(_n_prev(i))                      \
-        _n_next(_n_prev(i)) = i;        \
-                                        \
-}while(0)
-
-#define _elist_join_next(n, i)          \
-do{                                     \
-    _n_prev(i) = n;                     \
-    _n_next(i) = _n_next(n);            \
-    _n_next(n) = i;                     \
-                                        \
-    if(_n_next(i))                      \
-        _n_prev(_n_next(i)) = i;        \
-                                        \
-}while(0)
-
-//! compat to elist helper macros
-#define _n_next(n) _split_next(n)
-#define _n_prev(n) _split_prev(n)
-
-#define _split_join_prev(n, i) _elist_join_prev(n, i)
-#define _split_join_next(n, i) _elist_join_next(n, i)
-
-/**
- * @brief __split_make_room
- *
- *      make new rooms for writen, we call this to make rooms when
- * there have no enough space to write data in cur split and closing
- * neighbour splits.
- *
- * @return (_split)-1  create a new split to write, set to s->prev
- *         (_split) 1  create a new split to write, set to s->next
- *         (_split)..  using return split to write
- */
-static bool __split_make_room(_split s, int pos, int cnt, _pos info)
-{
-    int prev_avail, next_avail, prev_moves, next_moves, need_rooms; ;
-
-    //! first we move out the elements from cur split to neighbours
-    //!
-    //! after this operation, will only have three situations:
-    //!
-    //!     1. pos now is at front pos or rear pos in cur split
-    //!
-    //!        in this case,
-    //!
-    //!     2. pos now is not at front pos or rear pos in cur split
-    //!
-    //!        in this case, both neighbours is full or not available
-    //!     to wirte
-    //!
-    //!     3.
-    //!
-    //!
-    //!
-    {
-        prev_moves = pos - _split_fpos(s);
-        next_moves = _split_rpos(s) - pos;
-        prev_avail = _split_prev(s) ? _split_avail(_split_prev(s)) : 0;
-        next_avail = _split_next(s) ? _split_avail(_split_next(s)) : 0;
-
-        if(prev_avail)
-        {
-            __split_squeeze_to_prev(s, prev_moves);
-            prev_avail = _split_avail(_split_prev(s));
-            prev_moves = pos - _split_fpos(s);
-        }
-
-        if(next_avail)
-        {
-            __split_squeeze_to_next(s, next_moves);
-            next_avail = _split_avail(_split_next(s));
-            next_moves = _split_rpos(s) - pos;
-        }
-
-        need_rooms = cnt - _split_avail(s) - prev_avail - next_avail;
-    }
-
-    //!
-    //! if this split is a head or tail
-    //!
-    //!    step 1: try to expand it
-    //!    step 2: create a new split
-    //!
-    {
-        if(!_split_next(s) || !_split_prev(s))
-        {
-            if(!__split_expand(s, need_rooms, info->v->factor))
-            {
-                _split new_s = __split_new(need_rooms, _split_esize(s));
-
-                if(!_split_next(s))  _split_join_next(s, new_s);
-                else                 _split_join_prev(s, new_s);
-
-                return __split_squeeze_room(s, pos, cnt, info);
-            }
-            else
-            {
-                info->s   = s;
-                info->pos = pos;
-
-                return true;
-            }
-        }
-    }
-
-    //!
-    //! now we sure this split is between head and tail
-    //!
-    //!     when add element to internal splits, we will expand it only if
-    //! it is empty to write, else we do not try to expand it, only create
-    //! new split to write
-    //!
-    //!     the new created split will be merged automatically in later operations
-    //! when checked needed
-    //!
-    {
-        _split new_s = __split_new(need_rooms, _split_esize(s));
-
-        if(0 == prev_avail && 0 == next_avail)
-        {
-            if(prev_moves < next_moves)
-            {
-                //! p             s        n
-                //! |****|        |****r0| |****|
-                //!                 ^--6
-                //!
-                //! p             s        n
-                //! |****| |r000| |****r0| |****|       <- inserted before
-                //!                 ^--6
-                //!
-                //! p             s        n
-                //! |****| |**r0| |00**r0| |****|       <- squeezed(moved 2)
-                //!           ^--6
-                //!
-                _split_join_prev(s, new_s);
-            }
-            else
-            {
-                //! p      s               n
-                //! |****| |****r0|        |****|
-                //!            ^--6
-                //!
-                //! p       s              n
-                //! |****| |****r0| |r000| |****|       <- inserted after
-                //!            ^--6
-                //!
-                //! p      s               n
-                //! |****| |***r00| |*r00| |****|       <- squeezed(moved 1)
-                //!            ^--
-                //!
-
-                _split_join_next(s, new_s);
-            }
-
-        }
-        else if(0 == next_avail)
-        {
-            //! p           s         n
-            //! |**r0|      |00***r0| |****|
-            //!                ^--8
-            //!
-            //!             s
-            //! |**r0| |r0| |00***r0| |****|            <- inserted before and squeezed(moved 1)
-            //!    ^--8
-            //!
-
-            _split_join_prev(s, new_s);
-
-            info->s   = _split_prev(s);
-            info->pos = 0;
-
-        }
-        else if(0 == prev_avail)
-        {
-            //! p      s            n
-            //! |****| |***r0|      |****|
-            //!            ^--4
-            //! p      s            n
-            //! |****| |***r0| |r0| |****|              <- inserted after and squeezed(moved 1)
-            //!            ^--4
-            //!
-            _split_join_next(s, new_s);
-            info->s   = _split_next(s);
-            info->pos = 0;
-        }
-
-        //! p      s        n
-        //! |***r| |r000|   |***r|
-        //!         ^--8
-        //!
-        //! p      s            n
-        //! |***r| |r00000| |***r|
-        //!     ^--8
-        //!
-
-        __split_expand(s, need_rooms, EVEC_MAX_FACTOR);
-
-        return __split_squeeze_room(s, pos, cnt, info);
-    }
-
-    return false;
-}
-
-static cptr __pos_write(_pos pos)
-{
-    cptr p = _split_pptr(pos->s, pos->pos);
-
-    if(pos->cnt <= _split_avail(pos->s))
-    {
-        __split_write_hard(pos->s, pos->pos, pos->in, pos->inlen, pos->cnt);
-    }
-    else
-    {
-        int write = _split_avail(pos->s);
-
-        __split_write_hard(pos->s, pos->pos, pos->in, pos->inlen, write);
-
-        pos->cnt   -= write;
-        pos->in    += write * _split_esize(pos->s);
-        pos->inlen -= write * _split_esize(pos->s);
-
-        //! write to next
-        __split_write_hard(_split_next(pos->s), _split_fpos(pos->s), pos->in, pos->inlen, pos->cnt);
-    }
-
-    return p;
-}
-
 static cptr __split_insert(_split s, _pos_t* pos)
 {
-    if(!__split_squeeze_room(s, pos->pos, pos->cnt, pos))
+    cptr out;
+
+    int overload = pos->cnt - _split_avail(&pos->v->s);
+
+    if(overload > 0)
     {
-        if(!__split_make_room(s, pos->pos, pos->cnt, pos))
+        if(!__split_expand(s, overload, pos))
             return false;
     }
 
-    return __pos_write(pos);
+    out = _split_pptr(pos->s, pos->pos);
+
+    __split_write_hard(pos->s, pos->pos, pos->in, pos->inlen, pos->cnt);
+
+    return out;
 }
 
 static bool __split_erase_room(_split s, _pos_t* pos)
 {
-    int can_erase;
-
-again:
+    uint can_erase;
 
     can_erase = _split_rpos(s) - pos->pos;
 
-    if(can_erase >= pos->cnt)
+    if(pos->cnt > can_erase)
+        pos->cnt = can_erase;
+
     {
-        int move_f = pos->pos  - _split_fpos(s);
-        int move_r = can_erase - pos->cnt;
+        uint move_f = pos->pos  - _split_fpos(s);
+        uint move_r = can_erase - pos->cnt;
 
         if(move_f < move_r)
         {
-            int ffto, frto;
+            uint ffto, frto;
 
             //! adjust pos so next operation will be more easier
             if(pos->pos > _split_cap(s))
@@ -844,7 +480,7 @@ again:
         }
         else
         {
-            int rfto, rrto;
+            uint rfto, rrto;
 
             if(pos->pos + pos->cnt < _split_cap(s) && _split_rpos(s) >= _split_cap(s) )
             {
@@ -860,7 +496,7 @@ again:
 
                 int moves = _split_cap(s) - pos->pos - pos->cnt;
 
-                memmove(_split_pptr(s, pos->pos), _split_pptr(s, _split_cap(s) - moves), _split_csize(s, moves));
+                memmove(_split_pptr(s, pos->pos), _split_pptr(s, _split_cap(s) - moves), _split_msize(s, moves));
 
                 pos->pos -= moves;
             }
@@ -873,14 +509,14 @@ again:
                 int rfpos = pos->pos + pos->cnt;
 
                 //! step 1:
-                memcpy(_split_pptr(s, rfto), _split_pptr(s, rfpos), _split_csize(s, _split_cap(s) - rfto));
+                memcpy(_split_pptr(s, rfto), _split_pptr(s, rfpos), _split_msize(s, _split_cap(s) - rfto));
 
                 //! step 2:
-                memmove(_split_base(s), _split_pptr(s, rfpos + _split_cap(s) - rfto), _split_csize(s, _split_rpos(s) - rfpos - (_split_cap(s) - rfto)) );
+                memmove(_split_base(s), _split_pptr(s, rfpos + _split_cap(s) - rfto), _split_msize(s, _split_rpos(s) - rfpos - (_split_cap(s) - rfto)) );
             }
             else
             {
-                memmove(_split_pptr(s, rfto), _split_pptr(s, pos->pos + pos->cnt), _split_csize(s, pos->cnt));
+                memmove(_split_pptr(s, rfto), _split_pptr(s, pos->pos + pos->cnt), _split_msize(s, pos->cnt));
             }
 
             __split_rpos_decr(s, pos->cnt);
@@ -888,27 +524,8 @@ again:
 
         return true;
     }
-    else
-    {
-        __split_rpos_decr(s, can_erase);
-
-        s = _split_next(s);
-
-        if(s)
-        {
-            pos->cnt -= can_erase;
-            pos->pos  = _split_fpos(s);
-
-            goto again;
-        }
-    }
 
     return false;
-}
-
-static void __split_erase(_split s, _pos_t* pos)
-{
-
 }
 
 /// -----------------------------------------------------------------------
@@ -941,18 +558,14 @@ static evec __evec_new(etypev type, int esize)
 {
     evec out = ecalloc(1, sizeof(*out));
 
-    _v_esize (out) = esize;
-    _v_factor(out) = 2;
-    _v_head  (out) = __split_new(1, _v_esize(out));
-    _v_tail  (out) = _v_head(out);
-    _v_cap   (out) = _split_cap(_v_head(out));
-    _v_splits(out) = 1;
+    __split_init(&out->s, 1, esize);
+
     _v_type  (out) = type;
 
     return out;
 }
 
-uint   evec_len (evec v)   { return v ? _v_cnt (v)  : 0; }
+uint   evec_len (evec v)   { return v ? _v_cnt( v)  : 0; }
 uint   evec_cap (evec v)   { return v ? _v_cap (v)  : 0; }
 uint   evec_esize(evec v)  { return v ? _v_esize(v) : 0; }
 etypev evec_type(evec v)   { return v ? _v_type(v)  : E_NAV;}
@@ -970,73 +583,14 @@ static void __split_free_ex (evec v, _split s, eobj_rls_ex_cb rls, eval prvt);
 int evec_clear  (evec v){ return evec_clearEx(v, 0, EVAL_ZORE);}
 int evec_clearEx(evec v, eobj_rls_ex_cb rls, eval prvt)
 {
-    int cnt; _split s, next; int rsv;
+    int cnt;
 
     is0_ret(v, 0);
 
     cnt = _v_cnt(v);
-    s   = _v_head(v);
-    rsv = _v_reserve(v) ? _v_reserve(v) : 1;
 
-    _v_splits(v) = 0;
-    _v_tail  (v) = 0;
-
-    if(rls)
-    {
-        while(s)
-        {
-            next = _split_next(s);
-
-            if(rsv > 0)
-            {
-                __split_clear_ex(v, s, rls, prvt);
-
-                rsv -= _split_cap(s);
-
-                _v_splits(v)++;
-                _v_tail  (v) = s;
-            }
-            else
-            {
-                if(_v_tail  (v) == _split_prev(s))
-                {
-                    _split_next(_split_prev(s)) = 0;
-                }
-
-                __split_free_ex(v, s, rls, prvt);
-            }
-
-            s = next;
-        }
-    }
-    else
-    {
-        while(s)
-        {
-            next = _split_next(s);
-
-            if(rsv > 0)
-            {
-                __split_clear(v, s);
-
-                rsv -= _split_cap(s);
-
-                _v_splits(v)++;
-                _v_tail  (v) = s;
-            }
-            else
-            {
-                if(_v_tail  (v) == _split_prev(s))
-                {
-                    _split_next(_split_prev(s)) = 0;
-                }
-
-                __split_free(v, s);
-            }
-
-            s = next;
-        }
-    }
+    if(rls) __split_clear_ex(v, &v->s, rls, prvt);
+    else    __split_clear   (v, &v->s);
 
     return cnt;
 }
@@ -1044,36 +598,14 @@ int evec_clearEx(evec v, eobj_rls_ex_cb rls, eval prvt)
 int  evec_free  (evec v){ return evec_freeEx(v, 0, EVAL_ZORE); }
 int  evec_freeEx(evec v, eobj_rls_ex_cb rls, eval prvt)
 {
-    int cnt; _split s, next;
+    int cnt;
 
     is0_ret(v, 0);
 
     cnt = _v_cnt(v);
 
-    s = _v_head(v);
-
-    if(rls)
-    {
-        while(s)
-        {
-            next = _split_next(s);
-
-            __split_free_ex(v, s, rls, prvt);
-
-            s = next;
-        }
-    }
-    else
-    {
-        while(s)
-        {
-            next = _split_next(s);
-
-            __split_free(v, s);
-
-            s = next;
-        }
-    }
+    if(rls) __split_free_ex(v, &v->s, rls, prvt);
+    else    __split_free   (v, &v->s);
 
     efree(v);
 
@@ -1086,7 +618,7 @@ static void __split_clear(evec v, _split s)
     {
         case E_STR:
         case E_RAW: {
-                        int pos;
+                        uint pos;
 
                         for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
                         {
@@ -1115,7 +647,7 @@ static void __split_clear_ex (evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
     switch (_v_type(v))
     {
         case E_STR: {
-                        int pos;
+                        uint pos;
 
                         for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
                         {
@@ -1125,7 +657,7 @@ static void __split_clear_ex (evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
                     break;
 
         case E_RAW: {
-                        int pos; _enode_t b;
+                        uint pos; _enode_t b;
 
                         _ehdr_type_oe(b.hdr) = _ERAW_P;
 
@@ -1142,7 +674,7 @@ static void __split_clear_ex (evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
                     break;
 
         case E_USER:{
-                        int pos; _enode_t b;
+                        uint pos; _enode_t b;
 
                         _ehdr_type_oe(b.hdr) = _ERAW_P;
 
@@ -1177,7 +709,7 @@ static void __split_free(evec v, _split s)
     {
         case E_STR:
         case E_RAW: {
-                        int pos;
+                        uint pos;
 
                         for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
                         {
@@ -1188,7 +720,6 @@ static void __split_free(evec v, _split s)
     }
 
     efree(_split_base(s));
-    efree(s);
 }
 
 static void __split_free_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
@@ -1196,7 +727,7 @@ static void __split_free_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
     switch (_v_type(v))
     {
         case E_STR: {
-                        int pos;
+                        uint pos;
 
                         for(pos = _split_fpos(s) ; pos < _split_rpos(s); pos++)
                         {
@@ -1206,7 +737,7 @@ static void __split_free_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
                     break;
 
         case E_RAW: {
-                        int pos; _enode_t b;
+                        uint pos; _enode_t b;
 
                         _ehdr_type_oe(b.hdr) = _ERAW_P;
 
@@ -1223,7 +754,7 @@ static void __split_free_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
                     break;
 
         case E_USER:{
-                        int pos; _enode_t b;
+                        uint pos; _enode_t b;
 
                         _ehdr_type_oe(b.hdr) = _ERAW_P;
 
@@ -1239,14 +770,13 @@ static void __split_free_ex(evec v, _split s, eobj_rls_ex_cb rls, eval prvt)
     }
 
     efree(_split_base(s));
-    efree(s);
 }
 
 /// -----------------------------------------------------
 //! evec add
 ///
 ///
-static void __evec_get_pos(evec v, uint idx, _pos p  );
+
 static bool __evec_addV   (evec v, uint idx, evar var);
 
 bool evec_pushV(evec v, evar   var) { return __evec_addV(v, 0       ,          var ); }
@@ -1272,23 +802,18 @@ bool evec_addR(evec v, uint i, uint   len) { return __evec_addV(v, i, EVAR_RAW(0
 
 static bool __evec_addB(evec v, uint idx, constr in, uint len, int cnt)
 {
-    _pos_t p = {v, in, len, cnt, 0, 0};
-
-    _v_cnt(v) += cnt;
+    _pos_t p = {v, in, len, cnt, &v->s, 0};
 
     if(idx == 0)
     {
-        p.s   = _v_head(v);
         p.pos = _split_fpos(p.s);
-
     }
     else if(idx >= _v_cnt(v))
     {
-        p.s = _v_tail(v);
         p.pos = _split_rpos(p.s);
     }
     else
-        __evec_get_pos(v, idx, &p);
+        p.pos = _split_fpos(p.s) + idx;
 
     return __split_insert(p.s, &p);
 }
@@ -1329,74 +854,21 @@ static bool __evec_addV(evec v, uint idx, evar var)
     return __evec_addB(v, idx, var.v.r, var.esize, var.cnt ? var.cnt : 1);
 }
 
-/**
- * @brief __evec_get_pos
- *
- *   be sure of 0 <= idx < _v_cnt(v) before call it
- *
- */
-static void __evec_get_pos(evec v, uint idx, _pos p)
-{
-    p->s = _v_head(v);
-
-    //! find it
-    {
-        if(idx < _v_cnt(v) - idx )
-        {
-            p->s = _v_head(v);
-
-            do{
-                uint cur_len = _split_len(p->s);
-
-                if(cur_len > idx)
-                {
-                    p->pos = _split_fpos(p->s);
-
-                    break;
-                }
-
-                idx  -= cur_len;
-                p->s  = _split_next(p->s);
-            }while(1);
-        }
-        else
-        {
-            idx = _v_cnt(v) - idx;
-
-            p->s = _v_tail(v);
-
-            do{
-                uint cur_len = _split_len(p->s);
-
-                if(cur_len > idx)
-                {
-                    p->pos = _split_rpos(p->s) - idx;
-
-                    break;
-                }
-
-                idx  -= cur_len;
-                p->s  = _split_prev(p->s);
-            }while(1);
-        }
-    }
-}
-
 /// -----------------------------------------------------
 //! evec val
 ///
 ///
 
-cptr evec_at   (evec v, uint idx) { _pos_t p; is1_ret(!v || idx >= _v_cnt(v), 0); __evec_get_pos(v,           idx, &p); return _split_pptr(p.s, p.pos); }
-cptr evec_first(evec v)           { _pos_t p; is1_ret(!v ||       !_v_cnt(v), 0); __evec_get_pos(v,             0, &p); return _split_pptr(p.s, p.pos); }
-cptr evec_last (evec v)           { _pos_t p; is1_ret(!v ||       !_v_cnt(v), 0); __evec_get_pos(v, _v_cnt(v) - 1, &p); return _split_pptr(p.s, p.pos); }
+eval evec_at   (evec v, uint idx) { is1_ret(!v || idx >= _v_cnt(v), EVAL_ZORE); return *(eval*)_split_pptr(&v->s, _split_fpos(&v->s) + idx); }
+eval evec_first(evec v)           { is1_ret(!v ||       !_v_cnt(v), EVAL_ZORE); return *(eval*)_split_fptr(&v->s); }
+eval evec_last (evec v)           { is1_ret(!v ||       !_v_cnt(v), EVAL_ZORE); return *(eval*)_split_lptr(&v->s); }
 
-cptr evec_val (evec v, uint idx){ _pos_t p; is1_ret(!v || idx >= _v_cnt(v)                                               , 0); __evec_get_pos(v, idx, &p); return _split_pptr(p.s, p.pos);}
-i64  evec_valI(evec v, uint idx){ _pos_t p; is1_ret(!v || idx >= _v_cnt(v) ||(_v_type(v) != E_I64 && _v_type(v) != E_F64), 0); __evec_get_pos(v, idx, &p); return _v_type(v) == E_I64 ? *(i64*)_split_pptr(p.s, p.pos) : *(f64*)_split_pptr(p.s, p.pos);}
-f64  evec_valF(evec v, uint idx){ _pos_t p; is1_ret(!v || idx >= _v_cnt(v) ||(_v_type(v) != E_I64 && _v_type(v) != E_F64), 0); __evec_get_pos(v, idx, &p); return _v_type(v) == E_I64 ? *(i64*)_split_pptr(p.s, p.pos) : *(f64*)_split_pptr(p.s, p.pos);}
-cstr evec_valS(evec v, uint idx){ _pos_t p; is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_STR                        , 0); __evec_get_pos(v, idx, &p); return *(cstr*)_split_pptr(p.s, p.pos);}
-cptr evec_valP(evec v, uint idx){ _pos_t p; is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_PTR                        , 0); __evec_get_pos(v, idx, &p); return *(cptr*)_split_pptr(p.s, p.pos);}
-cptr evec_valR(evec v, uint idx){ _pos_t p; is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_RAW                        , 0); __evec_get_pos(v, idx, &p); return *(cptr*)_split_pptr(p.s, p.pos);}
+eval evec_val (evec v, uint idx){ is1_ret(!v || idx >= _v_cnt(v)                                               , EVAL_ZORE); return *(eval*)_split_pptr(&v->s, _split_fpos(&v->s) + idx);}
+i64  evec_valI(evec v, uint idx){ is1_ret(!v || idx >= _v_cnt(v) ||(_v_type(v) != E_I64 && _v_type(v) != E_F64),         0); return _v_type(v) == E_I64 ? *(i64*)_split_pptr(&v->s, _split_fpos(&v->s) + idx) : *(f64*)_split_pptr(&v->s, _split_fpos(&v->s) + idx);}
+f64  evec_valF(evec v, uint idx){ is1_ret(!v || idx >= _v_cnt(v) ||(_v_type(v) != E_I64 && _v_type(v) != E_F64),         0); return _v_type(v) == E_I64 ? *(i64*)_split_pptr(&v->s, _split_fpos(&v->s) + idx) : *(f64*)_split_pptr(&v->s, _split_fpos(&v->s) + idx);}
+cstr evec_valS(evec v, uint idx){ is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_STR                        ,         0); return *(cstr*)_split_pptr(&v->s, _split_fpos(&v->s) + idx);}
+cptr evec_valP(evec v, uint idx){ is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_PTR                        ,         0); return *(cptr*)_split_pptr(&v->s, _split_fpos(&v->s) + idx);}
+cptr evec_valR(evec v, uint idx){ is1_ret(!v || idx >= _v_cnt(v) || _v_type(v) != E_RAW                        ,         0); return *(cptr*)_split_pptr(&v->s, _split_fpos(&v->s) + idx);}
 
 /// -----------------------------------------------------
 //! evec take
@@ -1421,10 +893,11 @@ static evar __evec_take_var(evec v, uint idx, uint cnt)
         cnt = _v_cnt(v) - idx;
 
     //! find it
-    __evec_get_pos(v, idx, &p);
+    p.pos = _split_fpos(&v->s) + idx;
 
     //! take it from split
     {
+        p.s   = &v->s;
         p.v   = v;
         p.cnt = 1;
         __split_erase_room(p.s, &p);

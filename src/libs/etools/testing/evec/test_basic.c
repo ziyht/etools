@@ -164,7 +164,7 @@ static int test_appd()
     return ETEST_OK;
 }
 
-static int evec_vali_test()
+static int evec_valI_test()
 {
     int i;
 
@@ -184,7 +184,41 @@ static int evec_vali_test()
 
     for(i = 0; i < 200; i++)
     {
+        eval val = evec_val(v, i);
+        eexpect_num(val.i, i);
         eexpect_num(evec_valI(v, i), i);
+    }
+
+    evec_free(v);
+
+    return ETEST_OK;
+}
+
+static int evec_valS_test()
+{
+    int i; char buf[16];
+
+    ll2str(2, buf);
+
+    evec v = evec_new(E_STR, 0);
+
+    for(i = 0; i < 100; i++)
+    {
+        evec_appdS(v, llstr(i));
+    }
+    eexpect_num(evec_len(v), 100);
+
+    for(; i < 200; i++)
+    {
+        evec_appdV(v, EVAR_S(llstr(i)) );
+    }
+    eexpect_num(evec_len(v), 200);
+
+    for(i = 0; i < 200; i++)
+    {
+        eval val = evec_val(v, i);
+        eexpect_str(val.s, llstr(i));
+        eexpect_str(evec_valS(v, i), llstr(i));
     }
 
     evec_free(v);
@@ -199,7 +233,8 @@ int test_basic(int argc, char* argv[])
     ETEST_RUN( test_new() );
     ETEST_RUN( test_appd() );
 
-    ETEST_RUN( evec_vali_test() );
+    ETEST_RUN( evec_valI_test() );
+    ETEST_RUN( evec_valS_test() );
 
     return ETEST_OK;
 }

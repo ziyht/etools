@@ -33,6 +33,10 @@ cmake_minimum_required(VERSION 2.8.1)
 ETestAddTestSet(evec
 
     CASES   test_basic.c
+            #test_logic.c
+            test_logic.cpp
+
+    DEPENDS #Qt5::Core
 
 )
 
