@@ -161,38 +161,37 @@ static constr _llog_basename(constr path){static constr slash; if (slash) {retur
 
 #define E_UNUSED(p) (void)p
 
-/** =====================================================
+/** ------------------------------------------------------
  *
  *  math tools
  *
- * ------------------------------------------------------
  */
 static __always_inline int pow2gt(int x)	{	--x;	x|=x>>1;	x|=x>>2;	x|=x>>4;	x|=x>>8;	x|=x>>16;	return x+1;	}
 
-/** =====================================================
+/** ------------------------------------------------------
  *
  *  string tools
  *
- * ------------------------------------------------------
- */
-
-/**
- * doing the actual number -> string conversion. 's' must point
- * to a string with room for at least 21 bytes.
+ * @note:
+ *      doing the actual number -> string conversion. 's' must point
+ *  to a string with room for at least 21 bytes.
  *
- * The function returns the length of the null-terminated string
- * representation stored at 's'.
+ *      The function returns the length of the null-terminated string
+ *  representation stored at 'dest'.
 */
-int  ll2str(i64 v, char *s);
-int ull2str(u64 v, char *s);
 
+#define __ __always_inline
 
-/** =====================================================
- *
- *  string tools
- *
- * ------------------------------------------------------
- */
+int  ll2str(i64 v, cstr dest);
+int ull2str(u64 v, cstr dest);
+
+static __ cstr  llstr(i64 v) { static char dest[21];  ll2str(v, dest); return dest; }
+static __ cstr ullstr(u64 v) { static char dest[21]; ull2str(v, dest); return dest; }
+
+static __ cstr  llstr_r(i64 v, cstr dest) {  ll2str(v, dest); return dest; }
+static __ cstr ullstr_r(u64 v, cstr dest) { ull2str(v, dest); return dest; }
+
+#undef __
 
 i64  eutils_nowns();
 i64  eutils_nowms();

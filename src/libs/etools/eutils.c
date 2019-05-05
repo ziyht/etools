@@ -142,7 +142,7 @@ i64  eutils_nowms() { return __hrtime_ns(_CLOCK_FAST   ) / 1000000; }
 i64  nowns() { return __hrtime_ns(_CLOCK_PRECISE)          ; }
 i64  nowms() { return __hrtime_ns(_CLOCK_FAST   ) / 1000000; }
 
-int ll2str(i64 value, char *s)
+int ll2str(i64 value, cstr s)
 {
     char *p, aux;
     unsigned long long v;
@@ -174,7 +174,7 @@ int ll2str(i64 value, char *s)
     return l;
 }
 
-int ull2str(u64 v, char *s)
+int ull2str(u64 v, cstr s)
 {
     char *p, aux;
     size_t l;
