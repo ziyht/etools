@@ -110,7 +110,7 @@ do{                                                                 \
 #define __ETEST_ERR_HINT_LINE     "===========FAILED============\n"
 #define __ETEST_ERR_BT_FMT        "  %s(%d): %s\n"
 
-static int __etest_expect_bool(bool cond, char* tag, char* file, int line, bool _true)
+static int __etest_expect_bool(bool cond, const char* tag, const char* file, int line, bool _true)
 {
     int passed;
 
@@ -130,7 +130,7 @@ static int __etest_expect_bool(bool cond, char* tag, char* file, int line, bool 
     return ETEST_ERR;
 }
 
-static int __etest_cmp_num(double fa, double fb, int sizea, int sizeb, char* taga, char* tagb, char* file, int line, int equal)
+static int __etest_cmp_num(double fa, double fb, int sizea, int sizeb, const char* taga, const char* tagb, const char* file, int line, int equal)
 {
     int size, passed;
 
