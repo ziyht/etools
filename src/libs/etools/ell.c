@@ -4,7 +4,7 @@
 ///
 ///    Description:  an easier double link list
 ///
-///        Version:  1.0
+///        Version:  1.3
 ///        Created:  05/04/2017 04:50:18 PM
 ///       Revision:  none
 ///       Compiler:  gcc
@@ -23,7 +23,7 @@
 #include "ell.h"
 #include "eobj_p.h"
 
-#define ELL_VERSION "ell 1.2.1"
+#define ELL_VERSION "ell 1.3.0"     // adjust APIs
 
 #pragma pack(1)
 
@@ -411,11 +411,11 @@ static eobj _ell_setRaw(ell l, int idx, eval v, uint need_len, _eotype type)
     return _n_o(n);
 }
 
-eobj ell_setI(ell l, int idx, i64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_NUM_I); }
-eobj ell_setF(ell l, int idx, f64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_NUM_F); }
-eobj ell_setP(ell l, int idx, conptr val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_PTR  ); }
-eobj ell_setS(ell l, int idx, constr str) { return _ell_setRaw(l, idx, *(eval*)&str, str ? strlen(str) : 0, _ELL_COE_STR  ); }
-eobj ell_setR(ell l, int idx, size_t len) { return _ell_setRaw(l, idx, *(eval*)&len,                   len, _ELL_COE_RAW  ); }
+eobj ell_isetI(ell l, int idx, i64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_NUM_I); }
+eobj ell_isetF(ell l, int idx, f64    val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_NUM_F); }
+eobj ell_isetP(ell l, int idx, conptr val) { return _ell_setRaw(l, idx, *(eval*)&val,                     8, _ELL_COE_PTR  ); }
+eobj ell_isetS(ell l, int idx, constr str) { return _ell_setRaw(l, idx, *(eval*)&str, str ? strlen(str) : 0, _ELL_COE_STR  ); }
+eobj ell_isetR(ell l, int idx, size_t len) { return _ell_setRaw(l, idx, *(eval*)&len,                   len, _ELL_COE_RAW  ); }
 
 
 inline eobj  ell_first(ell    l) { return _c_head(l)           ? _n_o(_c_head(l))           : 0; }
@@ -423,26 +423,24 @@ inline eobj  ell_last (ell    l) { return _c_tail(l)           ? _n_o(_c_tail(l)
 inline eobj  ell_next (eobj obj) { return _n_next(_eo_dn(obj)) ? _n_o(_n_next(_eo_dn(obj))) : 0; }
 inline eobj  ell_prev (eobj obj) { return _n_prev(_eo_dn(obj)) ? _n_o(_n_prev(_eo_dn(obj))) : 0; }
 
-eobj ell_takeH (ell l)           { _elln n;                  is1_ret(!l || !_c_len(l), 0);                               _elist_takeH(l, n);                     return _n_o(n); }
-eobj ell_takeT (ell l)           { _elln n;                  is1_ret(!l || !_c_len(l), 0);                               _elist_takeT(l, n);                     return _n_o(n); }
-eobj ell_takeAt(ell l, uint idx) { _elln n;                  is1_ret(!l || idx >= _c_len(l), 0); _elist_at  (l, idx, n); _elist_take(l, n, idx);                 return _n_o(n); }
-eobj ell_takeO (ell l, eobj obj) { _elln n; register uint i; is1_ret(!l || !obj, 0);             _elist_find(l, obj, i); is1_elsret(n, _elist_take(l, n, i), 0); return _n_o(n); }
+eobj ell_takeH(ell l)           { _elln n;                  is1_ret(!l || !_c_len(l), 0);                               _elist_takeH(l, n);                     return _n_o(n); }
+eobj ell_takeT(ell l)           { _elln n;                  is1_ret(!l || !_c_len(l), 0);                               _elist_takeT(l, n);                     return _n_o(n); }
+eobj ell_takeI(ell l, uint idx) { _elln n;                  is1_ret(!l || idx >= _c_len(l), 0); _elist_at  (l, idx, n); _elist_take(l, n, idx);                 return _n_o(n); }
+eobj ell_takeO(ell l, eobj obj) { _elln n; register uint i; is1_ret(!l || !obj, 0);             _elist_find(l, obj, i); is1_elsret(n, _elist_take(l, n, i), 0); return _n_o(n); }
 
-eobj  ell_at  (ell l, uint idx) { _elln n; is1_ret(!l || idx >= _c_len(l), 0); _elist_at(l, idx, n); return _n_o(n); }
-eobj  ell_val (ell l, uint idx) { _elln n; is1_ret(!l || idx >= _c_len(l), 0); _elist_at(l, idx, n); return _n_o(n); }
-i64   ell_valI(ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retI(o); }
-f64   ell_valF(ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retF(o); }
-cstr  ell_valS(ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retS(o); }
-cptr  ell_valP(ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retP(o); }
-cptr  ell_valR(ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retR(o); }
+eobj   ell_i      (ell l, uint idx) { _elln n; is1_ret(!l || idx >= _c_len(l), 0); _elist_at(l, idx, n); return _n_o(n); }
+i64    ell_ivalI  (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retI(o); }
+f64    ell_ivalF  (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retF(o); }
+cstr   ell_ivalS  (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retS(o); }
+cptr   ell_ivalP  (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retP(o); }
+cptr   ell_ivalR  (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retR(o); }
+etypeo ell_itype  (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retT(o); }
+uint   ell_ilen   (ell l, uint idx) { eobj o = ell_i(l, idx); _eo_retL(o); }
+bool   ell_iisTrue(ell l, uint idx) { return __eobj_isTrue(ell_i(l, idx)); }
 
-etypeo ell_valType  (ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retT(o); }
-uint   ell_valLen   (ell l, uint idx) { eobj o = ell_at(l, idx); _eo_retL(o); }
-bool   ell_valIsTrue(ell l, uint idx) { return __eobj_isTrue(ell_at(l, idx)); }
-
-int   ell_freeH(ell l)          { cptr o = ell_takeH (l     ); if(o) { _n_free(_eo_dn(o)); return 1; } return 0; }
-int   ell_freeT(ell l)          { cptr o = ell_takeT (l     ); if(o) { _n_free(_eo_dn(o)); return 1; } return 0; }
-int   ell_freeI(ell l, uint idx){ cptr o = ell_takeAt(l, idx); if(o) { _n_free(_eo_dn(o)); return 1; } return 0; }
+int   ell_freeH(ell l)          { cptr o = ell_takeH(l     ); if(o) { _n_free(_eo_dn(o)); return 1; } return 0; }
+int   ell_freeT(ell l)          { cptr o = ell_takeT(l     ); if(o) { _n_free(_eo_dn(o)); return 1; } return 0; }
+int   ell_freeI(ell l, uint idx){ cptr o = ell_takeI(l, idx); if(o) { _n_free(_eo_dn(o)); return 1; } return 0; }
 int   ell_freeO(ell l, eobj obj)
 {
     is0_ret(obj, 0);

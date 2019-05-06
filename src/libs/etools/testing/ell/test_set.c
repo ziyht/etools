@@ -9,30 +9,30 @@ int set_all_type_test(ell l, uint idx)
 
     eexpect_num(ell_len(l) > idx , 1);
 
-    ell_setI(l, idx, 10);
-    eexpect_num(ell_valLen(l, idx), 0);
-    eexpect_num(ell_valI(l, idx), 10);
-    eexpect_num(ell_valType(l, idx), ENUM);
+    ell_isetI(l, idx, 10);
+    eexpect_num(ell_ilen(l, idx), 0);
+    eexpect_num(ell_ivalI(l, idx), 10);
+    eexpect_num(ell_itype(l, idx), ENUM);
 
-    ell_setF(l, idx, 23.4);
-    eexpect_num(ell_valLen(l, idx), 0);
-    eexpect_num(ell_valF(l, idx), 23.4);
-    eexpect_num(ell_valType(l, idx), ENUM);
+    ell_isetF(l, idx, 23.4);
+    eexpect_num(ell_ilen(l, idx), 0);
+    eexpect_num(ell_ivalF(l, idx), 23.4);
+    eexpect_num(ell_itype(l, idx), ENUM);
 
-    ell_setP(l, idx, (cptr)30);
-    eexpect_num(ell_valLen(l, idx), 0);
-    eexpect_ptr(ell_valP(l, idx), (cptr)30);
-    eexpect_num(ell_valType(l, idx), EPTR);
+    ell_isetP(l, idx, (cptr)30);
+    eexpect_num(ell_ilen(l, idx), 0);
+    eexpect_ptr(ell_ivalP(l, idx), (cptr)30);
+    eexpect_num(ell_itype(l, idx), EPTR);
 
-    ell_setS(l, idx, "40");
-    eexpect_num(ell_valLen(l, idx), 2);
-    eexpect_str(ell_valS(l, idx), "40");
-    eexpect_num(ell_valType(l, idx), ESTR);
+    ell_isetS(l, idx, "40");
+    eexpect_num(ell_ilen(l, idx), 2);
+    eexpect_str(ell_ivalS(l, idx), "40");
+    eexpect_num(ell_itype(l, idx), ESTR);
 
-    ell_setR(l, idx, 50);
-    eexpect_num(ell_valLen(l, idx), 50);
-    eexpect_raw(ell_valR(l, idx), _buf_zore, ell_valLen(l, idx));
-    eexpect_num(ell_valType(l, idx), ERAW);
+    ell_isetR(l, idx, 50);
+    eexpect_num(ell_ilen(l, idx), 50);
+    eexpect_raw(ell_ivalR(l, idx), _buf_zore, ell_ilen(l, idx));
+    eexpect_num(ell_itype(l, idx), ERAW);
 
     return ETEST_OK;
 }

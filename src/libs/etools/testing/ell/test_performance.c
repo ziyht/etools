@@ -80,7 +80,7 @@ static void performance_obj_test(uint scale)
     j = 0;
     for(uint i = 0; i < scale; i++)
     {
-        if(ell_val(l, i)) j++;
+        if(ell_i(l, i)) j++;
     }
 
     if(ell_len(l) != j)

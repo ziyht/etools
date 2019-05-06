@@ -21,7 +21,7 @@ static void __free(eobj o)  { __free_cnt++ ; efree(o->p);   }
 static int ell_new_test();
 static int ell_push_test();
 static int ell_appd_test();
-static int ell_at_test();
+static int ell_i_test();
 static int ell_val_test();
 static int ell_take_test();
 static int ell_clear_test();
@@ -32,7 +32,7 @@ int ell_etest_basic()
     ETEST_RUN(ell_new_test());
     ETEST_RUN(ell_push_test());
     ETEST_RUN(ell_appd_test());
-    ETEST_RUN(ell_at_test());
+    ETEST_RUN(ell_i_test());
     ETEST_RUN(ell_val_test());
     ETEST_RUN(ell_take_test());
     ETEST_RUN(ell_clear_test());
@@ -68,24 +68,24 @@ static int ell_push_test()
     eunexpc_ptr(oi, 0);
     eexpect_num(ell_len(l), 1);
 
-    oi = ell_at(l, 0);
+    oi = ell_i(l, 0);
     eunexpc_ptr(oi, 0);
     eexpect_num(EOBJ_VALI(oi), 1);
 
-    eexpect_num(ell_valI(l, 0), 1);
-    eexpect_num(ell_valF(l, 0), 1.0);
+    eexpect_num(ell_ivalI(l, 0), 1);
+    eexpect_num(ell_ivalF(l, 0), 1.0);
 
     // push 2.0 -> [2.0, 1]
     oi = ell_pushF(l, 2);
     eunexpc_ptr(oi, 0);
     eexpect_num(ell_len(l), 2);
 
-    oi = ell_at(l, 0);
+    oi = ell_i(l, 0);
     eunexpc_ptr(oi, 0);
     eexpect_num(EOBJ_VALF(oi), 2);
 
-    eexpect_num(ell_valI(l, 0), 2);
-    eexpect_num(ell_valF(l, 0), 2.0);
+    eexpect_num(ell_ivalI(l, 0), 2);
+    eexpect_num(ell_ivalF(l, 0), 2.0);
 
     ell_clear(l);
 
@@ -108,31 +108,31 @@ static int ell_appd_test()
     eunexpc_ptr(oi, 0);
     eexpect_num(ell_len(l), 1);
 
-    oi = ell_at(l, 0);
+    oi = ell_i(l, 0);
     eunexpc_ptr(oi, 0);
     eexpect_num(EOBJ_VALI(oi), 1);
 
-    eexpect_num(ell_valI(l, 0), 1);
-    eexpect_num(ell_valF(l, 0), 1.0);
+    eexpect_num(ell_ivalI(l, 0), 1);
+    eexpect_num(ell_ivalF(l, 0), 1.0);
 
     // appd 2.0 -> [1, 2.0]
     eobj of = ell_appdF(l, 2);
     eunexpc_ptr(of, 0);
     eexpect_num(ell_len(l), 2);
 
-    of = ell_at(l, 1);
+    of = ell_i(l, 1);
     eunexpc_ptr(of, 0);
     eexpect_num(EOBJ_VALF(of), 2.0);
 
-    eexpect_num(ell_valI(l, 1), 2);
-    eexpect_num(ell_valF(l, 1), 2.0);
+    eexpect_num(ell_ivalI(l, 1), 2);
+    eexpect_num(ell_ivalF(l, 1), 2.0);
 
     ell_clear(l);
 
     return ETEST_OK;
 }
 
-static int ell_at_test()
+static int ell_i_test()
 {
     char data[] = "1234567890";
 
@@ -150,30 +150,30 @@ static int ell_at_test()
 
     eexpect_num(ell_len(l), 6);
 
-    o = ell_at(l, 0);
+    o = ell_i(l, 0);
     eexpect_num(eobj_typeo(o), ENUM);
     eexpect_num(eobj_valI(o), 1);
     eexpect_num(eobj_valF(o), 1.0);
 
-    o = ell_at(l, 1);
+    o = ell_i(l, 1);
     eexpect_num(eobj_typeo(o), ENUM);
     eexpect_num(eobj_valI(o), 2);
     eexpect_num(eobj_valF(o), 2.0);
 
-    o = ell_at(l, 2);
+    o = ell_i(l, 2);
     eexpect_num(eobj_typeo(o), EPTR);
     eexpect_ptr(eobj_valP(o), 0);
 
-    o = ell_at(l, 3);
+    o = ell_i(l, 3);
     eexpect_num(eobj_typeo(o), ESTR);
     eexpect_str(eobj_valS(o), "4");
 
-    o = ell_at(l, 4);
+    o = ell_i(l, 4);
     eexpect_num(eobj_typeo(o), ERAW);
     eexpect_num(eobj_len( o), 5);
     eexpect_raw(o->r, data, eobj_len( o));
 
-    o = ell_at(l, 5);
+    o = ell_i(l, 5);
     eexpect_num(eobj_typeo(o), EOBJ);
     eexpect_num(eobj_len( o), 0);
 
@@ -193,7 +193,7 @@ static int ell_at_test()
         {
             int idx = rand() % 1000;
 
-            obj_t* o = (obj_t*)ell_at(l, idx);
+            obj_t* o = (obj_t*)ell_i(l, idx);
 
             eexpect_num(o->key, idx);
 
@@ -227,62 +227,62 @@ static int ell_val_test()
     eexpect_num(ell_len(l), 6);
 
     i = 0;
-    o = ell_val(l, i);
+    o = ell_i(l, i);
     eexpect_num(eobj_typeo(o), ENUM);
     eexpect_num(eobj_valI(o), 1);
     eexpect_num(eobj_valF(o), 1.0);
 
     i = 1;
-    o = ell_val(l, i);
+    o = ell_i(l, i);
     eexpect_num(eobj_typeo(o), ENUM);
     eexpect_num(eobj_valI(o), 2);
     eexpect_num(eobj_valF(o), 2.0);
 
     i = 2;
-    o = ell_val(l, i);
+    o = ell_i(l, i);
     eexpect_num(eobj_typeo(o), EPTR);
     eexpect_ptr(eobj_valP(o), 0);
 
     i = 3;
-    o = ell_val(l, i);
+    o = ell_i(l, i);
     eexpect_num(eobj_typeo(o), ESTR);
     eexpect_str(eobj_valS(o), "4");
 
     i = 4;
-    o = ell_val(l, i);
+    o = ell_i(l, i);
     eexpect_num(eobj_typeo(o), ERAW);
     eexpect_num(eobj_len( o), 5);
 
     i = 5;
-    o = ell_val(l, i);
+    o = ell_i(l, i);
     eexpect_num(eobj_typeo(o), EOBJ);
 
     /// -- test 2
     i = 0;
-    eexpect_num(eobj_typeo(ell_val(l, i)), ENUM);
-    eexpect_num(ell_valI(l, i), 1);
-    eexpect_num(ell_valF(l, i), 1.0);
+    eexpect_num(eobj_typeo(ell_i(l, i)), ENUM);
+    eexpect_num(ell_ivalI(l, i), 1);
+    eexpect_num(ell_ivalF(l, i), 1.0);
 
     i = 1;
-    eexpect_num(eobj_typeo(ell_val(l, i)), ENUM);
-    eexpect_num(ell_valI(l, i), 2);
-    eexpect_num(ell_valF(l, i), 2.0);
+    eexpect_num(eobj_typeo(ell_i(l, i)), ENUM);
+    eexpect_num(ell_ivalI(l, i), 2);
+    eexpect_num(ell_ivalF(l, i), 2.0);
 
     i = 2;
-    eexpect_num(eobj_typeo(ell_val(l, i)), EPTR);
-    eexpect_ptr(ell_valP(l, i), 0);
+    eexpect_num(eobj_typeo(ell_i(l, i)), EPTR);
+    eexpect_ptr(ell_ivalP(l, i), 0);
 
     i = 3;
-    eexpect_num(eobj_typeo(ell_val(l, i)), ESTR);
-    eexpect_str(ell_valS(l, i), "4");
+    eexpect_num(eobj_typeo(ell_i(l, i)), ESTR);
+    eexpect_str(ell_ivalS(l, i), "4");
 
     i = 4;
-    eexpect_num(eobj_typeo(ell_val(l, i)), ERAW);
-    eexpect_num(eobj_len (ell_val(l, i)), 5);
-    eexpect_raw(ell_valR(l, i), data, eobj_len (ell_val(l, i)));
+    eexpect_num(eobj_typeo(ell_i(l, i)), ERAW);
+    eexpect_num(eobj_len  (ell_i(l, i)), 5);
+    eexpect_raw(ell_ivalR(l, i), data, eobj_len (ell_i(l, i)));
 
     i = 5;
-    eexpect_num(eobj_typeo(ell_val(l, i)), EOBJ);
+    eexpect_num(eobj_typeo(ell_i(l, i)), EOBJ);
 
     ell_clear(l);
 
@@ -300,7 +300,7 @@ static int ell_val_test()
         {
             int idx = rand() % 1000;
 
-            obj_t* o = (obj_t*)ell_val(l, idx);
+            obj_t* o = (obj_t*)ell_i(l, idx);
 
             eexpect_num(o->key, idx);
 
@@ -334,7 +334,7 @@ static int ell_take_test()
         {
             idx = rand() % ell_len(l);
 
-            eobj itr, o = ell_at(l, idx);
+            eobj itr, o = ell_i(l, idx);
 
             i = 0;
             ell_foreach(l, itr)
@@ -375,7 +375,7 @@ static int ell_take_test()
         {
             idx = rand() % ell_len(l);
 
-            eobj itr, o = ell_at(l, idx);
+            eobj itr, o = ell_i(l, idx);
 
             i = 0;
             ell_foreach(l, itr)
@@ -416,7 +416,7 @@ static int ell_take_test()
         {
             idx = rand() % ell_len(l);
 
-            eobj itr, o = ell_at(l, idx);
+            eobj itr, o = ell_i(l, idx);
 
             i = 0;
             ell_foreach(l, itr)
@@ -512,7 +512,7 @@ static int ell_free_test()
         {
             idx = rand() % ell_len(l);
 
-            eobj itr, o = ell_at(l, idx);
+            eobj itr, o = ell_i(l, idx);
 
             i = 0;
             ell_foreach(l, itr)
@@ -553,7 +553,7 @@ static int ell_free_test()
         {
             idx = rand() % ell_len(l);
 
-            eobj itr, o = ell_at(l, idx);
+            eobj itr, o = ell_i(l, idx);
 
             i = 0;
             ell_foreach(l, itr)
@@ -589,7 +589,7 @@ static int ell_free_test()
 
         while(ell_len(l))
         {
-            eexpect_num(ell_valI(l, ell_len(l) - 1), ell_len(l) - 1);
+            eexpect_num(ell_ivalI(l, ell_len(l) - 1), ell_len(l) - 1);
 
             ell_freeI(l, ell_len(l) - 1);
         }
@@ -604,7 +604,7 @@ static int ell_free_test()
 
         while(ell_len(l))
         {
-            eexpect_num(ell_valI(l, 0), scale - ell_len(l));
+            eexpect_num(ell_ivalI(l, 0), scale - ell_len(l));
 
             ell_freeI(l, 0);
         }
@@ -619,7 +619,7 @@ static int ell_free_test()
 
         while(ell_len(l))
         {
-            eobj o = ell_at(l, rand() % ell_len(l));
+            eobj o = ell_i(l, rand() % ell_len(l));
 
             ell_freeO(l, o);
         }
@@ -707,7 +707,9 @@ int ell_basic_test()
 
 int test_basic(int argc, char* argv[])
 {
-    return ell_etest_basic();
+    ETEST_RUN( ell_etest_basic() );
+
+    return ETEST_OK;
 }
 
 
