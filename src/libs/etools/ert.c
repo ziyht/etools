@@ -519,7 +519,7 @@ int  ert_query(ert tp, constr tag)
     is0_ret(tp->status == _INITED, 0);
 
     tasks_lock();
-    ret = ejsonk(tp->tasks_tags, tag) ? 1 : 0;
+    ret = ejson_k(tp->tasks_tags, tag) ? 1 : 0;
     tasks_ulck();
 
     return ret;

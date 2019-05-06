@@ -474,7 +474,7 @@ static inline ejson __enats_makeRoomForSubs(enats e, constr subj, enats_msgHandl
     mutex_ulck(e->sub_mu);
     is0_exeret(subs, errfmt(e, "subs of \"%s\" already exist", subj), 0);
 
-    assert(sroom = ejsonk(e->sub_dic, subj));
+    assert(sroom = ejson_k(e->sub_dic, subj));
 
     subs->e           = e;
     subs->msg_handler = onMsg;
@@ -797,7 +797,7 @@ static inline void __enats_stats(enats trans, constr subj, enats_stats_t* stats,
     s = natsConnection_GetStats(trans->conn.nc, (natsStatistics*)stats);
 
     mutex_lock(trans->sub_mu);
-    ntSub = ejsonk_valR(trans->sub_dic, subj);
+    ntSub = ejson_kvalR(trans->sub_dic, subj);
     mutex_ulck(trans->sub_mu);
     if ((s == NATS_OK) && (ntSub != NULL))
     {
@@ -1371,7 +1371,7 @@ static void __enatp_exeLazyThread(enatp p)
 
 static inline int __enatp_chkName(enatp p, constr name)
 {
-    return !ejsonk(p->name_groups, name);
+    return !ejson_k(p->name_groups, name);
 }
 
 static inline ejson __enatp_getGroup(enatp p, constr name)
@@ -1380,7 +1380,7 @@ static inline ejson __enatp_getGroup(enatp p, constr name)
 
     enatp_lock(p);
 
-    egroup = ejsonk(p->name_groups, name);
+    egroup = ejson_k(p->name_groups, name);
 
     if(!egroup)
     {
@@ -1401,7 +1401,7 @@ static inline int __enatp_getAvailNameIdForGroup(enatp p, ejson egroup, char ena
     do
     {
         snprintf(ename, 64, "%s.%d", eobj_keyS(egroup),++id);
-    }while(ejsonk(egroup, ename));
+    }while(ejson_k(egroup, ename));
 
     enatp_ulck(p);
 
@@ -1532,7 +1532,7 @@ static inline ejson __enatp_getEnatsRooms(enatp p, constr name)
     else if(name == ENATP_ALL_TRANS)  eroom = p->name_groups;
     else {
         enatp_lock(p);
-        eroom = ejsonk(p->name_groups, name);
+        eroom = ejson_k(p->name_groups, name);
         enatp_ulck(p);
     }
 

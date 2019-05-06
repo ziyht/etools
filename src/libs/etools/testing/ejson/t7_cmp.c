@@ -19,43 +19,43 @@ static int t7_cmp_case1()
 
     eunexpc_ptr(r, 0);
 
-    ei = ejsonk(r, "i"); eunexpc_ptr(ei, 0);
-    ef = ejsonk(r, "f"); eunexpc_ptr(ef, 0);
-    es = ejsonk(r, "s"); eunexpc_ptr(es, 0);
+    ei = ejson_k(r, "i"); eunexpc_ptr(ei, 0);
+    ef = ejson_k(r, "f"); eunexpc_ptr(ef, 0);
+    es = ejson_k(r, "s"); eunexpc_ptr(es, 0);
 
     eexpect_num(ejson_cmpI(ei, 0), 1);
     eexpect_num(ejson_cmpI(ei, 1), 0);
     eexpect_num(ejson_cmpI(ei, 2), -1);
 
-    eexpect_num(ejsonk_cmpI(r, "i", 0), 1);
-    eexpect_num(ejsonk_cmpI(r, "i", 1), 0);
-    eexpect_num(ejsonk_cmpI(r, "i", 2), -1);
+    eexpect_num(ejson_kcmpI(r, "i", 0), 1);
+    eexpect_num(ejson_kcmpI(r, "i", 1), 0);
+    eexpect_num(ejson_kcmpI(r, "i", 2), -1);
 
-    eexpect_num(ejsonp_cmpI(r, "i", 0), 1);
-    eexpect_num(ejsonp_cmpI(r, "i", 1), 0);
-    eexpect_num(ejsonp_cmpI(r, "i", 2), -1);
+    eexpect_num(ejson_pcmpI(r, "i", 0), 1);
+    eexpect_num(ejson_pcmpI(r, "i", 1), 0);
+    eexpect_num(ejson_pcmpI(r, "i", 2), -1);
 
     eexpect_num(ejson_cmpF(ef, 0), 1);
     eexpect_num(ejson_cmpF(ef, 1), 0);
     eexpect_num(ejson_cmpF(ef, 2), -1);
 
-    eexpect_num(ejsonk_cmpF(r, "f", 0), 1);
-    eexpect_num(ejsonk_cmpF(r, "f", 1), 0);
-    eexpect_num(ejsonk_cmpF(r, "f", 2), -1);
+    eexpect_num(ejson_kcmpF(r, "f", 0), 1);
+    eexpect_num(ejson_kcmpF(r, "f", 1), 0);
+    eexpect_num(ejson_kcmpF(r, "f", 2), -1);
 
-    eexpect_num(ejsonp_cmpF(r, "f", 0), 1);
-    eexpect_num(ejsonp_cmpF(r, "f", 1), 0);
-    eexpect_num(ejsonp_cmpF(r, "f", 2), -1);
+    eexpect_num(ejson_pcmpF(r, "f", 0), 1);
+    eexpect_num(ejson_pcmpF(r, "f", 1), 0);
+    eexpect_num(ejson_pcmpF(r, "f", 2), -1);
 
     eexpect_num(ejson_cmpS(es, "rtr"), 1);
     eexpect_num(ejson_cmpS(es, "str"), 0);
     eexpect_num(ejson_cmpS(es, "ttr"), -1);
     eexpect_num(ejson_cmpS(es,  0   ), -4);
 
-    eexpect_num(ejsonk_cmpS(r, "s", "rtr"), 1);
-    eexpect_num(ejsonk_cmpS(r, "s", "str"), 0);
-    eexpect_num(ejsonk_cmpS(r, "s", "ttr"), -1);
-    eexpect_num(ejsonk_cmpS(r, "s", 0   ), -4);
+    eexpect_num(ejson_kcmpS(r, "s", "rtr"), 1);
+    eexpect_num(ejson_kcmpS(r, "s", "str"), 0);
+    eexpect_num(ejson_kcmpS(r, "s", "ttr"), -1);
+    eexpect_num(ejson_kcmpS(r, "s", 0   ), -4);
 
     eexpect_num(ejson_cmpI(0 , 2), -2);
     eexpect_num(ejson_cmpI(r , 2), -3);

@@ -38,7 +38,7 @@ static void performance_obj_test(uint scale)
     uint j = 0;
     ejson_foreach(e, itr)
     {
-        if(ejsonk(e, eobj_keyS(itr))) j++;
+        if(ejson_k(e, eobj_keyS(itr))) j++;
     }
 
     if(ejson_len(e) != j)
@@ -81,7 +81,7 @@ static void performance_arr_test(uint scale)
     {
         sprintf(key, "[%d]", i++);
 
-        if(itr == ejsonp(e, key)) j++;
+        if(itr == ejson_p(e, key)) j++;
     }
 
     if(ejson_len(e) != j)

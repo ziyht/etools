@@ -27,14 +27,14 @@ static int t4_valk_case1()
 
     r = ejson_parseS(str);
 
-    e = ejsonp(r, "1"             ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "1.2"           ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "1.2.3"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "1.2.3[0]"      ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "1.2.3[0][0]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "1.2.3[0][0][0]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
-    e = ejsonp(r, "1.2.3[0][1]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "1.2.3[0][1].4" ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "1"             ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "1.2"           ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "1.2.3"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "1.2.3[0]"      ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "1.2.3[0][0]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "1.2.3[0][0][0]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "1.2.3[0][1]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "1.2.3[0][1].4" ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
 
     ejson_free(r);
 
@@ -59,32 +59,32 @@ static int t4_valk_case2()
 
     r = ejson_parseS(str);
 
-    e = ejsonp(r, "[0]"             ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "[0].2"           ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "[0].2.3"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "[0].2.3[0]"      ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "[0].2.3[0][0]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "[0].2.3[0][0][0]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
-    e = ejsonp(r, "[0].2.3[0][1]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "[0].2.3[0][1].4" ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "[0]"             ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "[0].2"           ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "[0].2.3"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "[0].2.3[0]"      ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "[0].2.3[0][0]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "[0].2.3[0][0][0]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "[0].2.3[0][1]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "[0].2.3[0][1].4" ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
 
-    e = ejsonp(r, "0"             ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "0.2"           ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "0.2.3"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "0.2.3.0"       ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "0.2.3.0.0"     ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "0.2.3.0.0.0"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
-    e = ejsonp(r, "0.2.3.0.1"     ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "0.2.3.0.1.4"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "0"             ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "0.2"           ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "0.2.3"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "0.2.3.0"       ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "0.2.3.0.0"     ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "0.2.3.0.0.0"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "0.2.3.0.1"     ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "0.2.3.0.1.4"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
 
-    e = ejsonp(r, "[0]"               ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "[0][2]"            ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "[0][2][3]"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "[0][2][3][0]"      ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "[0][2][3][0][0]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
-    e = ejsonp(r, "[0][2][3][0][0][0]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
-    e = ejsonp(r, "[0][2][3][0][1]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
-    e = ejsonp(r, "[0][2][3][0][1][4]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "[0]"               ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "[0][2]"            ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "[0][2][3]"         ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "[0][2][3][0]"      ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "[0][2][3][0][0]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EARR);
+    e = ejson_p(r, "[0][2][3][0][0][0]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
+    e = ejson_p(r, "[0][2][3][0][1]"   ); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), EOBJ);
+    e = ejson_p(r, "[0][2][3][0][1][4]"); eunexpc_ptr(e, 0); eexpect_num(ejson_type(e), ESTR);
 
     ejson_free(r);
 
