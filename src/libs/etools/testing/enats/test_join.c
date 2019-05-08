@@ -58,13 +58,13 @@ void enats_join_test()
        fprintf(stdout, "trans_t creat ok: connected to %s\n", enats_connurl(t, 0)); fflush(stdout);
     }
 
-    thread_t wait1, wait2, quit;
-    thread_init(wait1, wait1_cb, 0);
-    thread_init(wait2, wait2_cb, 0);
-    thread_init(quit , quit_cb , 0);
-    thread_detach(wait1);
-    thread_detach(wait2);
-    thread_detach(quit);
+    ethread_t wait1, wait2, quit;
+    ethread_init(wait1, wait1_cb, 0);
+    ethread_init(wait2, wait2_cb, 0);
+    ethread_init(quit , quit_cb , 0);
+    ethread_detach(wait1);
+    ethread_detach(wait2);
+    ethread_detach(quit);
 
     enats_join(t);
     elog_inf(e, "wait main quit");
@@ -82,13 +82,13 @@ void enatp_join_test()
 
     enatp_addUrls(p, "join_test", "nats://localhost:4242", ENATP_LAZY);
 
-    thread_t wait1, wait2, quit;
-    thread_init(wait1, wait1_cb, 0);
-    thread_init(wait2, wait2_cb, 0);
-    thread_init(quit , quit_cb , 0);
-    thread_detach(wait1);
-    thread_detach(wait2);
-    thread_detach(quit);
+    ethread_t wait1, wait2, quit;
+    ethread_init(wait1, wait1_cb, 0);
+    ethread_init(wait2, wait2_cb, 0);
+    ethread_init(quit , quit_cb , 0);
+    ethread_detach(wait1);
+    ethread_detach(wait2);
+    ethread_detach(quit);
 
     enatp_join(p);
     elog_wrn(e, "wait main quit");

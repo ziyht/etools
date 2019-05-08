@@ -97,7 +97,7 @@ typedef struct _elog_handle_s{
     estr    path;                   // path to write
     int     fd;                     // opened fd for path
 
-    mutex_t mu;                     // write mutex
+    emutex_t mu;                     // write mutex
 
     estr    msg;                    // msg to print out
     estr    msgs;                   // full msgs buffer
@@ -126,7 +126,7 @@ typedef struct _elog_handle_s{
 typedef struct _elogh_set_s
 {
     _elogh           _set[ELOG_MAX_NUM];
-    mutex_t          _mu;
+    emutex_t         _mu;
     int              _fmtlen;
 #ifdef _WIN32
     CRITICAL_SECTION _print_cs;
@@ -176,7 +176,7 @@ static inline void __elog_env_init()
 
     _inited = 1;
 
-    mutex_init(_elogh_set->_mu);
+    emutex_init(_elogh_set->_mu);
 
 #ifdef _WIN32
     InitializeCriticalSection(&_elogh_set->_print_cs);
@@ -193,7 +193,7 @@ static inline _elogh __elog_newHandle(int dft, int wanted_id)
 
     __elog_env_init();
 
-    mutex_lock(_elogh_set->_mu);
+    emutex_lock(_elogh_set->_mu);
     if(dft == __DFT_HANDLE)
     {
         if(_elogh_set->_set[0]) return _elogh_set->_set[0];
@@ -223,7 +223,7 @@ static inline _elogh __elog_newHandle(int dft, int wanted_id)
     if(id == ELOG_MAX_NUM)
     {
         _elog_err("create new elog handle faild: full");
-        mutex_ulck(_elogh_set->_mu);
+        emutex_ulck(_elogh_set->_mu);
         return 0;
     }
 
@@ -234,7 +234,7 @@ make_new_handle:
         if(!h)
         {
             _elog_err("alloc for new elog handle faild: %s", strerror(errno));
-            mutex_ulck(_elogh_set->_mu);
+            emutex_ulck(_elogh_set->_mu);
             return 0;
         }
 
@@ -250,11 +250,11 @@ make_new_handle:
         assert(sstr_wrtS(h->elog_fmt, ELOG_DF_ELOG_FORMAT));
         assert(sstr_wrtS(h->time_fmt, ELOG_DF_TIME_FORMAT));
 
-        mutex_init(h->mu);
+        emutex_init(h->mu);
     }
 
     _elogh_set->_set[id] = h;
-    mutex_ulck(_elogh_set->_mu);
+    emutex_ulck(_elogh_set->_mu);
 
     return h;
 }
@@ -276,7 +276,7 @@ static inline _elogh __elog_getHandle(elog e)
 
 static inline void __elog_setTag(_elogh h, constr name)
 {
-    mutex_lock(h->mu);
+    emutex_lock(h->mu);
     if(name)
     {
         int cpylen = strlen(name);
@@ -288,7 +288,7 @@ static inline void __elog_setTag(_elogh h, constr name)
 
         if(_elogh_set->_fmtlen < cpylen) _elogh_set->_fmtlen = cpylen;
     }
-    mutex_ulck(h->mu);
+    emutex_ulck(h->mu);
 }
 
 static int  __elog_setPath(_elogh h, constr path)
@@ -305,12 +305,12 @@ static int  __elog_setPath(_elogh h, constr path)
 
         fd_h = h->fd;
 
-        mutex_lock(h->mu);
+        emutex_lock(h->mu);
 
         h->fd   = fd;
         estr_wrtS(h->path, path);
 
-        mutex_ulck(h->mu);
+        emutex_ulck(h->mu);
 
         if(fd_h >= 0) close(fd_h);
     }
@@ -328,16 +328,16 @@ static inline void __elog_setLevel(_elogh h, uint level, uint grade)
 
 static inline void __elog_setLogFmt(_elogh h, constr fmt)
 {
-    mutex_lock(h->mu);
+    emutex_lock(h->mu);
     sstr_wrtS(h->elog_fmt, fmt);
-    mutex_ulck(h->mu);
+    emutex_ulck(h->mu);
 }
 
 static inline void __elog_setTimeFmt(_elogh h, constr fmt)
 {
-    mutex_lock(h->mu);
+    emutex_lock(h->mu);
     sstr_wrtS(h->time_fmt, fmt);
-    mutex_ulck(h->mu);
+    emutex_ulck(h->mu);
 }
 
 static inline int __elog_freeHandle(_elogh h)
@@ -353,9 +353,9 @@ static inline int __elog_freeHandle(_elogh h)
 
     if(h->fd >= 0) close(h->fd);
 
-    mutex_lock(h->mu);
-    mutex_ulck(h->mu);
-    mutex_free(h->mu);
+    emutex_lock(h->mu);
+    emutex_ulck(h->mu);
+    emutex_free(h->mu);
 
     free(h);
 
@@ -381,7 +381,7 @@ int  elog_setSet(elog* set)
     old_set    = _elogh_set;
     _elogh_set = (_elogh_set_t*)set;
 
-    mutex_lock(old_set->_mu);
+    emutex_lock(old_set->_mu);
 
     for(i = 0; i < ELOG_MAX_NUM; i++)
     {
@@ -396,7 +396,7 @@ int  elog_setSet(elog* set)
 #ifdef _WIN32
     DeleteCriticalSection(&old_set->_print_cs);
 #endif
-    mutex_ulck(old_set->_mu);
+    emutex_ulck(old_set->_mu);
 
     return 1;
 }
@@ -877,7 +877,7 @@ int  elog_log(elog e, constr sfile, int sline, constr fmt, ...)
 
     is0_exeret(h, _elog_err("elog e(%d) has not been set", _e.id);, 0);
 
-    mutex_lock(h->mu);
+    emutex_lock(h->mu);
 
     if(_e.t.level < h->level || _e.t.grade > h->grade)
         goto log_over;
@@ -940,7 +940,7 @@ int  elog_log(elog e, constr sfile, int sline, constr fmt, ...)
     i = h->flush(h, _e);
 
 log_over:
-    mutex_ulck(h->mu);
+    emutex_ulck(h->mu);
 
     return i;
 }

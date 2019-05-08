@@ -14,7 +14,7 @@ typedef struct{
 }DATA;
 
 etloop loop;
-mutex_t wait_mu;
+emutex_t wait_mu;
 
 static void on_timer1(etimer t)
 {
@@ -27,7 +27,7 @@ static void on_timer1(etimer t)
     printf("%s %d: %"PRIi64"\n", d->tag, d->cnt, etimer_now());  fflush(stdout);
 
     if(d->cnt == 10000)
-        mutex_ulck(wait_mu);
+        emutex_ulck(wait_mu);
 }
 
 static void on_timer2(etimer t)
@@ -42,7 +42,7 @@ static void on_timer2(etimer t)
     //printf("%s %d: %s\n", d->tag, d->cnt, etimer_nowS(buf, 19));  fflush(stdout);
 
     if(d->cnt == 10000)
-        mutex_ulck(wait_mu);
+        emutex_ulck(wait_mu);
 }
 
 void sig_handler(int i) {
@@ -56,7 +56,7 @@ void sig_handler(int i) {
     default:             return;
     }
 
-    mutex_ulck(wait_mu);
+    emutex_ulck(wait_mu);
 }
 
 void etimer_test_performance()
@@ -93,9 +93,9 @@ void etimer_test_performance()
    Sleep(10000);
 #else
 
-   mutex_init(wait_mu);
-   mutex_lock(wait_mu);
-   mutex_lock(wait_mu);
+   emutex_init(wait_mu);
+   emutex_lock(wait_mu);
+   emutex_lock(wait_mu);
 #endif
 
    etloop_stop(loop);

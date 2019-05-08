@@ -18,10 +18,10 @@ static void* receiver(void* chan)
 void test_chan_multi()
 {
     echan chan = echan_new(ECHAN_LIST, 5);
-    thread_t th[100];
+    ethread_t th[100];
     for (int i = 0; i < 50; ++i)
     {
-       thread_init(th[i], sender, chan);
+       ethread_init(th[i], sender, chan);
     }
 
     for (;;)
@@ -35,12 +35,12 @@ void test_chan_multi()
 
     for (int i = 50; i < 100; ++i)
     {
-       thread_init(th[i], receiver, chan);
+       ethread_init(th[i], receiver, chan);
     }
 
     for (int i = 0; i < 100; ++i)
     {
-       thread_join(th[i]);
+       ethread_join(th[i]);
     }
 
     echan_free(chan);
@@ -50,10 +50,10 @@ void test_chan_multi()
 void test_chan_multi2()
 {
     echan chan = echan_new(ECHAN_LIST, 5);
-    thread_t th[100];
+    ethread_t th[100];
     for (int i = 0; i < 100; ++i)
     {
-        thread_init(th[i], receiver, chan);
+        ethread_init(th[i], receiver, chan);
     }
 
     for (;;)
@@ -74,7 +74,7 @@ void test_chan_multi2()
 
     for (int i = 0; i < 100; ++i)
     {
-        thread_join(th[i]);
+        ethread_join(th[i]);
     }
 
     echan_free(chan);

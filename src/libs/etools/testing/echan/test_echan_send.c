@@ -27,14 +27,14 @@ void echan_send_unbuffered_test()
     echan chan = echan_new(ECHAN_LIST, 0);
     void* msg = "foo";
 
-    thread_t th;
-    thread_init(th, receiver, chan);
+    ethread_t th;
+    ethread_init(th, receiver, chan);
 
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
     assert_true(echan_sendS(chan, msg) == 1, chan, "Send failed");
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }

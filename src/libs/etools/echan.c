@@ -257,11 +257,11 @@ typedef struct echan_s
     }           channal;
 
     // Shared properties
-    mutex_t     r_mu;
-    mutex_t     w_mu;
-    mutex_t     m_mu;
-    cond_t      r_cond;
-    cond_t      w_cond;
+    emutex_t    r_mu;
+    emutex_t    w_mu;
+    emutex_t    m_mu;
+    econd_t     r_cond;
+    econd_t     w_cond;
     int         r_waiting;
     int         w_waiting;
     int         status;
@@ -279,22 +279,22 @@ static int __chan_init_unbuffered(echan chan)
 {
     memset(chan, 0, sizeof(*chan));
 
-    is1_ret(mutex_init(chan->w_mu), 0);
+    is1_ret(emutex_init(chan->w_mu), 0);
 
-    is1_exeret(mutex_init(chan->r_mu),
-               mutex_free(chan->w_mu);,
+    is1_exeret(emutex_init(chan->r_mu),
+               emutex_free(chan->w_mu);,
                0);
 
-    is1_exeret(mutex_init(chan->m_mu),
-               mutex_free(chan->w_mu); mutex_free(chan->r_mu);,
+    is1_exeret(emutex_init(chan->m_mu),
+               emutex_free(chan->w_mu); emutex_free(chan->r_mu);,
                0);
 
-    is1_exeret(cond_init(chan->r_cond),
-               mutex_free(chan->w_mu); mutex_free(chan->r_mu); mutex_free(chan->m_mu);,
+    is1_exeret(econd_init(chan->r_cond),
+               emutex_free(chan->w_mu); emutex_free(chan->r_mu); emutex_free(chan->m_mu);,
                0);
 
-    is1_exeret(cond_init(chan->w_cond),
-               mutex_free(chan->w_mu); mutex_free(chan->r_mu); mutex_free(chan->m_mu); cond_free(chan->r_cond);,
+    is1_exeret(econd_init(chan->w_cond),
+               emutex_free(chan->w_mu); emutex_free(chan->r_mu); emutex_free(chan->m_mu); econd_free(chan->r_cond);,
                0);
 
     return 1;
@@ -331,12 +331,12 @@ void echan_free(echan chan)
         ell_free(chan->channal.list);
     }
 
-    mutex_free(chan->w_mu);
-    mutex_free(chan->r_mu);
+    emutex_free(chan->w_mu);
+    emutex_free(chan->r_mu);
 
-    mutex_free(chan->m_mu);
-    cond_free (chan->r_cond);
-    cond_free (chan->w_cond);
+    emutex_free(chan->m_mu);
+    econd_free (chan->r_cond);
+    econd_free (chan->w_cond);
     free(chan);
 }
 
@@ -353,7 +353,7 @@ int echan_close(echan chan)
     is0_ret(chan, 0);
 
     success = 1;
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     if (chan->status != _OPENDED)
     {
         // Channel already closed.
@@ -366,15 +366,15 @@ int echan_close(echan chan)
         chan->status = _CLOSING;
         while(chan->r_waiting || chan->w_waiting)
         {
-            mutex_ulck(chan->m_mu);
-            cond_all(chan->r_cond);
-            cond_all(chan->w_cond);
-            mutex_lock(chan->m_mu);
+            emutex_ulck(chan->m_mu);
+            econd_all(chan->r_cond);
+            econd_all(chan->w_cond);
+            emutex_lock(chan->m_mu);
             sleep(0);
         }
     }
     chan->status = _CLOSED;
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
 
     return success;
 }
@@ -385,9 +385,9 @@ int echan_closed(echan chan)
 
     is0_ret(chan, 1);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     closed = chan->status == _CLOSED;
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return closed;
 }
 
@@ -395,25 +395,25 @@ static int __echan_send_buffered_sigs(echan chan, eval_t sigs)
 {
     is0_ret(sigs.i32, 0);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     while( chan->channal.sigs + sigs.i32 > chan->cap )
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is removed.
         chan->w_waiting++;
-        cond_wait(chan->w_cond, chan->m_mu);
+        econd_wait(chan->w_cond, chan->m_mu);
         chan->w_waiting--;
     }
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -423,10 +423,10 @@ static int __echan_send_buffered_sigs(echan chan, eval_t sigs)
     if (chan->r_waiting > 0)
     {
         // Signal waiting reader.
-        cond_one(chan->r_cond);
+        econd_one(chan->r_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
 
     return 1;
 }
@@ -435,13 +435,13 @@ static int __echan_send_unbuffered_sigs(echan chan, eval_t sigs)
 {
     is0_ret(sigs.i32, 0);
 
-    mutex_lock(chan->w_mu);
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->w_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
-        mutex_ulck(chan->w_mu);
+        emutex_ulck(chan->m_mu);
+        emutex_ulck(chan->w_mu);
         errno = EPIPE;
         return 0;
     }
@@ -452,39 +452,39 @@ static int __echan_send_unbuffered_sigs(echan chan, eval_t sigs)
     if (chan->r_waiting > 0)
     {
         // Signal waiting reader.
-        cond_one(chan->r_cond);
+        econd_one(chan->r_cond);
     }
 
     // Block until reader consumed chan->data.
-    cond_wait(chan->w_cond, chan->m_mu);
+    econd_wait(chan->w_cond, chan->m_mu);
 
-    mutex_ulck(chan->m_mu);
-    mutex_ulck(chan->w_mu);
+    emutex_ulck(chan->m_mu);
+    emutex_ulck(chan->w_mu);
 
     return 1;
 }
 
 static int __echan_send_buffered_list(echan chan, eval_t obj)
 {
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     while( chan->cap == ell_len(chan->channal.list))
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is removed.
         chan->w_waiting++;
-        cond_wait(chan->w_cond, chan->m_mu);
+        econd_wait(chan->w_cond, chan->m_mu);
         chan->w_waiting--;
     }
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -494,22 +494,22 @@ static int __echan_send_buffered_list(echan chan, eval_t obj)
     if (chan->r_waiting > 0)
     {
         // Signal waiting reader.
-        cond_one(chan->r_cond);
+        econd_one(chan->r_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return success;
 }
 
 static int __echan_send_unbuffered_list(echan chan, eval_t obj)
 {
-    mutex_lock(chan->w_mu);
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->w_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
-        mutex_ulck(chan->w_mu);
+        emutex_ulck(chan->m_mu);
+        emutex_ulck(chan->w_mu);
         errno = EPIPE;
         return 0;
     }
@@ -520,14 +520,14 @@ static int __echan_send_unbuffered_list(echan chan, eval_t obj)
     if (chan->r_waiting > 0)
     {
         // Signal waiting reader.
-        cond_one(chan->r_cond);
+        econd_one(chan->r_cond);
     }
 
     // Block until reader consumed chan->data.
-    cond_wait(chan->w_cond, chan->m_mu);
+    econd_wait(chan->w_cond, chan->m_mu);
 
-    mutex_ulck(chan->m_mu);
-    mutex_ulck(chan->w_mu);
+    emutex_ulck(chan->m_mu);
+    emutex_ulck(chan->w_mu);
 
     return 1;
 }
@@ -536,27 +536,27 @@ static int __echan_recv_buffered_sigs(echan chan, uint sigs, eobj* _obj)
 {
     is0_ret(sigs, 0);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
 recv_again:
     while (chan->channal.sigs == 0)
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is added.
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
     }
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -564,7 +564,7 @@ recv_again:
     if(chan->channal.sigs < sigs)
     {
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
 
         goto recv_again;
@@ -574,10 +574,10 @@ recv_again:
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return 1;
 }
 
@@ -585,14 +585,14 @@ static int __echan_recv_unbuffered_sigs(echan chan, uint sigs, eobj* _obj)
 {
     is0_ret(sigs, 0);
 
-    mutex_lock(chan->r_mu);
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->r_mu);
+    emutex_lock(chan->m_mu);
 
     while (chan->status == _OPENDED && (!chan->w_waiting || sigs > chan->channal.sigs))
     {
         // Block until writer has set chan->data.
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
 
         if(chan->channal.sigs >= sigs)
@@ -601,8 +601,8 @@ static int __echan_recv_unbuffered_sigs(echan chan, uint sigs, eobj* _obj)
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
-        mutex_ulck(chan->r_mu);
+        emutex_ulck(chan->m_mu);
+        emutex_ulck(chan->r_mu);
         errno = EPIPE;
         return 0;
     }
@@ -611,10 +611,10 @@ static int __echan_recv_unbuffered_sigs(echan chan, uint sigs, eobj* _obj)
     chan->w_waiting--;
 
     // Signal waiting writer.
-    cond_one(chan->w_cond);
+    econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
-    mutex_ulck(chan->r_mu);
+    emutex_ulck(chan->m_mu);
+    emutex_ulck(chan->r_mu);
     return 1;
 }
 
@@ -624,20 +624,20 @@ static int __echan_time_recv_buffered_sigs(echan chan, uint sigs, eobj* _obj, in
 
     is0_ret(sigs, 0);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->channal.sigs == 0)
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is added.
         chan->r_waiting++;
-        cond_twait(chan->r_cond, chan->m_mu, timeout);
+        econd_twait(chan->r_cond, chan->m_mu, timeout);
         chan->r_waiting--;
 
         // todo: using the ret val of cond_twait to check status
@@ -645,7 +645,7 @@ static int __echan_time_recv_buffered_sigs(echan chan, uint sigs, eobj* _obj, in
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -660,10 +660,10 @@ skip_recv_ret:
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return ret;
 }
 
@@ -673,14 +673,14 @@ static int __echan_time_recv_unbuffered_sigs(echan chan, uint sigs, eobj* _obj, 
 
     is0_ret(sigs, 0);
 
-    mutex_lock(chan->r_mu);
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->r_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status == _OPENDED && (!chan->w_waiting || sigs > chan->channal.sigs))
     {
         // Block until writer has set chan->data.
         chan->r_waiting++;
-        cond_twait(chan->r_cond, chan->m_mu, timeout);
+        econd_twait(chan->r_cond, chan->m_mu, timeout);
         chan->r_waiting--;
 
         // todo: using the ret val of cond_twait to check status
@@ -688,8 +688,8 @@ static int __echan_time_recv_unbuffered_sigs(echan chan, uint sigs, eobj* _obj, 
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
-        mutex_ulck(chan->r_mu);
+        emutex_ulck(chan->m_mu);
+        emutex_ulck(chan->r_mu);
         errno = EPIPE;
         return 0;
     }
@@ -702,10 +702,10 @@ static int __echan_time_recv_unbuffered_sigs(echan chan, uint sigs, eobj* _obj, 
     }
 
     // Signal waiting writer.
-    cond_one(chan->w_cond);
+    econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
-    mutex_ulck(chan->r_mu);
+    emutex_ulck(chan->m_mu);
+    emutex_ulck(chan->r_mu);
     return ret;
 }
 
@@ -713,18 +713,18 @@ static int __echan_try_recv_sigs(echan chan, uint sigs, eobj* _obj)
 {
     is0_ret(sigs, 0);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
 
     if(chan->channal.sigs < sigs)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         return 0;
     }
 
@@ -732,36 +732,36 @@ static int __echan_try_recv_sigs(echan chan, uint sigs, eobj* _obj)
 
     // Signal waiting writer.
     if (chan->w_waiting > 0)
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return sigs;
 }
 
 static uint __echan_recv_all_sigs(echan chan)
 {
     uint sigs;
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
 recv_again:
     while (chan->channal.sigs == 0)
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is added.
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
     }
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -769,7 +769,7 @@ recv_again:
     if(chan->channal.sigs == 0)
     {
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
 
         goto recv_again;
@@ -780,21 +780,21 @@ recv_again:
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return sigs;
 }
 
 static uint __echan_try_recv_all_sigs(echan chan)
 {
     uint sigs;
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -804,9 +804,9 @@ static uint __echan_try_recv_all_sigs(echan chan)
 
     // Signal waiting writer.
     if (chan->w_waiting > 0)
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return sigs;
 }
 
@@ -814,7 +814,7 @@ static int __echan_recv_buffered_list(echan chan, uint type, eobj* _obj)
 {
     eobj obj;
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
 recv_again:
 
@@ -822,20 +822,20 @@ recv_again:
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is added.
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
     }
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -847,7 +847,7 @@ recv_again:
             goto recv_always;
 
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
 
         goto recv_again;
@@ -861,23 +861,23 @@ recv_always:
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return 1;
 }
 
 static int __echan_recv_unbuffered_list(echan chan, uint type, eobj* _obj)
 {
-    mutex_lock(chan->r_mu);
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->r_mu);
+    emutex_lock(chan->m_mu);
 
     while (chan->status == _OPENDED && !chan->w_waiting)
     {
         // Block until writer has set chan->data.
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
 
         if(eobj_typeo(chan->channal.node.val.p) == type || EOBJ == type) // todo: eobj_type -> EOBJ_TYPE
@@ -886,8 +886,8 @@ static int __echan_recv_unbuffered_list(echan chan, uint type, eobj* _obj)
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
-        mutex_ulck(chan->r_mu);
+        emutex_ulck(chan->m_mu);
+        emutex_ulck(chan->r_mu);
         errno = EPIPE;
         return 0;
     }
@@ -896,10 +896,10 @@ static int __echan_recv_unbuffered_list(echan chan, uint type, eobj* _obj)
     chan->w_waiting--;
 
     // Signal waiting writer.
-    cond_one(chan->w_cond);
+    econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
-    mutex_ulck(chan->r_mu);
+    emutex_ulck(chan->m_mu);
+    emutex_ulck(chan->r_mu);
     return 1;
 }
 
@@ -907,20 +907,20 @@ static int __echan_time_recv_buffered_list(echan chan, uint type, eobj* _obj, in
 {
     eobj obj; int ret = 0;
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
     if(ell_len(chan->channal.list) == 0)
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is added or timeout
         chan->r_waiting++;
-        cond_twait(chan->r_cond, chan->m_mu, timeout);
+        econd_twait(chan->r_cond, chan->m_mu, timeout);
         chan->r_waiting--;
 
         // todo: using the ret val of cond_twait to check status
@@ -928,7 +928,7 @@ static int __echan_time_recv_buffered_list(echan chan, uint type, eobj* _obj, in
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -959,10 +959,10 @@ skip_recv_ret:
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return ret;
 }
 
@@ -970,14 +970,14 @@ static int __echan_time_recv_unbuffered_list(echan chan, uint type, eobj* _obj, 
 {
     int ret = 0;
 
-    mutex_lock(chan->r_mu);
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->r_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status == _OPENDED && !chan->w_waiting)
     {
         // Block until writer has set chan->data.
         chan->r_waiting++;
-        cond_twait(chan->r_cond, chan->m_mu, timeout);
+        econd_twait(chan->r_cond, chan->m_mu, timeout);
         chan->r_waiting--;
 
         // todo: using the ret val of cond_twait to check status
@@ -985,8 +985,8 @@ static int __echan_time_recv_unbuffered_list(echan chan, uint type, eobj* _obj, 
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
-        mutex_ulck(chan->r_mu);
+        emutex_ulck(chan->m_mu);
+        emutex_ulck(chan->r_mu);
         errno = EPIPE;
         return 0;
     }
@@ -1000,10 +1000,10 @@ static int __echan_time_recv_unbuffered_list(echan chan, uint type, eobj* _obj, 
 
     // Signal waiting writer.
     if (chan->w_waiting > 0)
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
-    mutex_ulck(chan->r_mu);
+    emutex_ulck(chan->m_mu);
+    emutex_ulck(chan->r_mu);
     return ret;
 }
 
@@ -1011,7 +1011,7 @@ static ell __echan_recv_all_list(echan chan)
 {
     ell out = 0, new_list;
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
 recv_again:
 
@@ -1020,20 +1020,20 @@ recv_again:
     {
         if (chan->status != _OPENDED)
         {
-            mutex_ulck(chan->m_mu);
+            emutex_ulck(chan->m_mu);
             errno = EPIPE;
             return 0;
         }
 
         // Block until something is added.
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
     }
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -1041,7 +1041,7 @@ recv_again:
     if(ell_len(chan->channal.list) == 0)
     {
         chan->r_waiting++;
-        cond_wait(chan->r_cond, chan->m_mu);
+        econd_wait(chan->r_cond, chan->m_mu);
         chan->r_waiting--;
 
         goto recv_again;
@@ -1049,7 +1049,7 @@ recv_again:
 
     if((new_list = ell_new()) == 0)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = ENOMEM;
         return 0;
     }
@@ -1059,9 +1059,9 @@ recv_again:
 
     // Signal waiting writer.
     if (chan->w_waiting > 0)
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return out;
 }
 
@@ -1069,11 +1069,11 @@ static int __echan_try_recv_list(echan chan, uint type, eobj* _obj)
 {
     eobj obj;
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
@@ -1081,7 +1081,7 @@ static int __echan_try_recv_list(echan chan, uint type, eobj* _obj)
     obj = ell_first(chan->channal.list);
     if(0 == obj)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         return 0;
     }
 
@@ -1090,7 +1090,7 @@ static int __echan_try_recv_list(echan chan, uint type, eobj* _obj)
         if(type == EOBJ)
             goto recv_always;
 
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         return 0;
     }
 
@@ -1102,10 +1102,10 @@ recv_always:
     if (chan->w_waiting > 0)
     {
         // Signal waiting writer.
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
     }
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return 1;
 }
 
@@ -1113,24 +1113,24 @@ static ell __echan_try_recv_all_list(echan chan)
 {
     ell out = 0, new_list;
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
 
     if (chan->status != _OPENDED)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = EPIPE;
         return 0;
     }
 
     if(ell_len(chan->channal.list) == 0)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         return 0;
     }
 
     if((new_list = ell_new()) == 0)
     {
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
         errno = ENOMEM;
         return 0;
     }
@@ -1140,9 +1140,9 @@ static ell __echan_try_recv_all_list(echan chan)
 
     // Signal waiting writer.
     if (chan->w_waiting > 0)
-        cond_one(chan->w_cond);
+        econd_one(chan->w_cond);
 
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return out;
 }
 
@@ -1389,9 +1389,9 @@ uint echan_wwait(echan chan)
 
     is0_ret(chan, 0);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     count = chan->w_waiting;
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
 
     return count;
 }
@@ -1402,9 +1402,9 @@ uint echan_rwait(echan chan)
 
     is0_ret(chan, 0);
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     count = chan->r_waiting;
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
 
     return count;
 }
@@ -1416,9 +1416,9 @@ uint echan_size(echan chan)
     int size = 0;
     if (chan->_oprt->send == __echan_send_buffered_list)
     {
-        mutex_lock(chan->m_mu);
+        emutex_lock(chan->m_mu);
         size = ell_len(chan->channal.list);
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
     }
     return size;
 }
@@ -1428,9 +1428,9 @@ uint echan_sigs (echan chan)
     int sigs = 0;
     if (chan->_oprt->send == __echan_send_buffered_sigs)
     {
-        mutex_lock(chan->m_mu);
+        emutex_lock(chan->m_mu);
         sigs = chan->channal.sigs;
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
     }
     return sigs;
 }
@@ -1452,9 +1452,9 @@ static int __echan_can_recv(echan chan)
         return echan_size(chan) > 0;
     }
 
-    mutex_lock(chan->m_mu);
+    emutex_lock(chan->m_mu);
     int sender = chan->w_waiting > 0;
-    mutex_ulck(chan->m_mu);
+    emutex_ulck(chan->m_mu);
     return sender;
 }
 
@@ -1464,16 +1464,16 @@ static int __echan_can_send(echan chan)
     if (chan->_oprt->send == __echan_send_buffered_list || chan->_oprt->send == __echan_send_buffered_sigs)
     {
         // Can send if buffered channel is not full.
-        mutex_lock(chan->m_mu);
+        emutex_lock(chan->m_mu);
         send = ell_len(chan->channal.list) < chan->cap;
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
     }
     else
     {
         // Can send if unbuffered channel has receiver.
-        mutex_lock(chan->m_mu);
+        emutex_lock(chan->m_mu);
         send = chan->r_waiting > 0;
-        mutex_ulck(chan->m_mu);
+        emutex_ulck(chan->m_mu);
     }
 
     return send;

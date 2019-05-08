@@ -39,7 +39,7 @@ typedef struct task_s* TASK;
 typedef struct thread_handle_s{
     char         id[16];
     ert          tp;
-    thread_t     th;
+    ethread_t    th;
     int          status;
     int          quit;
 }thread_handle_t, * TH;
@@ -59,31 +59,31 @@ typedef struct thread_pool_s{
     int          thrds_idx;     // threads idx
     int          thrds_num;     // threads num
     volatile int thrds_idle;
-    mutex_t      thrds_mu;
+    emutex_t     thrds_mu;
 
     // -- tasks manager
     echan        tasks;         // all tasks
     ejson        tasks_tags;    // task tags
-    ell        tasks_cache;   // task cache
-    mutex_t      tasks_mu;
+    ell          tasks_cache;   // task cache
+    emutex_t     tasks_mu;
 
     // -- quit manager
     echan        quit_sigs;
     int          quit_join_ths;
 
     // --
-    mutex_t      wait_mu;
-    cond_t       wait_co;
+    emutex_t     wait_mu;
+    econd_t      wait_co;
     int          wait_num;
 }thread_pool_t;
 
-static inline int  __ert_thrd_idle(ert tp) {int num; mutex_lock(tp->thrds_mu); num = tp->thrds_idle; mutex_ulck(tp->thrds_mu); return num;}
-static inline int  __ert_thrd_num (ert tp) {int num; mutex_lock(tp->thrds_mu); num = tp->thrds_num ; mutex_ulck(tp->thrds_mu); return num;}
+static inline int  __ert_thrd_idle(ert tp) {int num; emutex_lock(tp->thrds_mu); num = tp->thrds_idle; emutex_ulck(tp->thrds_mu); return num;}
+static inline int  __ert_thrd_num (ert tp) {int num; emutex_lock(tp->thrds_mu); num = tp->thrds_num ; emutex_ulck(tp->thrds_mu); return num;}
 
-#define __ert_thrd_idle_PP(tp) { mutex_lock(tp->thrds_mu); tp->thrds_idle++; mutex_ulck(tp->thrds_mu); }
-#define __ert_thrd_idle_MM(tp) { mutex_lock(tp->thrds_mu); tp->thrds_idle--; mutex_ulck(tp->thrds_mu); }
-#define __ert_thrd_num_PP(tp)  { mutex_lock(tp->thrds_mu); tp->thrds_num++;  mutex_ulck(tp->thrds_mu); }
-#define __ert_thrd_num_MM(tp)  { mutex_lock(tp->thrds_mu); tp->thrds_num--;  mutex_ulck(tp->thrds_mu); }
+#define __ert_thrd_idle_PP(tp) { emutex_lock(tp->thrds_mu); tp->thrds_idle++; emutex_ulck(tp->thrds_mu); }
+#define __ert_thrd_idle_MM(tp) { emutex_lock(tp->thrds_mu); tp->thrds_idle--; emutex_ulck(tp->thrds_mu); }
+#define __ert_thrd_num_PP(tp)  { emutex_lock(tp->thrds_mu); tp->thrds_num++;  emutex_ulck(tp->thrds_mu); }
+#define __ert_thrd_num_MM(tp)  { emutex_lock(tp->thrds_mu); tp->thrds_num--;  emutex_ulck(tp->thrds_mu); }
 
 enum {
     // -- ert status
@@ -106,27 +106,27 @@ static void _etp_quit_cb(void* _tp);
 #define USING_TASKMU 1
 
 #if USING_TASKMU
-#define tasks_lock() mutex_lock(tp->tasks_mu);
-#define tasks_ulck() mutex_ulck(tp->tasks_mu);
+#define tasks_lock() emutex_lock(tp->tasks_mu);
+#define tasks_ulck() emutex_ulck(tp->tasks_mu);
 #else
-#define tasks_lock() mutex_lock(tp->thrds_mu);
-#define tasks_ulck() mutex_ulck(tp->thrds_mu);
+#define tasks_lock() emutex_lock(tp->thrds_mu);
+#define tasks_ulck() emutex_ulck(tp->thrds_mu);
 #endif
 
 /// -------------------------- ert internal -----------------------
 
 static void __ert_self_init(ert tp)
 {
-    mutex_init(tp->thrds_mu);
-    mutex_init(tp->tasks_mu);
-    mutex_init(tp->wait_mu);
+    emutex_init(tp->thrds_mu);
+    emutex_init(tp->tasks_mu);
+    emutex_init(tp->wait_mu);
 }
 
 static void __ert_self_release(ert tp)
 {
-    mutex_free(tp->thrds_mu);
-    mutex_free(tp->tasks_mu);
-    mutex_free(tp->wait_mu);
+    emutex_free(tp->thrds_mu);
+    emutex_free(tp->tasks_mu);
+    emutex_free(tp->wait_mu);
 
     free(tp);
 }
@@ -168,11 +168,11 @@ static inline void __ert_exeWait(ert tp)
 {
     while(tp->status != _RELEASED)
     {
-        mutex_lock(tp->wait_mu);
+        emutex_lock(tp->wait_mu);
         tp->wait_num++;
-        cond_wait(tp->wait_co, tp->wait_mu);
+        econd_wait(tp->wait_co, tp->wait_mu);
         tp->wait_num--;
-        mutex_ulck(tp->wait_mu);
+        emutex_ulck(tp->wait_mu);
     }
 }
 
@@ -180,7 +180,7 @@ static inline void __ert_quitWait(ert tp)
 {
     while(tp->wait_num)
     {
-        cond_all(tp->wait_co);
+        econd_all(tp->wait_co);
         usleep(10000);
     }
 }
@@ -273,7 +273,7 @@ static inline void __ert_task_release(ert tp)
     tasks_ulck();
 }
 
-static void __task_thread(void* _th)
+static void* __task_thread(void* _th)
 {
     TH th; ert tp; TASK t; char id[16];
 
@@ -311,7 +311,7 @@ static void __task_thread(void* _th)
             _llog("[thread%s]: too many waiting thread, free self and quited", th->id);
             free(th);
             __ert_thrd_num_MM(tp);
-            return ;
+            return 0;
         }
 
         __ert_thrd_idle_PP(tp);
@@ -325,16 +325,16 @@ static void __task_thread(void* _th)
     while(!echan_closed(tp->tasks))
         usleep(100);
 
-    mutex_lock(tp->thrds_mu);
+    emutex_lock(tp->thrds_mu);
 
     if(tp->thrds_num > 1)
     {
         tp->thrds_num--;
-        mutex_ulck(tp->thrds_mu);
+        emutex_ulck(tp->thrds_mu);
     }
     else
     {
-        mutex_ulck(tp->thrds_mu);
+        emutex_ulck(tp->thrds_mu);
         if(tp->quit_join_ths)
         {
             assert(echan_sendSig(tp->quit_sigs, 1));
@@ -352,6 +352,8 @@ static void __task_thread(void* _th)
 #ifdef _WIN32_THREAD
     if(_th_backup) thread_quit(_th_backup);
 #endif
+
+    return 0;
 }
 
 static inline void __ert_thread_create_if_need(ert tp)
@@ -372,19 +374,19 @@ static inline void __ert_thread_create_if_need(ert tp)
         th->tp = tp;
         snprintf(th->id, 16, "%2d", tp->thrds_idx);
 
-        if(thread_init(th->th, __task_thread, th) != 0)
+        if(ethread_init(th->th, __task_thread, th) != 0)
         {
             free(th);
             llog("[threadpool]: create new thread failed, %s", strerror(errno));
             return;
         }
 
-        thread_detach(th->th);
+        ethread_detach(th->th);
 
-        mutex_lock(tp->thrds_mu);
+        emutex_lock(tp->thrds_mu);
         tp->thrds_num++;
         tp->thrds_idx++;
-        mutex_ulck(tp->thrds_mu);
+        emutex_ulck(tp->thrds_mu);
 
         llog("[threadpool]: create new thread%s", th->id);
     }
@@ -456,9 +458,9 @@ int ert_destroy(ert tp, int opt)
 
     if(!tp->quit_join_ths)
     {
-        mutex_lock(tp->thrds_mu);
+        emutex_lock(tp->thrds_mu);
         running = tp->thrds_num - tp->thrds_idle;
-        mutex_ulck(tp->thrds_mu);
+        emutex_ulck(tp->thrds_mu);
     }
 
     llog("[threadpool]: _RELEASING");
@@ -475,9 +477,9 @@ void ert_maxThread(ert tp, int num)
     is1_exe(tp == DEFAULT_ERT, tp = _df_tp);
     is0_exeret(tp, _df_thread_num = num;, );
 
-    mutex_lock(tp->thrds_mu);
+    emutex_lock(tp->thrds_mu);
     tp->thrds_cap = num ;
-    mutex_ulck(tp->thrds_mu);
+    emutex_ulck(tp->thrds_mu);
 }
 
 int ert_run(ert tp, constr tag, ert_cb oprt, ert_cb after_oprt, cptr arg)
@@ -493,9 +495,9 @@ int ert_run(ert tp, constr tag, ert_cb oprt, ert_cb after_oprt, cptr arg)
     }
 
     is0_ret(tp, 0);
-    mutex_lock(tp->thrds_mu);
-    is0_exeret(tp->status == _INITED, mutex_ulck(tp->thrds_mu);, 0);
-    mutex_ulck(tp->thrds_mu);
+    emutex_lock(tp->thrds_mu);
+    is0_exeret(tp->status == _INITED, emutex_ulck(tp->thrds_mu);, 0);
+    emutex_ulck(tp->thrds_mu);
 
     is0_ret(__ert_task_add(tp, tag, oprt, after_oprt, arg), 0);
     __ert_thread_create_if_need(tp);

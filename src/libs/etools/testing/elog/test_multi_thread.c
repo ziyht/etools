@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-thread_t th1, th2, th3;
+ethread_t th1, th2, th3;
 
 elog elogh;
 
@@ -34,16 +34,16 @@ void elog_multi_thread_test()
 
     elogh = elog_newOpts("multi", &opt);
 
-    thread_init(th1, _cb, (cptr)1);
-    thread_init(th2, _cb, (cptr)2);
-    thread_init(th3, _cb, (cptr)3);
+    ethread_init(th1, _cb, (cptr)1);
+    ethread_init(th2, _cb, (cptr)2);
+    ethread_init(th3, _cb, (cptr)3);
 
     sleep(10);
 
     elog_free(elogh);
-    thread_join(th1);
-    thread_join(th2);
-    thread_join(th3);
+    ethread_join(th1);
+    ethread_join(th2);
+    ethread_join(th3);
 
 }
 

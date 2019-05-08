@@ -17,9 +17,9 @@ void echan_time_recv_buffered_list_test1()
 {
     echan chan = echan_new(ECHAN_LIST, 1);
 
-    thread_t th;
+    ethread_t th;
 
-    thread_init(th, list_sender, chan);
+    ethread_init(th, list_sender, chan);
 
     eobj received = echan_timeRecvObj(chan, 1000);
 
@@ -29,7 +29,7 @@ void echan_time_recv_buffered_list_test1()
 
     echan_freeO(received);
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
@@ -38,9 +38,9 @@ void echan_time_recv_buffered_list_test2()
 {
     echan chan = echan_new(ECHAN_LIST, 1);
 
-    thread_t th;
+    ethread_t th;
 
-    thread_init(th, list_sender, chan);
+    ethread_init(th, list_sender, chan);
 
     // sender will send msg in 500ms, here wait 300ms, timeout
     eobj received = echan_timeRecvObj(chan, 300);
@@ -48,7 +48,7 @@ void echan_time_recv_buffered_list_test2()
     assert_true(received == 0, chan, "Recv ok");
     assert_true(echan_size(chan) == 0, chan, "Queue is not empty");
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
@@ -64,9 +64,9 @@ void echan_time_recv_buffered_sigs_test1()
 {
     echan chan = echan_new(ECHAN_SIGS, 100);
 
-    thread_t th;
+    ethread_t th;
 
-    thread_init(th, sigs_sender, chan);
+    ethread_init(th, sigs_sender, chan);
 
     int received = echan_timeRecvSig(chan, 10, 1000);
 
@@ -74,7 +74,7 @@ void echan_time_recv_buffered_sigs_test1()
     assert_true(received == 10, chan, "Messages are not equal");
     assert_true(echan_size(chan) == 0, chan, "Queue is not empty");
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
@@ -83,25 +83,19 @@ void echan_time_recv_buffered_sigs_test2()
 {
     echan chan = echan_new(ECHAN_SIGS, 100);
 
-    thread_t th;
+    ethread_t th;
 
-    thread_init(th, sigs_sender, chan);
+    ethread_init(th, sigs_sender, chan);
 
     int received = echan_timeRecvSig(chan, 20, 1000);
 
     assert_true(received ==0, chan, "Recv OK");
     assert_true(echan_size(chan) == 0, chan, "Queue is empty");
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
-
-
-
-
-
-
 
 
 void echan_time_recv_test()

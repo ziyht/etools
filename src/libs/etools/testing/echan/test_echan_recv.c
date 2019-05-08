@@ -30,8 +30,8 @@ static void* sender(void* chan)
 void echan_recv_unbuffered_test()
 {
     echan chan = echan_new(ECHAN_LIST, 0);
-    thread_t th;
-    thread_init(th, sender, chan);
+    ethread_t th;
+    ethread_init(th, sender, chan);
 
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
 
@@ -40,7 +40,7 @@ void echan_recv_unbuffered_test()
     assert_true(strcmp(msg, "foo") == 0, chan, "Messages are not equal");
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
 
-    thread_join(th);
+    ethread_join(th);
     echan_freeO(msg);
     echan_free(chan);
     pass();

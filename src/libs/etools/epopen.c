@@ -36,7 +36,7 @@ typedef struct _eio_s{
     int     ofd;
     cstr    pos;
     estr    buf;
-    mutex_t mu;
+    emutex_t mu;
 }_eio_t, *_eio;
 
 static _eio _epopen(constr cmd)
@@ -76,7 +76,7 @@ static _eio _epopen(constr cmd)
     out->ifd = -1;
     out->ofd = -1;
 
-    mutex_init(out->mu);
+    emutex_init(out->mu);
 
     return out;
 
@@ -94,16 +94,16 @@ static int _epclose(_eio _e)
 {
     int status;
 
-    mutex_lock(_e->mu);
+    emutex_lock(_e->mu);
 
     if(_e->is_closing)
     {
-        mutex_ulck(_e->mu);
+        emutex_ulck(_e->mu);
         return -2;
     }
 
     _e->is_closing = 1;
-    mutex_ulck(_e->mu);
+    emutex_ulck(_e->mu);
 
     waitpid(_e->pid, &status, 0);   _e->pid = 0;
 
@@ -136,18 +136,18 @@ static int _system_kill_pid(pid_t pid)
 
 static int _epkill(_eio _e)
 {
-    mutex_lock(_e->mu);
+    emutex_lock(_e->mu);
 
     if(_e->is_killed)
     {
-        mutex_ulck(_e->mu);
+        emutex_ulck(_e->mu);
         return -3;
     }
 
     _e->is_killed = 1;
     _system_kill_pid(_e->pid);
 
-    mutex_ulck(_e->mu);
+    emutex_ulck(_e->mu);
 
     return 0;
 }
@@ -156,13 +156,13 @@ static int _epkillclose(_eio _e)
 {
     int status; int killed;
 
-    mutex_lock(_e->mu);
+    emutex_lock(_e->mu);
 
     if(_e->is_closing)
     {
         if(_e->is_killed)
         {
-            mutex_ulck(_e->mu);
+            emutex_ulck(_e->mu);
             return -3;
         }
 
@@ -170,7 +170,7 @@ static int _epkillclose(_eio _e)
 
         _system_kill_pid(_e->pid);
 
-        mutex_ulck(_e->mu);
+        emutex_ulck(_e->mu);
         return -2;
     }
 
@@ -178,7 +178,7 @@ static int _epkillclose(_eio _e)
 
     _e->is_closing = 1;
     _e->is_killed  = 1;
-    mutex_ulck(_e->mu);
+    emutex_ulck(_e->mu);
 
     if(!killed)
     {

@@ -113,14 +113,14 @@ void ev_threadpool_test2()
     sleep(2);
 }
 
-mutex_t mu;
-void test3_cb(void* _d) {static int i = 0; mutex_lock(mu);llog("run task %d", ++i);mutex_ulck(mu);}
+emutex_t mu;
+void test3_cb(void* _d) {static int i = 0; emutex_lock(mu);llog("run task %d", ++i);emutex_ulck(mu);}
 
 void ev_threadpool_test3()
 {
     ert tp = ert_new(16);
 
-    mutex_init(mu);
+    emutex_init(mu);
     for(int i = 0; i < 10000; i++)
     {
         ert_run(tp, 0, test3_cb, 0, 0);

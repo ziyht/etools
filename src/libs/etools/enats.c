@@ -38,24 +38,24 @@
 static int          __cnt_init;
 static int          __cnt_conn;
 static int          __cnt_pool;
-static mutex_t      __cnt_mut;
+static emutex_t     __cnt_mut;
 
 static inline void __cnt_connInc()
 {
     if(!__cnt_init)
     {
-        mutex_init(__cnt_mut);
+        emutex_init(__cnt_mut);
         __cnt_init = 1;
     }
 
-    mutex_lock(__cnt_mut);
+    emutex_lock(__cnt_mut);
     __cnt_conn++;
-    mutex_ulck(__cnt_mut);
+    emutex_ulck(__cnt_mut);
 }
 
 static inline void __cnt_connDec()
 {
-    mutex_lock(__cnt_mut);
+    emutex_lock(__cnt_mut);
     __cnt_conn--;
     if (__cnt_conn <= 0 && __cnt_pool <= 0) {
         llog("exe nats_Close()");
@@ -63,25 +63,25 @@ static inline void __cnt_connDec()
         __cnt_conn = 0;
         __cnt_pool = 0;
     }
-    mutex_ulck(__cnt_mut);
+    emutex_ulck(__cnt_mut);
 }
 
 static inline void __cnt_poolInc()
 {
     if(!__cnt_init)
     {
-        mutex_init(__cnt_mut);
+        emutex_init(__cnt_mut);
         __cnt_init = 1;
     }
 
-    mutex_lock(__cnt_mut);
+    emutex_lock(__cnt_mut);
     __cnt_pool++;
-    mutex_ulck(__cnt_mut);
+    emutex_ulck(__cnt_mut);
 }
 
 static inline void __cnt_poolDec()
 {
-    mutex_lock(__cnt_mut);
+    emutex_lock(__cnt_mut);
     __cnt_pool--;
     if (__cnt_conn <= 0 && __cnt_pool <= 0) {
         llog("exe nats_Close()");
@@ -89,7 +89,7 @@ static inline void __cnt_poolDec()
         __cnt_conn = 0;
         __cnt_pool = 0;
     }
-    mutex_ulck(__cnt_mut);
+    emutex_ulck(__cnt_mut);
 }
 
 /// ---------------------------- enats  ---------------------
@@ -140,13 +140,13 @@ typedef struct enats_s{
 
     // -- subscriber
     ejson           sub_dic;        // subscriber in hash table
-    mutex_t         sub_mu;
+    emutex_t         sub_mu;
 
     // -- for quit control
     int             quit;
     int             wait_num;
-    mutex_t		    wait_mutex;
-    cond_t          wait_cond;
+    emutex_t	    wait_mutex;
+    econd_t         wait_cond;
 
     natsStatus      es;             // last err status
     estr            err;            // buf to store err occered last time
@@ -171,8 +171,8 @@ typedef struct enatp_s{
     ejson           polling_itr;        // point to the ejson obj in poll_transs who is polling now
     enats           polling_now;        // the enats in polling_itr
 
-    thread_t        lazy_thread;
-    mutex_t         mutex;
+    ethread_t       lazy_thread;
+    emutex_t        mutex;
 
     // -- default CBs
     __CBs_t         CBs;
@@ -185,8 +185,8 @@ typedef struct enatp_s{
     int             quit;
     int             conn_num;           // the num of connected trans
     int             wait_num;
-    cond_t          wait_cond;
-    mutex_t         wait_mutex;
+    econd_t         wait_cond;
+    emutex_t        wait_mutex;
 
     // -- other
     natsStatus      es;                 // last err status
@@ -432,7 +432,7 @@ static inline enats __enats_newHandle(constr urls, enats_opts e_opts)
 
     }
 
-    mutex_init(e->sub_mu);
+    emutex_init(e->sub_mu);
     assert(e->sub_dic = ejson_new(EOBJ, 0));
 
     e->conn.s = NATS_OK;
@@ -468,10 +468,10 @@ static inline ejson __enats_makeRoomForSubs(enats e, constr subj, enats_msgHandl
 {
     ejson sroom; __subs subs;
 
-    mutex_lock(e->sub_mu);
+    emutex_lock(e->sub_mu);
     if(!e->sub_dic) e->sub_dic = ejson_new(EOBJ, 0);
     subs = (__subs)ejson_addR(e->sub_dic, subj, sizeof(*subs));
-    mutex_ulck(e->sub_mu);
+    emutex_ulck(e->sub_mu);
     is0_exeret(subs, errfmt(e, "subs of \"%s\" already exist", subj), 0);
 
     assert(sroom = ejson_k(e->sub_dic, subj));
@@ -488,9 +488,9 @@ static inline void __enats_freeSubsRoom(ejson sroom)
     enats e;
     e = ((__subs)EOBJ_VALR(sroom))->e;
 
-    mutex_lock(e->sub_mu);
+    emutex_lock(e->sub_mu);
     ejson_freeO(e->sub_dic, sroom);
-    mutex_ulck(e->sub_mu);
+    emutex_ulck(e->sub_mu);
 }
 
 static inline int __enats_trySub(ejson sroom)
@@ -557,7 +557,7 @@ static inline void __enats_unSub(enats e, constr subj)
 {
     ejson sroom; __subs subs;
 
-    mutex_lock(e->sub_mu);
+    emutex_lock(e->sub_mu);
 
     if((sroom = ejson_takeK(e->sub_dic, subj)))
     {
@@ -569,7 +569,7 @@ static inline void __enats_unSub(enats e, constr subj)
         ejson_free(sroom);
     }
 
-    mutex_ulck(e->sub_mu);
+    emutex_ulck(e->sub_mu);
 }
 
 static inline void __enats_destroyAllNatsSubscription(enats e)
@@ -578,7 +578,7 @@ static inline void __enats_destroyAllNatsSubscription(enats e)
 
     is0_ret(e, )
 
-    mutex_lock(e->sub_mu);
+    emutex_lock(e->sub_mu);
     ejson_foreach(e->sub_dic, itr)
     {
         s = EOBJ_VALR(itr);
@@ -587,14 +587,14 @@ static inline void __enats_destroyAllNatsSubscription(enats e)
         natsSubscription_Destroy(s->sub);
         s->sub = 0;
     }
-    mutex_ulck(e->sub_mu);
+    emutex_ulck(e->sub_mu);
 }
 
 static void __enats_reSub(enats e)
 {
     ejson itr;
 
-    mutex_lock(e->sub_mu);
+    emutex_lock(e->sub_mu);
 
     ejson_foreach(e->sub_dic, itr)
     {
@@ -604,7 +604,7 @@ static void __enats_reSub(enats e)
         }
     }
 
-    mutex_ulck(e->sub_mu);
+    emutex_ulck(e->sub_mu);
 }
 
 static inline void __enats_destroySubDic(enats e)
@@ -613,7 +613,7 @@ static inline void __enats_destroySubDic(enats e)
 
     if(e)
     {
-        mutex_free(e->sub_mu);
+        emutex_free(e->sub_mu);
         ejson_free(e->sub_dic);
         e->sub_dic = 0;
     }
@@ -669,8 +669,8 @@ static inline void* __enats_waitThread(void* e_)
 
     e->wait_num++;
 
-    mutex_lock(e->wait_mutex);
-    mutex_ulck(e->wait_mutex);
+    emutex_lock(e->wait_mutex);
+    emutex_ulck(e->wait_mutex);
 
     e->wait_num--;
 
@@ -681,11 +681,11 @@ static inline void __enats_exeWait(enats e)
 {
     while(!e->quit)
     {
-        mutex_lock(e->wait_mutex);
+        emutex_lock(e->wait_mutex);
         e->wait_num++;
-        cond_wait(e->wait_cond, e->wait_mutex);
+        econd_wait(e->wait_cond, e->wait_mutex);
         e->wait_num--;
-        mutex_ulck(e->wait_mutex);
+        emutex_ulck(e->wait_mutex);
     }
 }
 
@@ -693,7 +693,7 @@ static inline void __enats_quitWait(enats e)
 {
     while(e->wait_num)
     {
-        cond_all(e->wait_cond);
+        econd_all(e->wait_cond);
         usleep(10000);
     }
 }
@@ -796,9 +796,9 @@ static inline void __enats_stats(enats trans, constr subj, enats_stats_t* stats,
     memset(stats, 0, sizeof(*stats));
     s = natsConnection_GetStats(trans->conn.nc, (natsStatistics*)stats);
 
-    mutex_lock(trans->sub_mu);
+    emutex_lock(trans->sub_mu);
     ntSub = ejson_kvalR(trans->sub_dic, subj);
-    mutex_ulck(trans->sub_mu);
+    emutex_ulck(trans->sub_mu);
     if ((s == NATS_OK) && (ntSub != NULL))
     {
         s = natsSubscription_GetStats(ntSub->sub,
@@ -1106,8 +1106,8 @@ constr enats_err(enats trans)
 /// =====================================================================================
 
 // -- micros
-#define enatp_lock(p)           mutex_lock((p)->mutex)
-#define enatp_ulck(p)           mutex_ulck((p)->mutex)
+#define enatp_lock(p)           emutex_lock((p)->mutex)
+#define enatp_ulck(p)           emutex_ulck((p)->mutex)
 
 #define enatp_add_conntrans(p, add) ejson_addP(p->conn_transs, add->name, add)
 #define enatp_get_conntrans(p,name) ejson_valPk(p->conn_transs, name)
@@ -1151,9 +1151,9 @@ static inline enatp __enatp_newHandle()
         return 0;
     }
 
-    mutex_init(p->mutex);
+    emutex_init(p->mutex);
 
-    mutex_init(p->wait_mutex); cond_init(p->wait_cond);
+    emutex_init(p->wait_mutex); econd_init(p->wait_cond);
 
     __cnt_poolInc();
 
@@ -1233,7 +1233,7 @@ static inline void __enatp_waitLazy(enatp p)
     is1_ret(!p || !p->quit, );
 
     if(p->lazy_thread)
-        thread_join(p->lazy_thread);
+        ethread_join(p->lazy_thread);
 
     p->lazy_thread = 0;
 }
@@ -1242,11 +1242,11 @@ static inline void __enatp_exeWait(enatp p)
 {
     while(!p->quit)
     {
-        mutex_lock(p->wait_mutex);
+        emutex_lock(p->wait_mutex);
         p->wait_num++;
-        cond_wait(p->wait_cond, p->wait_mutex);
+        econd_wait(p->wait_cond, p->wait_mutex);
         p->wait_num--;
-        mutex_ulck(p->wait_mutex);
+        emutex_ulck(p->wait_mutex);
     }
 }
 
@@ -1254,7 +1254,7 @@ static inline void __enatp_quitWait(enatp p)
 {
     while(p->wait_num)
     {
-        cond_all(p->wait_cond);
+        econd_all(p->wait_cond);
         usleep(1000);
     }
 
@@ -1353,7 +1353,7 @@ static void __enatp_exeLazyThread(enatp p)
 
     if(p->lazy_thread == 0)
     {
-        thread_init(p->lazy_thread, __enatp_lazy_thread, p);
+        ethread_init(p->lazy_thread, __enatp_lazy_thread, p);
         return ;
     }
 #ifdef _WIN32_THREAD
@@ -1364,8 +1364,8 @@ static void __enatp_exeLazyThread(enatp p)
     else if(pthread_kill(p->lazy_thread, 0) == ESRCH)
 #endif
     {
-        thread_join(p->lazy_thread);        // wo sure the thread is over, so this will not blocking, only release the resource of the quited thread
-        thread_init(p->lazy_thread, __enatp_lazy_thread, p);
+        ethread_join(p->lazy_thread);        // wo sure the thread is over, so this will not blocking, only release the resource of the quited thread
+        ethread_init(p->lazy_thread, __enatp_lazy_thread, p);
     }
 }
 
@@ -2472,7 +2472,7 @@ static void __on_closed(natsConnection* nc, void* trans)
 
     if(p && p->quit)
     {
-        mutex_lock(p->mutex);
+        emutex_lock(p->mutex);
         if(p->conn_num > 0)     // p->conn_num will be set only when call nTPool_destroy()
             p->conn_num --;
 
@@ -2482,7 +2482,7 @@ static void __on_closed(natsConnection* nc, void* trans)
             else             __enatp_freeHandle(p);
         }
         else
-            mutex_ulck(p->mutex);
+            emutex_ulck(p->mutex);
     }
 
     if(quit_wait)

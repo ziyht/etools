@@ -12,14 +12,14 @@ void echan_unbuffered_sigs_test()
 {
     echan chan = echan_new(ECHAN_SIGS, 0);
 
-    thread_t th;
-    thread_init(th, receiver1, chan);
+    ethread_t th;
+    ethread_init(th, receiver1, chan);
 
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
     assert_true(echan_sendSig(chan, 20) == 1, chan, "Send failed");
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
@@ -36,14 +36,14 @@ void echan_buffered_sigs_test()
 {
     echan chan = echan_new(ECHAN_SIGS, 100);
 
-    thread_t th;
-    thread_init(th, receiver2, chan);
+    ethread_t th;
+    ethread_init(th, receiver2, chan);
 
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
     assert_true(echan_sendSig(chan, 100) == 1, chan, "Send failed");
     assert_true(echan_size(chan) == 0, chan, "Chan size is not 0");
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }

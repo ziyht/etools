@@ -81,11 +81,11 @@ struct etloop_s
     volatile int    running;
 
 //    cond_t          co_wait;
-//    mutex_t         mu_wait;
+//    emutex_t         mu_wait;
     echan           sigs;
 
-    mutex_t         mu;
-    thread_t        tl_th;
+    emutex_t        mu;
+    ethread_t       tl_th;
     esl             tl;         // timeline of tasks
 
     i64             wait_ms;
@@ -111,7 +111,7 @@ typedef struct _etimer_s{
     uint    cancle   : 1;
     uint    fresh    : 1;
 
-    mutex_t mu;
+    emutex_t mu;
 
 }_etimer_t, * _etimer;
 
@@ -121,7 +121,7 @@ static int    _df_thrdsnum = 4;
 static ejson  _all_loops;
 static ert    _inner_rt;
 
-static mutex_t _wakeup_mu;
+static emutex_t _wakeup_mu;
 
 static inline void __wakeup_inner_loop(etloop loop);
 
@@ -135,7 +135,7 @@ static inline u64 __nextdl(i64 ms)
 
 static void __task_after_cb(_etimer e)
 {
-    mutex_lock(e->mu);
+    emutex_lock(e->mu);
 
     e->running = 0;
 
@@ -145,7 +145,7 @@ static void __task_after_cb(_etimer e)
     {
         if(e->free)
         {
-            mutex_ulck(e->mu);
+            emutex_ulck(e->mu);
             free(e);
 
             return ;
@@ -154,11 +154,11 @@ static void __task_after_cb(_etimer e)
 
     if(e->fresh) e->active = 1;
 
-    mutex_ulck(e->mu);
+    emutex_ulck(e->mu);
 
 
     etloop loop = e->loop;
-    mutex_lock(loop->mu);
+    emutex_lock(loop->mu);
 
     if(loop->quit == 2)
     {
@@ -166,13 +166,13 @@ static void __task_after_cb(_etimer e)
 
         if(loop->running <= 1)
         {
-            mutex_ulck(loop->mu);
+            emutex_ulck(loop->mu);
             free(loop);
             return;
         }
 
         loop->running--;
-        mutex_ulck(loop->mu);
+        emutex_ulck(loop->mu);
         return ;
     }
 
@@ -181,7 +181,7 @@ static void __task_after_cb(_etimer e)
         esl_addP(loop->tl, ekey_i(e->nextdl), e);
         __wakeup_inner_loop(loop);
     }
-    mutex_ulck(loop->mu);
+    emutex_ulck(loop->mu);
 }
 
 struct uv__epoll_event {
@@ -251,7 +251,7 @@ static void __polling_wakeup_all_loops(void* arg)
     do{
         sleep(10);
 
-        mutex_lock(_wakeup_mu);
+        emutex_lock(_wakeup_mu);
 
         ejson_foreach(all_loops, itr)
         {
@@ -261,7 +261,7 @@ static void __polling_wakeup_all_loops(void* arg)
         }
 
         loop_cnt = ejson_len(all_loops);
-        mutex_ulck(_wakeup_mu);
+        emutex_ulck(_wakeup_mu);
 
     }while(loop_cnt);
 
@@ -277,10 +277,10 @@ static int __register_wakeup(etloop loop)
     if(!_init)
     {
         _init = 1;
-        mutex_init(_wakeup_mu);
+        emutex_init(_wakeup_mu);
     }
 
-    mutex_lock(_wakeup_mu);
+    emutex_lock(_wakeup_mu);
     if(!_inner_rt)
     {
         _inner_rt  = ert_new(1);
@@ -292,7 +292,7 @@ static int __register_wakeup(etloop loop)
     ejson_addP(_all_loops, key, loop);
     ert_run(_inner_rt, "wakeup_guard", __polling_wakeup_all_loops, 0, _all_loops);
 
-    mutex_ulck(_wakeup_mu);
+    emutex_ulck(_wakeup_mu);
 
     return 1;
 }
@@ -306,7 +306,7 @@ static int __unregister_wakeup(etloop loop)
 
     snprintf(key, 64, "%p", (void*)loop);
 
-    mutex_lock(_wakeup_mu);
+    emutex_lock(_wakeup_mu);
     ejson_freeK(_all_loops, key);
 
     if(0 == ejson_len(_all_loops))
@@ -317,7 +317,7 @@ static int __unregister_wakeup(etloop loop)
         _inner_rt  = 0;
     }
 
-    mutex_ulck(_wakeup_mu);
+    emutex_ulck(_wakeup_mu);
 
     return 1;
 }
@@ -426,11 +426,11 @@ static void* __inner_loop(void* arg)
             first = esl_first(loop->tl);
         }while(first);
 
-        mutex_lock(loop->mu);
+        emutex_lock(loop->mu);
 
         if(loop->quit)
         {
-            mutex_ulck(loop->mu);
+            emutex_ulck(loop->mu);
             goto quit_loop;
         }
 
@@ -443,10 +443,10 @@ static void* __inner_loop(void* arg)
 
             e = eobj_valP(first);
 
-            mutex_lock(e->mu);
+            emutex_lock(e->mu);
             if(__etimer_run(loop, e, now)) esl_addO(sl, ekey_i(e->nextdl), esl_takeH(loop->tl));
             else                           esl_freeH(loop->tl);
-            mutex_ulck(e->mu);
+            emutex_ulck(e->mu);
 
         }while((first = esl_first(loop->tl)));
 
@@ -456,7 +456,7 @@ static void* __inner_loop(void* arg)
             llog("readd: %"PRIi64" %p %d timers", e->nextdl, (void*)e, esl_len(loop->tl));
         }
 
-        mutex_ulck(loop->mu);
+        emutex_ulck(loop->mu);
     }
 
 quit_loop:
@@ -476,12 +476,12 @@ etloop etloop_new(int maxthread)
     loop->tp  = ert_new(maxthread);
     loop->tl  = esl_new(0);
 
-    mutex_init(loop->mu);
-//    mutex_init(loop->mu_wait);
+    emutex_init(loop->mu);
+//    emutex_init(loop->mu_wait);
 //    cond_init (loop->co_wait);
     loop->sigs = echan_new(ECHAN_SIGS, UINT_MAX);
 
-    if(!loop->tp || !loop->tl || thread_init(loop->tl_th, __inner_loop, loop))
+    if(!loop->tp || !loop->tl || ethread_init(loop->tl_th, __inner_loop, loop))
         goto err_ret;
 
 #if ETOOLS_HAVE_EPOLL_H
@@ -530,8 +530,8 @@ etloop etloop_new(int maxthread)
 
 err_ret:
 
-    mutex_free(loop->mu);
-//    mutex_free(loop->mu_wait);
+    emutex_free(loop->mu);
+//    emutex_free(loop->mu_wait);
 //    cond_free (loop->co_wait);
     echan_free(loop->sigs);
 
@@ -568,9 +568,9 @@ void   etloop_stop(etloop loop)
     loop->quit    = 1;
     loop->wait_ms = 0;
     __wakeup_inner_loop(loop);
-    thread_join(loop->tl_th);
+    ethread_join(loop->tl_th);
 
-    mutex_lock(loop->mu);
+    emutex_lock(loop->mu);
     loop->quit    = 2;
     echan_free(loop->sigs);
 
@@ -590,7 +590,7 @@ void   etloop_stop(etloop loop)
 
     loop->running = running;
 
-    mutex_ulck(loop->mu);
+    emutex_ulck(loop->mu);
 
     if(!running)
         free(loop);
@@ -605,7 +605,7 @@ etimer etimer_new(etloop loop)
     is0_ret(e = calloc(1, sizeof(*e)), NULL);
 
     e->loop = loop;
-    mutex_init(e->mu);
+    emutex_init(e->mu);
 
     return (etimer)e;
 }
@@ -616,7 +616,7 @@ void   etimer_destroy(etimer _e)
 
     is0_exe(e, );
 
-    mutex_lock(e->mu);
+    emutex_lock(e->mu);
     if(e->active)
     {
         e->repeat = 0;
@@ -624,12 +624,12 @@ void   etimer_destroy(etimer _e)
         e->free   = 1;
         e->nextdl = 0;
 
-        mutex_ulck(e->mu);
+        emutex_ulck(e->mu);
     }
     else
     {
-        mutex_ulck(e->mu);
-        mutex_free(e->mu);
+        emutex_ulck(e->mu);
+        emutex_free(e->mu);
         free(e);
     }
 
@@ -645,23 +645,23 @@ int    etimer_start(etimer _e, etm_cb cb, u64 timeout, u64 repeat)
     e = (_etimer)_e;
 
     // -- check and update etimer
-    mutex_lock(e->mu);
+    emutex_lock(e->mu);
 
     e->cb     = cb;
     e->repeat = repeat;
     e->cancle = 0;
     e->fresh  = 1;
 
-    is1_exeret(e->active, mutex_ulck(e->mu), 0);
+    is1_exeret(e->active, emutex_ulck(e->mu), 0);
 
     e->nextdl = __nextdl(timeout);
     e->active = 1;
 
-    mutex_ulck(e->mu);
+    emutex_ulck(e->mu);
 
     // -- add to loop
     loop = e->loop;
-    mutex_lock(loop->mu);
+    emutex_lock(loop->mu);
 
     esl_addP(loop->tl, ekey_i(e->nextdl), e);
     llog("added: %d", esl_len(loop->tl));
@@ -670,7 +670,7 @@ int    etimer_start(etimer _e, etm_cb cb, u64 timeout, u64 repeat)
     __wakeup_inner_loop(loop);
     llog("ulck and cond_all: %"PRIi64"", e->nextdl);
 
-    mutex_ulck(loop->mu);
+    emutex_ulck(loop->mu);
 
     return 1;
 }
@@ -684,11 +684,11 @@ int    etimer_stop (etimer _e)
     e    = (_etimer)_e;
     //loop = e->loop;
 
-    mutex_lock(e->mu);
+    emutex_lock(e->mu);
     llog("set cancle");
     e->cancle = 1;
     e->repeat = 0;
-    mutex_ulck(e->mu);
+    emutex_ulck(e->mu);
 
     return 1;
 }

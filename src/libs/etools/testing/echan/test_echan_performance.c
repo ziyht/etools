@@ -16,8 +16,8 @@ static void* sender(void* chan)
 void echan_unbuffered_perf_test(i64 _count)
 {
     echan chan = echan_new(ECHAN_LIST, 0);
-    thread_t th; i64 r; i64 t;
-    thread_init(th, sender, chan);
+    ethread_t th; i64 r; i64 t;
+    ethread_init(th, sender, chan);
 
     count = _count;
 
@@ -29,7 +29,7 @@ void echan_unbuffered_perf_test(i64 _count)
     }
     printf("unbuffered %8"PRIi64": %"PRIi64"\n", count, utils_timer_now_ms() - t); fflush(stdout);
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
@@ -37,8 +37,8 @@ void echan_unbuffered_perf_test(i64 _count)
 void echan_buffered_perf_test(i64 _count)
 {
     echan chan = echan_new(ECHAN_LIST, 100);
-    thread_t th; i64 r; i64 t;
-    thread_init(th, sender, chan);
+    ethread_t th; i64 r; i64 t;
+    ethread_init(th, sender, chan);
 
     count = _count;
 
@@ -50,7 +50,7 @@ void echan_buffered_perf_test(i64 _count)
     }
     printf("  buffered %8"PRIi64": %"PRIi64"\n", count, utils_timer_now_ms() - t); fflush(stdout);
 
-    thread_join(th);
+    ethread_join(th);
     echan_free(chan);
     pass();
 }
