@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 
 #include "etype.h"
@@ -327,7 +328,7 @@ int edict_take_test()
         ditr = edict_getItr(h, 1);
         while(edict_len(h))
         {
-            i = random() % 100;
+            i = rand() % 100;
 
             edict_freeOne(h, ekey_i(i));
 
@@ -352,7 +353,7 @@ int edict_take_test()
         ditr = edict_getItr(h, 1);
         while(edict_len(h))
         {
-            i = random() % 100;
+            i = rand() % 100;
 
             sprintf(key, "%d", i);
 

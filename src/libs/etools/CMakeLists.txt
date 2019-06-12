@@ -43,6 +43,12 @@ file(GLOB _SRCS_ ${KIT_DIR}/*.h ${KIT_DIR}/*.cpp ${KIT_DIR}/*.c)
 aux_source_directory(${KIT_DIR}/crypt_blowfish CRYPT_SRC)
 if(WIN32)
     aux_source_directory(${KIT_DIR}/getopt     GETOPT_SRC)
+
+    list(REMOVE_ITEM _SRCS_
+        ${KIT_DIR}/epopen.h
+        ${KIT_DIR}/epopen.c
+        )
+
 endif()
 list(REMOVE_ITEM _SRCS_
     ${KIT_DIR}/ev.h
@@ -70,6 +76,7 @@ set(KIT_RESOURCES
 
 # - 额外 头文件目录 -
 set(KIT_INCLUDE_DIRS
+    ${KIT_DIR}/getopt
 )
 
 # - 额外 链接目录 -
@@ -112,11 +119,16 @@ EBuildAssignTargetDestF(
 #       Qt5::Core|LINUX      将只在 LINUX 平台上依赖 Qt5::Core
 #       Qt5::Core|WIN32      将只在 WIN32 平台上依赖 Qt5::Core
 #
-set(KIT_DEPENDS base64 cnats -lpthread|LINUX)
+set(KIT_DEPENDS
+    base64
+    cnats
+    -lpthread|LINUX
+    winpthreads::static|WIN32
+    )
 
 
 # - 测试 -
-ETestAdd(testing/earg   ON)
+ETestAdd(testing/earg   OFF)
 ETestAdd(testing/eb64   ON)
 ETestAdd(testing/echan  ON)
 ETestAdd(testing/ecrypt ON)
@@ -126,11 +138,11 @@ ETestAdd(testing/ejson  ON)
 ETestAdd(testing/ell    ON)
 ETestAdd(testing/esl    ON)
 ETestAdd(testing/elog   ON)
-ETestAdd(testing/enats  ON)
-ETestAdd(testing/epopen ON)
+ETestAdd(testing/enats  OFF)
+ETestAdd(testing/epopen OFF)
 ETestAdd(testing/erb    ON)
 ETestAdd(testing/ert    ON)
 ETestAdd(testing/estr   ON)
-ETestAdd(testing/etimer ON)
+ETestAdd(testing/etimer OFF)
 ETestAdd(testing/evar   ON)
-ETestAdd(testing/evec   ON)
+ETestAdd(testing/evec   OFF)

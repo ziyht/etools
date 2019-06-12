@@ -329,7 +329,7 @@ static int esl_take_test()
 
         while(esl_len(h))
         {
-            i = random() % 100;
+            i = rand() % 100;
 
             esl_freeOne(h, ekey_i(i));
 
@@ -351,7 +351,7 @@ static int esl_take_test()
 
         while(esl_len(h))
         {
-            i = random() % 100;
+            i = rand() % 100;
 
             sprintf(key, "%d", i);
 

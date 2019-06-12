@@ -32,11 +32,14 @@ extern "C" {
 /// ---------------------- inline ---------------------
 ///
 ///
-#if defined(WIN32) && !defined(__cplusplus)
+#if defined(_WIN32) && !defined(__cplusplus)
 #define inline
+#define __always_inline
+#define __attribute__(...)
 #else
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 #if GCC_VERSION < 40300
+#define __always_inline
 #define inline
 #endif
 #endif
@@ -97,6 +100,9 @@ extern "C" {
 #define memccpy  _memccpy
 #define strdup   _strdup
 
+char* strchrnul (const char* s, int c_in);
+void* memmem(const void *l, size_t l_len, const void *s, size_t s_len);
+
 #endif // _INC_STRING
 
 /// ---------------------- time.h ---------------------
@@ -104,9 +110,9 @@ extern "C" {
 ///
 #if defined(_WIN32)
 #if defined(_MSC_VER) && defined(_INC_TIME)
-#define localtime_r(sec, time) localtime_s(time, sec);
+#define localtime_r(sec, time) localtime_s(time, sec)
 #elif defined(_TIME_H_)
-#define localtime_r(sec, time) localtime_s(time, sec);
+#define localtime_r(sec, time) localtime_s(time, sec)
 #endif
 #endif // _INC_TIME
 

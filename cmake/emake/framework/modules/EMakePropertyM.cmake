@@ -235,6 +235,7 @@ macro(EMakeSetTargetPropertySetM i_target i_set i_property)
     cmake_parse_arguments(M "APPEND;APPEND_NO_DUP" "" "VARS;PROPERTY" ${ARGN})
 
     if(M_UNPARSED_ARGUMENTS)
+        EMakeInfF("{ARGN}: [${ARGN}]")
         EMakeErrF("unparsed arguments checked: [ ${M_UNPARSED_ARGUMENTS} ]")
     endif()
 

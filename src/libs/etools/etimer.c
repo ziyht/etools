@@ -917,7 +917,7 @@ i64    etimer_elapsepsec(constr from, constr ffmt)
         if(strptime(from, ffmt, &_tm))
         {
             _tm.tm_year += 1970;
-            elapse_sec  = mktime(&_tm) + _tm.tm_gmtoff;
+            elapse_sec  = mktime(&_tm) /*+ _tm.tm_gmtoff*/;
         }
     }
 
@@ -937,7 +937,7 @@ i64    etimer_elapsepms (constr from, constr ffmt)
         if(strptime(from, ffmt, &_tm))
         {
             _tm.tm_year += 1970;
-            elapse_sec  = (mktime(&_tm) + _tm.tm_gmtoff) * 1000;
+            elapse_sec  = (mktime(&_tm) /*+ _tm.tm_gmtoff*/) * 1000;
         }
     }
     else
@@ -949,8 +949,8 @@ i64    etimer_elapsepms (constr from, constr ffmt)
 
 #ifdef _WIN32
 #define  _WINSOCK_DEPRECATED_NO_WARNINGS
-#include <Winsock2.h>					// net and gethostname
-#include <Windows.h>
+//#include <Winsock2.h>					// net and gethostname
+//#include <Windows.h>
 #pragma comment(lib, "ws2_32.lib")
 #else
 #include <sys/socket.h>

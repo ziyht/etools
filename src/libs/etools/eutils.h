@@ -18,6 +18,8 @@
 #define __EUTILS_H__
 
 #include <string.h>
+
+#include "ecompat.h"
 #include "etype.h"
 
 #ifdef __cplusplus
@@ -198,6 +200,9 @@ i64  eutils_nowms();
 
 i64  nowms();
 i64  nowns();
+
+int e_strcasecmp (const char *s1, const char *s2);
+int e_strncasecmp(const char *s1, const char *s2, size_t n);
 
 int  eutils_rand();
 

@@ -591,7 +591,7 @@ static int __elog_file_cleanup(_elogh h, i64 nows)
 #else
     HANDLE hFind; WIN32_FIND_DATA fileData;
 
-    files = ejso_new(_OBJ_);
+    files = ejson_new(EOBJ, 0);
 
     // -- get logpath and logfile name
     memccpy(logpath, h->path, '\0', 1024);
@@ -640,7 +640,7 @@ static int __elog_file_cleanup(_elogh h, i64 nows)
                 }
                 else
                 {
-                    ejso_addN(files, logpath, (double)_stat_.st_ctime);
+                    ejson_addI(files, logpath, (double)_stat_.st_ctime);
                 }
             }
         }
@@ -794,8 +794,8 @@ static int __elog_print_last_msg(_elogh h, _elog_t _e)
         for(i = 0; i < h->tag_poss; i++)
         {
             write(STDOUT_FILENO, h->msgs + pre_tag_pos, h->tag_pos[i] - pre_tag_pos);
-            SetConsoleTextAttribute(hconsole, MAKEWORD(_LEVEL_CORLER_MAP[_e.level], 0));
-            write(STDOUT_FILENO, _LEVEL_TAG_MAP[_e.level], _LEVEL_TAG_LEN);
+            SetConsoleTextAttribute(hconsole, MAKEWORD(_LEVEL_CORLER_MAP[_e.t.level], 0));
+            write(STDOUT_FILENO, _LEVEL_TAG_MAP[_e.t.level], _LEVEL_TAG_LEN);
             SetConsoleTextAttribute(hconsole, MAKEWORD(7, 0));
             pre_tag_pos = h->tag_pos[i] + _LEVEL_TAG_LEN;
         }

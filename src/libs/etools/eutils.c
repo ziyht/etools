@@ -14,6 +14,8 @@
 ///
 /// =====================================================================================
 
+#define EUTILS_VERSION     "eutils 1.0.5"
+
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
@@ -25,8 +27,6 @@
 #else
 #include <windows.h>
 #endif
-
-#define EUTILS_VERSION     "eutils 1.0.5"   // update init logic for __hrtime_ns
 
 typedef enum {
   _CLOCK_PRECISE = 0,  /* Use the highest resolution clock available. */
@@ -118,7 +118,7 @@ static inline int __hrtime_init()
 
         ftime(&tm);										// note: the PRECISE of window of this func is 15ms
         QueryPerformanceCounter(&counter);
-        __hrtime_nsec_offset = __hrtime_precise * tm.time + __hrtime_precise / 1000 * tm.millitm - (s64) ((double) counter.QuadPart * __hrtime_interval * __hrtime_precise);
+        __hrtime_nsec_offset = __hrtime_precise * tm.time + __hrtime_precise / 1000 * tm.millitm - (i64) ((double) counter.QuadPart * __hrtime_interval * __hrtime_precise);
     }
 
     return 1;
@@ -214,6 +214,37 @@ int eutils_rand()
     }
 
     return rand();
+}
+
+int e_strcasecmp(const char *s1, const char *s2)
+{
+    const unsigned char
+    *us1 = (const unsigned char *)s1,
+    *us2 = (const unsigned char *)s2;
+
+    while (tolower(*us1) == tolower(*us2++))
+        if (*us1++ == '\0')
+            return (0);
+
+    return (tolower(*us1) - tolower(*--us2));
+}
+
+int e_strncasecmp(const char *s1, const char *s2, size_t n)
+{
+    if (n != 0)
+    {
+        const unsigned char
+        *us1 = (const unsigned char *)s1,
+        *us2 = (const unsigned char *)s2;
+
+        do {
+            if (tolower(*us1) != tolower(*us2++))
+                    return (tolower(*us1) - tolower(*--us2));
+            if (*us1++ == '\0')
+                    break;
+        } while (--n != 0);
+    }
+    return (0);
 }
 
 int  eutils_nprocs()

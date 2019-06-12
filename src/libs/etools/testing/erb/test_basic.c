@@ -327,7 +327,7 @@ int erb_take_test()
 
         while(erb_len(h))
         {
-            i = random() % 100;
+            i = rand() % 100;
 
             erb_freeOne(h, ekey_i(i));
 
@@ -349,7 +349,7 @@ int erb_take_test()
 
         while(erb_len(h))
         {
-            i = random() % 100;
+            i = rand() % 100;
 
             sprintf(key, "%d", i);
 

@@ -75,14 +75,9 @@ typedef union {
         uint __     : 11;
         uint linked :  1;       // linked?
 
-        uint lentype:  4;       // 0: no len
-                                // 1: 16 len
-                                // 2: 48 len
-                                // 3:  8 len  8 cap
-                                // 4: 24 len 24 cap
-                                // 5:  8 len  8 ref
-                                // 6: 24 len 24 ref
-                                // 7: 32 len 32 ref
+        uint lentype:  4;
+
+        uint ref    : 16;
     }__3;
 
 }_ehdt_t, * _ehdt_p;
@@ -121,13 +116,11 @@ typedef union {
 #pragma pack(push, 1)
 typedef struct _eobj_header_s{
     uint        _len;       // 32
-    uint        _ref: 16;   // 16
     _ehdt_t     _typ;       // 16
 }_ehdr_t, * _ehdr_p;
 #pragma pack(pop)
 
 #define _ehdr_len(h)       (h)._len
-#define _ehdr_ref(h)       (h)._ref
 #define _ehdr_typ(h)       (h)._typ
 
 #define _ehdr_type_c(h)    _ehdt_type_c(_ehdr_typ(h))

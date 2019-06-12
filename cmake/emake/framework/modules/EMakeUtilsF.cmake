@@ -361,8 +361,18 @@ function(EMakeValidatePath i_path o_path_var)
 
 #    set(${o_path_var} ${_path2} PARENT_SCOPE)
 
-    file(RELATIVE_PATH i_path "/" "/${i_path}")
-    set(${o_path_var} ${i_path} PARENT_SCOPE)
+    if(WIN32)
+        file(RELATIVE_PATH i_path "c:/" "c:/${i_path}")
+        if(NOT i_path)
+            set(i_path "/")
+        endif()
+        set(${o_path_var} ${i_path} PARENT_SCOPE)
+    else()
+        file(RELATIVE_PATH i_path "/"   "/${i_path}")
+        set(${o_path_var} ${i_path} PARENT_SCOPE)
+    endif()
+
+
 
 endfunction()
 

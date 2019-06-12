@@ -9,10 +9,10 @@ EMakeSetLogLevelF(2)                     # 0: 关闭，1：dbg，2：inf，3：w
 EMakeSetBuildTypeM(Release)
 
 
-EBuildAddExtM(base64   "" ON )
-EBuildAddExtM(cnats    "" ON )
-#EBuildAddExtM(pthread  "" OFF)    # pthread in win32
-EBuildAddExtM(libuv    "" ON CREATE)
+EBuildAddExtM(base64        "" ON )
+EBuildAddExtM(cnats         "" ON )
+EBuildAddExtM(winpthreads   "" ON CREATE)    # pthread in win32
+EBuildAddExtM(libuv         "" ON )
 
 EBuildAddLibM(etools "" ON)
 

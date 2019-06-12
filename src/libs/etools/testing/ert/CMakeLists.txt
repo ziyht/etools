@@ -34,7 +34,7 @@ ETestAddTestSet(ert
 
     CASES   test_cb.c
             test_runtask.c
-            test_popen_kill.c
+            #test_popen_kill.c
 
 )
 

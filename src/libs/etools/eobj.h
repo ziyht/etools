@@ -164,6 +164,10 @@ eobj  eobj_setKeyS(eobj o, constr key);
 #define EOBJ_VALP(o) (o)->p
 #define EOBJ_VALR(o) ((cptr)(o))
 
+#if _WIN32
+#define __always_inline
+#endif
+
 #define __ __always_inline
 
 /// - else, you can using the following APIs
